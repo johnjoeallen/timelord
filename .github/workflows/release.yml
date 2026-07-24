@@ -1,0 +1,87 @@
+name: Release
+
+# Tag pushes of the form timelord-vX.Y.Z build and publish a GitHub Release
+# containing the Windows agent binary + install scripts. workflow_dispatch
+# lets you run the build/test steps on demand (e.g. to sanity-check a
+# branch) without cutting a release — the publish job only runs for an
+# actual tag push.
+on:
+  push:
+    tags:
+      - "timelord-v*.*.*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: agent
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: agent
+
+      - run: cargo test --locked
+
+      - run: cargo clippy --all-targets --locked -- -D warnings
+
+  build-windows:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: agent
+
+      - run: cargo build --release --locked
+
+      - name: Package release zip
+        shell: pwsh
+        run: |
+          $dist = "dist"
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+          Copy-Item target/release/timelord-agent.exe $dist/
+          Copy-Item ../deployment/windows/install.ps1 $dist/
+          Copy-Item ../deployment/windows/uninstall.ps1 $dist/
+          Copy-Item ../deployment/windows/README.md $dist/
+          Copy-Item README.md $dist/AGENT_README.md
+          Compress-Archive -Path "$dist/*" -DestinationPath "timelord-agent-windows-x86_64.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: timelord-agent-windows
+          path: agent/timelord-agent-windows-x86_64.zip
+          if-no-files-found: error
+
+  release:
+    needs: build-windows
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: timelord-agent-windows
+          path: dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/timelord-agent-windows-x86_64.zip
+          generate_release_notes: true
+          name: ${{ github.ref_name }}

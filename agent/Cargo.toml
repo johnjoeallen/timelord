@@ -1,0 +1,48 @@
+[package]
+name = "timelord-agent"
+version = "0.1.0"
+edition = "2021"
+description = "TimeLord Agent — Windows service that tracks and enforces device usage policy"
+license = "AGPL-3.0-or-later"
+
+[[bin]]
+name = "timelord-agent"
+path = "src/main.rs"
+
+[lib]
+name = "timelord_agent"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+rusqlite = { version = "0.31", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-service = "0.7"
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_System_RemoteDesktop",
+    "Win32_System_Power",
+    "Win32_System_Services",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_LibraryLoader",
+    "Win32_Graphics_Gdi",
+] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+# Runs the agent loop as an ordinary console process instead of registering
+# with the Windows Service Control Manager. Useful for local development and
+# for the non-Windows dev backend used in CI on this repo.
+console = []
