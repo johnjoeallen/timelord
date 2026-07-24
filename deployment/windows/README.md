@@ -15,8 +15,9 @@ This copies the binary to `%ProgramFiles%\TimeLord`, creates
 `%ProgramData%\TimeLord` (locked down to `SYSTEM` + `Administrators` only),
 and registers/starts the `TimeLordAgent` service under `LocalSystem` with
 automatic restart on failure. Re-running it (e.g. after dropping in a newer
-`timelord-agent.exe`) stops and replaces the existing service — it's the
-current upgrade path until a proper installer package exists.
+`timelord-agent.exe`) stops and replaces the existing service, so it also
+serves as the upgrade path — a packaged MSI/EXE installer may replace this
+script later, but this is the real install mechanism today, not a stopgap.
 
 ## Uninstall
 

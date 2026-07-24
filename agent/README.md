@@ -79,9 +79,9 @@ $ cargo check --target x86_64-pc-windows-gnu
 > cargo run --release -- --console   # foreground, for manual testing
 ```
 
-Real service registration (via `windows-service`, `SERVICE_NAME = "TimeLordAgent"`) and an
-installer script under `deployment/windows/` will follow once the agent has something
-worth running unattended as `LocalSystem`.
+To install as a real service (`SERVICE_NAME = "TimeLordAgent"`, `LocalSystem`, auto-restart
+on failure), build a release zip or grab one from GitHub Releases and run
+`deployment/windows/install.ps1` — see `deployment/windows/README.md`.
 
 ## Data
 
