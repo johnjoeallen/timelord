@@ -1,10 +1,10 @@
 name: Release
 
 # Tag pushes of the form timelord-vX.Y.Z build and publish a GitHub Release
-# containing the Windows agent binary + install scripts. workflow_dispatch
-# lets you run the build/test steps on demand (e.g. to sanity-check a
-# branch) without cutting a release — the publish job only runs for an
-# actual tag push.
+# (versioned Windows agent zip) plus a versioned controller image on GHCR.
+# workflow_dispatch lets you run every build/test step on demand (e.g. to
+# sanity-check a branch) without publishing anything — the publish steps
+# only run for an actual tag push.
 on:
   push:
     tags:
@@ -14,13 +14,25 @@ on:
 permissions:
   contents: read
 
-defaults:
-  run:
-    working-directory: agent
-
 jobs:
-  test:
+  version:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/timelord-v* ]]; then
+            echo "version=${GITHUB_REF_NAME#timelord-v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-dev.${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+  test-agent:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent
     steps:
       - uses: actions/checkout@v4
 
@@ -36,9 +48,37 @@ jobs:
 
       - run: cargo clippy --all-targets --locked -- -D warnings
 
+  test-controller:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: controller
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('controller/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      # Testcontainers talks to the Docker daemon already present on
+      # GitHub-hosted runners — no socket-mounting workaround needed here.
+      - run: mvn -B test
+
   build-windows:
-    needs: test
+    needs: [test-agent, version]
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: agent
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -60,20 +100,56 @@ jobs:
           Copy-Item ../deployment/windows/uninstall.ps1 $dist/
           Copy-Item ../deployment/windows/README.md $dist/
           Copy-Item README.md $dist/AGENT_README.md
-          Compress-Archive -Path "$dist/*" -DestinationPath "timelord-agent-windows-x86_64.zip"
+          Compress-Archive -Path "$dist/*" -DestinationPath "timelord-agent-$env:VERSION-windows-x86_64.zip"
 
       - uses: actions/upload-artifact@v4
         with:
           name: timelord-agent-windows
-          path: agent/timelord-agent-windows-x86_64.zip
+          path: agent/timelord-agent-*-windows-x86_64.zip
           if-no-files-found: error
 
+  build-controller-image:
+    needs: [test-controller, version]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      IMAGE: ghcr.io/${{ github.repository_owner }}/timelord-controller
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # On workflow_dispatch (no tag) this builds without pushing, same
+      # "verify it builds, don't publish" behavior as the other jobs.
+      - uses: docker/build-push-action@v6
+        with:
+          context: controller
+          push: ${{ startsWith(github.ref, 'refs/tags/') }}
+          tags: |
+            ${{ env.IMAGE }}:${{ env.VERSION }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   release:
-    needs: build-windows
+    needs: [build-windows, build-controller-image, version]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -82,6 +158,8 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/timelord-agent-windows-x86_64.zip
+          files: dist/timelord-agent-*-windows-x86_64.zip
           generate_release_notes: true
           name: ${{ github.ref_name }}
+          body: |
+            Controller image: `ghcr.io/${{ github.repository_owner }}/timelord-controller:${{ env.VERSION }}`

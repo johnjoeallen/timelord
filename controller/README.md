@@ -7,7 +7,16 @@ heartbeats, and events over plain HTTP (Phase 1 — see the security warning in 
 ## Running
 
 The normal path is via the root `compose.yaml` (`docker compose up --build` from the repo
-root) — see the root `README.md`. To run just the controller against a local Postgres:
+root) — see the root `README.md`.
+
+Tagged releases (`timelord-vX.Y.Z`) also publish a pre-built image to GHCR via
+`.github/workflows/release.yml`, so `compose.yaml` doesn't have to build from source:
+
+```console
+$ docker pull ghcr.io/<owner>/timelord-controller:X.Y.Z   # or :latest for the newest release
+```
+
+To run just the controller against a local Postgres:
 
 ```console
 $ docker run -d --name timelord-postgres -p 5432:5432 \
