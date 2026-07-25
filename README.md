@@ -21,12 +21,29 @@ Windows devices.
 
 ## Quick start
 
+TimeLord always runs as two containers — `postgres` + `controller` — wired together by
+`compose.yaml`. There's no supported way to `docker run` the controller image by itself; it needs
+a Postgres it can reach, and compose is what sets that up.
+
+**From a clone of this repo**, build the controller image locally:
+
 ```console
 $ cp .env.example .env        # edit TIMELORD_PUBLIC_URL to your LAN IP
 $ docker compose up --build   # postgres + controller on :8080, discovery UDP on :45821
 ```
 
-Open `http://localhost:8080` for the dashboard, or:
+**Without cloning**, pull the published image instead — grab just the two files compose needs
+and start it (omit `--build` so compose pulls `ghcr.io/johnjoeallen/timelord-controller:latest`
+rather than trying to build from a `controller/` directory you don't have):
+
+```console
+$ curl -O https://raw.githubusercontent.com/johnjoeallen/timelord/main/compose.yaml
+$ curl -O https://raw.githubusercontent.com/johnjoeallen/timelord/main/.env.example
+$ cp .env.example .env        # edit TIMELORD_PUBLIC_URL to your LAN IP
+$ docker compose up -d        # pulls postgres + controller, no source needed
+```
+
+Either way, open `http://localhost:8080` for the dashboard, or:
 
 ```console
 $ curl http://localhost:8080/api/v1/system/info

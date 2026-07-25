@@ -15,6 +15,7 @@ services:
     restart: unless-stopped
 
   controller:
+    image: ${TIMELORD_IMAGE:-ghcr.io/johnjoeallen/timelord-controller:latest}
     build:
       context: ./controller
     depends_on:
