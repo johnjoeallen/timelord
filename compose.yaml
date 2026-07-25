@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-timelord}
+      POSTGRES_USER: ${POSTGRES_USER:-timelord}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-timelord}
+    volumes:
+      - timelord-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-timelord} -d ${POSTGRES_DB:-timelord}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  controller:
+    build:
+      context: ./controller
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-timelord}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-timelord}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-timelord}
+      TIMELORD_CONTROLLER_NAME: ${TIMELORD_CONTROLLER_NAME:-Home TimeLord}
+      # Must be an address Windows agents on your LAN can actually reach —
+      # not the in-Docker hostname "controller". See README / docs.
+      TIMELORD_PUBLIC_URL: ${TIMELORD_PUBLIC_URL:-http://localhost:8080}
+      TIMELORD_DISCOVERY_ENABLED: ${TIMELORD_DISCOVERY_ENABLED:-true}
+      TIMELORD_DISCOVERY_PORT: ${TIMELORD_DISCOVERY_PORT:-45821}
+      TIMELORD_ANNOUNCEMENT_ENABLED: ${TIMELORD_ANNOUNCEMENT_ENABLED:-false}
+    ports:
+      - "${TIMELORD_HTTP_PORT:-8080}:8080"
+      - "${TIMELORD_DISCOVERY_PORT:-45821}:45821/udp"
+    restart: unless-stopped
+
+volumes:
+  timelord-postgres-data:

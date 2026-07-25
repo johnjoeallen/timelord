@@ -1,0 +1,27 @@
+.stat-card {
+    border-radius: 0.5rem;
+}
+
+.status-badge-online {
+    background-color: #198754;
+}
+
+.status-badge-offline {
+    background-color: #6c757d;
+}
+
+.severity-INFO {
+    color: #0d6efd;
+}
+
+.severity-WARNING {
+    color: #fd7e14;
+}
+
+.severity-ERROR, .severity-CRITICAL {
+    color: #dc3545;
+}
+
+table td, table th {
+    vertical-align: middle;
+}

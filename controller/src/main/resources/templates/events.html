@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<div th:replace="~{fragments/head :: head('Events')}"></div>
+<body>
+<div th:replace="~{fragments/nav :: nav}"></div>
+<div class="container">
+    <h1 class="mb-4">Events</h1>
+
+    <form class="row g-2 mb-3" method="get" th:action="@{/events}">
+        <div class="col-auto">
+            <select class="form-select" name="eventType">
+                <option value="">All types</option>
+                <option th:each="type : ${eventTypes}" th:value="${type}" th:text="${type}" th:selected="${type == eventType}"></option>
+            </select>
+        </div>
+        <div class="col-auto">
+            <select class="form-select" name="severity">
+                <option value="">All severities</option>
+                <option th:each="s : ${severities}" th:value="${s}" th:text="${s}" th:selected="${s == severity}"></option>
+            </select>
+        </div>
+        <div class="col-auto">
+            <input type="text" class="form-control" name="deviceId" placeholder="Device ID" th:value="${deviceId}"/>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary">Filter</button>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead>
+            <tr>
+                <th>Time</th>
+                <th>Device</th>
+                <th>Type</th>
+                <th>Severity</th>
+                <th>Username</th>
+                <th>Data</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="event : ${events}">
+                <td th:text="${event.occurredAt}"></td>
+                <td><a th:href="@{/devices/{id}(id=${event.deviceId})}" th:text="${event.deviceName}"></a></td>
+                <td th:text="${event.eventType}"></td>
+                <td><span th:class="'severity-' + ${event.severity}" th:text="${event.severity}"></span></td>
+                <td th:text="${event.username} ?: '–'"></td>
+                <td><code th:text="${event.data}"></code></td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(events)}">
+                <td colspan="6" class="text-muted text-center py-3">No events match this filter.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>

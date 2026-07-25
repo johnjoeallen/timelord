@@ -1,14 +1,24 @@
+pub mod agent;
+pub mod config;
+pub mod controller_client;
+pub mod discovery;
+pub mod events;
 pub mod platform;
+pub mod protocol;
+pub mod queue;
 #[cfg(windows)]
 pub mod service_win;
 pub mod store;
 pub mod tracker;
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use chrono::Utc;
-use tracing::{info, warn};
+use tokio::sync::Mutex as AsyncMutex;
+use tracing::{error, info, warn};
 
+use queue::EventQueue;
 use store::{Store, StoreError};
 use tracker::{EndReason, SessionEvent, Transition, UsageTracker};
 
@@ -26,11 +36,15 @@ pub fn data_dir() -> anyhow::Result<PathBuf> {
 }
 
 /// Ties the platform-independent [`UsageTracker`] to the local [`Store`],
-/// so platform backends only have to feed in `SessionEvent`s.
+/// so platform backends only have to feed in `SessionEvent`s. Optionally
+/// also mirrors every event into the [`EventQueue`] for controller
+/// reporting (design brief section 8) — kept optional so the existing
+/// usage-only tests and dev flows don't need a queue at all.
 pub struct UsageRecorder {
     tracker: UsageTracker,
     store: Store,
     open_session_id: Option<uuid::Uuid>,
+    event_queue: Option<Arc<AsyncMutex<EventQueue>>>,
 }
 
 impl UsageRecorder {
@@ -50,11 +64,21 @@ impl UsageRecorder {
             }
             None => (UsageTracker::new(), None),
         };
-        Ok(Self { tracker, store, open_session_id })
+        Ok(Self { tracker, store, open_session_id, event_queue: None })
+    }
+
+    /// Also report every tracker notification to the controller via `queue`
+    /// (as the matching `USER_LOGON`/`USER_LOCK`/... event — see
+    /// `events::from_session_event`).
+    pub fn with_event_queue(mut self, queue: Arc<AsyncMutex<EventQueue>>) -> Self {
+        self.event_queue = Some(queue);
+        self
     }
 
     /// Feeds a platform event into the tracker and persists any resulting
-    /// session start/end.
+    /// session start/end, and — if wired to one — mirrors the raw event
+    /// into the reporting queue regardless of whether it changed usage
+    /// session state.
     pub fn handle(&mut self, event: SessionEvent) -> Result<(), StoreError> {
         let now = Utc::now();
         match self.tracker.apply(event, now) {
@@ -75,6 +99,17 @@ impl UsageRecorder {
             }
             Transition::NoChange => {}
         }
+
+        if let Some(queue) = &self.event_queue {
+            let queued = events::from_session_event(event);
+            // This runs on the synchronous platform-pump thread, never on a
+            // Tokio worker, so blocking on the async mutex here is safe and
+            // avoids needing an async `handle`.
+            if let Err(err) = queue.blocking_lock().enqueue(&queued, now) {
+                error!(?err, "failed to persist reporting event");
+            }
+        }
+
         Ok(())
     }
 

@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: timelord-controller
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/timelord}
+    username: ${SPRING_DATASOURCE_USERNAME:timelord}
+    password: ${SPRING_DATASOURCE_PASSWORD:timelord}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+  thymeleaf:
+    cache: false
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+timelord:
+  controller:
+    id: ${TIMELORD_CONTROLLER_ID:}
+    name: ${TIMELORD_CONTROLLER_NAME:TimeLord Controller}
+    public-url: ${TIMELORD_PUBLIC_URL:http://localhost:8080}
+    version: 0.1.0
+  discovery:
+    enabled: ${TIMELORD_DISCOVERY_ENABLED:true}
+    port: ${TIMELORD_DISCOVERY_PORT:45821}
+    announcement-enabled: ${TIMELORD_ANNOUNCEMENT_ENABLED:false}
+    announcement-interval: ${TIMELORD_ANNOUNCEMENT_INTERVAL:60s}
+    priority: ${TIMELORD_DISCOVERY_PRIORITY:100}
+  device:
+    offline-after-missed-heartbeats: 3
+    offline-minimum-seconds: 90
+  agent-defaults:
+    heartbeat-interval-seconds: ${TIMELORD_HEARTBEAT_INTERVAL_SECONDS:30}
+  heartbeat:
+    history-retention-days: ${TIMELORD_HEARTBEAT_RETENTION_DAYS:7}
+
+logging:
+  pattern:
+    console: "%d{ISO8601} %-5level [%thread] [%X{correlationId}] %logger{36} - %msg%n"

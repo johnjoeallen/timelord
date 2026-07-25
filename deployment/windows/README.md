@@ -32,3 +32,18 @@ script later, but this is the real install mechanism today, not a stopgap.
 `RUST_LOG` as a service environment variable (e.g. via `sc.exe` or the
 service's registry `Environment` value) for more verbose output; defaults to
 `info`.
+
+## Alternative: the agent's own install command
+
+`timelord-agent.exe` can also install/uninstall itself directly (uses the
+Service Control Manager API, not `sc.exe`):
+
+```powershell
+timelord-agent.exe install
+timelord-agent.exe status
+timelord-agent.exe uninstall
+```
+
+This doesn't set up the `%ProgramData%\TimeLord` ACLs `install.ps1` does, so
+prefer the script for a real deployment; the CLI command is mainly useful
+for quick local testing. See `agent/README.md`.

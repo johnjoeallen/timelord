@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<div th:replace="~{fragments/head :: head('Dashboard')}"></div>
+<body>
+<div th:replace="~{fragments/nav :: nav}"></div>
+<div class="container">
+    <h1 class="mb-4">Dashboard</h1>
+
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card stat-card text-bg-light">
+                <div class="card-body">
+                    <div class="text-muted small">Total devices</div>
+                    <div class="fs-2" th:text="${totalDevices}">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card stat-card text-bg-light">
+                <div class="card-body">
+                    <div class="text-muted small">Online</div>
+                    <div class="fs-2 text-success" th:text="${onlineDevices}">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card stat-card text-bg-light">
+                <div class="card-body">
+                    <div class="text-muted small">Offline</div>
+                    <div class="fs-2 text-secondary" th:text="${offlineDevices}">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card stat-card text-bg-light">
+                <div class="card-body">
+                    <div class="text-muted small">Events (last hour)</div>
+                    <div class="fs-2" th:text="${eventsLastHour}">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card stat-card text-bg-light">
+                <div class="card-body">
+                    <div class="text-muted small">Errors (last 24h)</div>
+                    <div class="fs-2" th:classappend="${errorsLast24h > 0} ? 'text-danger' : ''" th:text="${errorsLast24h}">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="h4">Recent events</h2>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead>
+            <tr>
+                <th>Time</th>
+                <th>Device</th>
+                <th>Type</th>
+                <th>Severity</th>
+                <th>Username</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="event : ${recentEvents}">
+                <td th:text="${event.occurredAt}"></td>
+                <td><a th:href="@{/devices/{id}(id=${event.deviceId})}" th:text="${event.deviceName}"></a></td>
+                <td th:text="${event.eventType}"></td>
+                <td><span th:class="'severity-' + ${event.severity}" th:text="${event.severity}"></span></td>
+                <td th:text="${event.username} ?: '–'"></td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(recentEvents)}">
+                <td colspan="5" class="text-muted text-center py-3">No events yet.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>

@@ -17,6 +17,12 @@ timelord-data/
 # Contains mutation testing data
 **/mutants.out*/
 
+# Java / Maven (controller/)
+controller/target/
+
+# Local environment overrides (compose.yaml); .env.example is the template
+.env
+
 # RustRover
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore

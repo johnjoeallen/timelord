@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<div th:replace="~{fragments/head :: head(${device.deviceName})}"></div>
+<body>
+<div th:replace="~{fragments/nav :: nav}"></div>
+<div class="container">
+    <h1 class="mb-1" th:text="${device.deviceName}"></h1>
+    <p class="text-muted" th:text="${device.deviceId}"></p>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Overview</div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Status</span>
+                        <span class="badge"
+                              th:classappend="${device.status.name() == 'ONLINE'} ? 'status-badge-online' : 'status-badge-offline'"
+                              th:text="${device.status}"></span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Hostname</span><span th:text="${device.hostname}"></span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Agent version</span><span th:text="${device.agentVersion}"></span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Operating system</span><span th:text="${device.operatingSystem} + ' ' + ${device.operatingSystemVersion}"></span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Architecture</span><span th:text="${device.architecture}"></span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Local IPs</span><span th:text="${#strings.listJoin(device.localIpAddresses, ', ')}"></span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Source IP</span><span th:text="${device.sourceIp}"></span></li>
+                </ul>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Current state</div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between"><span>Service state</span><span th:text="${device.serviceState} ?: '–'"></span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Session state</span><span th:text="${device.sessionState} ?: '–'"></span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Current user</span><span th:text="${device.currentUser} ?: '–'"></span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Idle seconds</span><span th:text="${device.idleSeconds} ?: '–'"></span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Registered</span><span th:text="${device.registeredAt}"></span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Last registration</span><span th:text="${device.lastRegistrationAt}"></span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Last heartbeat</span><span th:text="${device.lastHeartbeatAt} ?: 'never'"></span></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="h4">Recent events</h2>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead>
+            <tr>
+                <th>Time</th>
+                <th>Type</th>
+                <th>Severity</th>
+                <th>Username</th>
+                <th>Data</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="event : ${events}">
+                <td th:text="${event.occurredAt}"></td>
+                <td th:text="${event.eventType}"></td>
+                <td><span th:class="'severity-' + ${event.severity}" th:text="${event.severity}"></span></td>
+                <td th:text="${event.username} ?: '–'"></td>
+                <td><code th:text="${event.data}"></code></td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(events)}">
+                <td colspan="5" class="text-muted text-center py-3">No events for this device yet.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>
