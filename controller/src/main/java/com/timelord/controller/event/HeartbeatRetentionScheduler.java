@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /** Bounds the device_heartbeat table's growth per HeartbeatProperties.historyRetentionDays. */
 @Component
@@ -22,6 +23,7 @@ public class HeartbeatRetentionScheduler {
     }
 
     @Scheduled(fixedDelay = 3_600_000, initialDelay = 60_000)
+    @Transactional
     public void purgeOldHeartbeats() {
         Instant cutoff = Instant.now().minusSeconds(heartbeatProperties.historyRetentionDays() * 86_400L);
         int deleted = heartbeatRepository.deleteByReceivedAtBefore(cutoff);
