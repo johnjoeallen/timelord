@@ -5,6 +5,7 @@
 use std::path::Path;
 use std::time::Duration;
 
+use chrono::NaiveTime;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -12,6 +13,9 @@ const DEFAULT_HEARTBEAT_INTERVAL_SECONDS: u64 = 30;
 const DEFAULT_EVENT_RETRY_INTERVAL_SECONDS: u64 = 10;
 const DEFAULT_DISCOVERY_PORT: u16 = 45821;
 const DEFAULT_DISCOVERY_TIMEOUT_SECONDS: u64 = 5;
+const DEFAULT_OFFLINE_FALLBACK_ENABLED: bool = true;
+const DEFAULT_OFFLINE_FALLBACK_START: &str = "01:00";
+const DEFAULT_OFFLINE_FALLBACK_END: &str = "08:30";
 
 /// On-disk shape of `agent.toml`. Every field is optional so a partial or
 /// missing file is valid; [`resolve`] fills in the rest.
@@ -31,6 +35,9 @@ pub struct AgentSection {
     pub device_name: String,
     pub heartbeat_interval_seconds: Option<u64>,
     pub event_retry_interval_seconds: Option<u64>,
+    pub offline_fallback_enabled: Option<bool>,
+    pub offline_fallback_start: Option<String>,
+    pub offline_fallback_end: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -87,6 +94,12 @@ pub struct AgentConfig {
     pub discovery_enabled: bool,
     pub discovery_port: u16,
     pub discovery_timeout: Duration,
+    /// When the agent can't reach the controller, it falls back to putting
+    /// the device to sleep during this local-time window (e.g. an overnight
+    /// "off" period), so usage policy still applies without connectivity.
+    pub offline_fallback_enabled: bool,
+    pub offline_fallback_start: NaiveTime,
+    pub offline_fallback_end: NaiveTime,
 }
 
 /// Resolves a fully-populated [`AgentConfig`] from the file contents, env
@@ -139,7 +152,21 @@ pub fn resolve(
         discovery_timeout: Duration::from_secs(
             file.controller.discovery_timeout_seconds.unwrap_or(DEFAULT_DISCOVERY_TIMEOUT_SECONDS),
         ),
+        offline_fallback_enabled: file.agent.offline_fallback_enabled.unwrap_or(DEFAULT_OFFLINE_FALLBACK_ENABLED),
+        offline_fallback_start: parse_time_or_default(file.agent.offline_fallback_start.as_deref(), DEFAULT_OFFLINE_FALLBACK_START),
+        offline_fallback_end: parse_time_or_default(file.agent.offline_fallback_end.as_deref(), DEFAULT_OFFLINE_FALLBACK_END),
     }
+}
+
+/// Parses an `agent.toml` `"HH:MM"` time string, falling back to `default`
+/// (itself always a valid `"HH:MM"` literal) if `value` is missing, blank,
+/// or unparseable.
+fn parse_time_or_default(value: Option<&str>, default: &str) -> NaiveTime {
+    let raw = value.map(str::trim).filter(|s| !s.is_empty()).unwrap_or(default);
+    NaiveTime::parse_from_str(raw, "%H:%M").unwrap_or_else(|err| {
+        tracing::warn!(value = raw, ?err, "invalid offline fallback time in agent.toml, using default");
+        NaiveTime::parse_from_str(default, "%H:%M").expect("default offline fallback time is valid")
+    })
 }
 
 fn non_empty(value: Option<String>) -> Option<String> {
@@ -296,6 +323,29 @@ mod tests {
         assert_eq!(cfg.event_retry_interval, Duration::from_secs(10));
         assert_eq!(cfg.discovery_port, 45821);
         assert_eq!(cfg.discovery_timeout, Duration::from_secs(5));
+        assert!(cfg.offline_fallback_enabled);
+        assert_eq!(cfg.offline_fallback_start, NaiveTime::from_hms_opt(1, 0, 0).unwrap());
+        assert_eq!(cfg.offline_fallback_end, NaiveTime::from_hms_opt(8, 30, 0).unwrap());
+    }
+
+    #[test]
+    fn offline_fallback_can_be_disabled_and_retimed_from_file() {
+        let mut file = empty_file();
+        file.agent.offline_fallback_enabled = Some(false);
+        file.agent.offline_fallback_start = Some("22:00".into());
+        file.agent.offline_fallback_end = Some("06:00".into());
+        let cfg = resolve(&file, &EnvOverrides::default(), &CliOverrides::default(), || "h".into());
+        assert!(!cfg.offline_fallback_enabled);
+        assert_eq!(cfg.offline_fallback_start, NaiveTime::from_hms_opt(22, 0, 0).unwrap());
+        assert_eq!(cfg.offline_fallback_end, NaiveTime::from_hms_opt(6, 0, 0).unwrap());
+    }
+
+    #[test]
+    fn invalid_offline_fallback_time_falls_back_to_default() {
+        let mut file = empty_file();
+        file.agent.offline_fallback_start = Some("not-a-time".into());
+        let cfg = resolve(&file, &EnvOverrides::default(), &CliOverrides::default(), || "h".into());
+        assert_eq!(cfg.offline_fallback_start, NaiveTime::from_hms_opt(1, 0, 0).unwrap());
     }
 
     #[test]

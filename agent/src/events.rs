@@ -112,6 +112,26 @@ pub fn heartbeat_sent() -> QueuedEvent {
     new_event(EventType::HeartbeatSent, EventSeverity::Info, HashMap::new())
 }
 
+pub fn power_action_requested(action: &str, reason: &str) -> QueuedEvent {
+    new_event(
+        EventType::PowerActionRequested,
+        EventSeverity::Warning,
+        data([("action", json!(action)), ("reason", json!(reason))]),
+    )
+}
+
+pub fn power_action_completed(action: &str) -> QueuedEvent {
+    new_event(EventType::PowerActionCompleted, EventSeverity::Info, data([("action", json!(action))]))
+}
+
+pub fn power_action_failed(action: &str, reason: &str) -> QueuedEvent {
+    new_event(
+        EventType::PowerActionFailed,
+        EventSeverity::Error,
+        data([("action", json!(action)), ("reason", json!(reason))]),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -157,5 +177,20 @@ mod tests {
     fn agent_error_is_error_severity() {
         let event = agent_error("connection refused");
         assert_eq!(event.severity, EventSeverity::Error);
+    }
+
+    #[test]
+    fn power_action_requested_carries_action_and_reason() {
+        let event = power_action_requested("SUSPEND", "offline fallback window");
+        assert_eq!(event.event_type, EventType::PowerActionRequested);
+        assert_eq!(event.data.get("action"), Some(&json!("SUSPEND")));
+        assert_eq!(event.data.get("reason"), Some(&json!("offline fallback window")));
+    }
+
+    #[test]
+    fn power_action_failed_is_error_severity() {
+        let event = power_action_failed("SUSPEND", "SetSuspendState failed");
+        assert_eq!(event.severity, EventSeverity::Error);
+        assert_eq!(event.data.get("action"), Some(&json!("SUSPEND")));
     }
 }

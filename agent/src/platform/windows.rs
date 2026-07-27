@@ -14,7 +14,7 @@ use tracing::{error, warn};
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::System::Power::RegisterSuspendResumeNotification;
+use windows::Win32::System::Power::{RegisterSuspendResumeNotification, SetSuspendState};
 use windows::Win32::System::RemoteDesktop::{
     WTSRegisterSessionNotification, WTSUnRegisterSessionNotification, NOTIFY_FOR_ALL_SESSIONS,
 };
@@ -56,6 +56,21 @@ pub fn request_stop() {
         unsafe {
             let _ = PostThreadMessageW(tid, WM_QUIT, WPARAM(0), LPARAM(0));
         }
+    }
+}
+
+/// Suspends the machine (S3 sleep, not hibernate). `SetSuspendState` blocks
+/// the calling thread until the system actually resumes, so callers must run
+/// this off the async runtime (e.g. `tokio::task::spawn_blocking`).
+pub fn suspend() -> anyhow::Result<()> {
+    // SAFETY: no preconditions beyond the privilege LocalSystem already has;
+    // hibernate=false (sleep), force=false (let apps veto it), and wake
+    // events are left enabled.
+    let result = unsafe { SetSuspendState(false, false, false) };
+    if result.0 != 0 {
+        Ok(())
+    } else {
+        Err(anyhow!("SetSuspendState failed: {:?}", windows::core::Error::from_win32()))
     }
 }
 

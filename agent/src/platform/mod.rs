@@ -9,9 +9,9 @@
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
-pub use self::windows::{request_stop, run};
+pub use self::windows::{request_stop, run, suspend};
 
 #[cfg(not(windows))]
 mod dev;
 #[cfg(not(windows))]
-pub use dev::run;
+pub use dev::{run, suspend};

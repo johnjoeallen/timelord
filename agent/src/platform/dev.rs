@@ -15,6 +15,13 @@ use crate::UsageRecorder;
 
 const SESSION_ID: u32 = 1;
 
+/// Stand-in for the real Windows `SetSuspendState` call — this dev backend
+/// has no way to actually suspend the box it's running on, so it just logs.
+pub fn suspend() -> anyhow::Result<()> {
+    info!("dev backend: pretending to suspend the device");
+    Ok(())
+}
+
 pub fn run(mut recorder: UsageRecorder) -> anyhow::Result<()> {
     info!("dev backend active (not Windows) — type commands, 'help' for a list, 'quit' to exit");
     print_help();

@@ -127,6 +127,18 @@ fn status(dir: &Path) -> anyhow::Result<()> {
     println!("Controller URL:       {}", config.controller_url.as_deref().unwrap_or("(not configured)"));
     println!("Discovery enabled:    {}", config.discovery_enabled);
     println!("Heartbeat interval:   {}s", config.heartbeat_interval.as_secs());
+    println!(
+        "Offline fallback:     {}",
+        if config.offline_fallback_enabled {
+            format!(
+                "sleep {}-{} when offline",
+                config.offline_fallback_start.format("%H:%M"),
+                config.offline_fallback_end.format("%H:%M")
+            )
+        } else {
+            "disabled".to_string()
+        }
+    );
     println!("Pending local events: {}", queue.len()?);
 
     #[cfg(windows)]

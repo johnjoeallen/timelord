@@ -2,7 +2,9 @@
 
 Windows service (Rust) that tracks device usage and reports it to a TimeLord Controller.
 
-> Phase 1: unauthenticated plain HTTP to the controller, no enforcement yet. See
+> Phase 1: unauthenticated plain HTTP to the controller. The controller itself has no
+> schedule/policy enforcement yet — the only enforcement today is the agent's own offline
+> fallback (below), which acts locally when it can't reach the controller at all. See
 > `../docs/architecture.md` for the security boundary.
 
 ## What it does
@@ -41,6 +43,9 @@ device_id = ""                       # generated + persisted on first run if emp
 device_name = ""                     # defaults to the hostname if empty
 heartbeat_interval_seconds = 30
 event_retry_interval_seconds = 10
+offline_fallback_enabled = true      # sleep the device on the schedule below when offline
+offline_fallback_start = "01:00"     # "HH:MM", local time; invalid/missing falls back to this default
+offline_fallback_end = "08:30"
 
 [controller]
 url = ""                             # e.g. "http://192.168.1.20:8080"
@@ -48,6 +53,17 @@ discovery_enabled = true
 discovery_port = 45821
 discovery_timeout_seconds = 5
 ```
+
+### Offline fallback
+
+If the agent can't reach the controller at all (registration, heartbeats, and event delivery are
+all failing), it falls back to a local safety schedule: every 60 seconds, if still disconnected
+and local time falls within `offline_fallback_start`-`offline_fallback_end` (wrapping past
+midnight is supported, e.g. `22:00`-`06:00`), it puts the device to sleep (`SetSuspendState`, not
+hibernate). This only runs while disconnected — once the controller is reachable again this stops
+immediately. `POWER_ACTION_REQUESTED`/`_COMPLETED`/`_FAILED` events are queued locally and
+delivered once connectivity returns, so the outage and the fallback action it triggered are both
+visible on the dashboard afterward.
 
 Precedence is **CLI flags > environment variables > `agent.toml` > defaults**
 (`src/config.rs::resolve`, unit tested for every combination). Environment overrides:

@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::Utc;
+use chrono::{Local, NaiveTime, Utc};
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -25,6 +25,7 @@ use crate::{platform, UsageRecorder};
 pub const AGENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const EVENT_BATCH_SIZE: usize = 100;
 const RECONNECT_BACKOFF: Duration = Duration::from_secs(15);
+const OFFLINE_FALLBACK_CHECK_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Shared handle the CLI's other commands (`status`, `test-event`) also use.
 pub struct Agent {
@@ -257,6 +258,53 @@ pub async fn delivery_loop(agent: Arc<Agent>, client: Arc<Mutex<(ControllerClien
     }
 }
 
+/// While the controller is unreachable, usage policy would otherwise go
+/// completely unenforced — so on this fixed schedule, if the agent has no
+/// live connection *and* local time falls in the configured offline-fallback
+/// window (default 01:00-08:30), it puts the device to sleep. Does nothing
+/// once the controller is reachable again; the controller's own schedule
+/// takes over from there (once schedules exist to enforce).
+pub async fn offline_fallback_loop(agent: Arc<Agent>) {
+    if !agent.config.offline_fallback_enabled {
+        return;
+    }
+    let mut interval = tokio::time::interval(OFFLINE_FALLBACK_CHECK_INTERVAL);
+    loop {
+        interval.tick().await;
+        if agent.is_connected() {
+            continue;
+        }
+        if !is_within_window(Local::now().time(), agent.config.offline_fallback_start, agent.config.offline_fallback_end) {
+            continue;
+        }
+
+        info!("offline and within fallback window; suspending device");
+        agent.enqueue(events::power_action_requested("SUSPEND", "offline fallback window")).await;
+        // SetSuspendState blocks until resume, so it must not run on a
+        // Tokio worker thread directly.
+        match tokio::task::spawn_blocking(platform::suspend).await {
+            Ok(Ok(())) => agent.enqueue(events::power_action_completed("SUSPEND")).await,
+            Ok(Err(err)) => {
+                warn!(?err, "offline fallback suspend failed");
+                agent.enqueue(events::power_action_failed("SUSPEND", &err.to_string())).await;
+            }
+            Err(err) => {
+                error!(?err, "offline fallback suspend task panicked");
+            }
+        }
+    }
+}
+
+/// Whether `now` falls in `[start, end)`, handling windows that cross
+/// midnight (e.g. 22:00-06:00) as well as same-day ones (e.g. 01:00-08:30).
+fn is_within_window(now: NaiveTime, start: NaiveTime, end: NaiveTime) -> bool {
+    if start <= end {
+        now >= start && now < end
+    } else {
+        now >= start || now < end
+    }
+}
+
 #[cfg(windows)]
 fn os_info() -> (String, String) {
     // Real product-name/build-number detection (registry read) is a
@@ -308,7 +356,11 @@ pub fn run_blocking(dir: &std::path::Path, cli: &CliOverrides) -> anyhow::Result
             let client = ControllerClient::new(&url);
             let device_id = agent.register(&client).await;
             let client = Arc::new(Mutex::new((client, device_id)));
-            tokio::join!(heartbeat_loop(agent.clone(), client.clone()), delivery_loop(agent, client));
+            tokio::join!(
+                heartbeat_loop(agent.clone(), client.clone()),
+                delivery_loop(agent.clone(), client),
+                offline_fallback_loop(agent),
+            );
         })
     };
 
@@ -320,4 +372,35 @@ pub fn run_blocking(dir: &std::path::Path, cli: &CliOverrides) -> anyhow::Result
     rt.shutdown_timeout(Duration::from_secs(2));
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn t(h: u32, m: u32) -> NaiveTime {
+        NaiveTime::from_hms_opt(h, m, 0).unwrap()
+    }
+
+    #[test]
+    fn same_day_window_matches_documented_default() {
+        let start = t(1, 0);
+        let end = t(8, 30);
+        assert!(is_within_window(t(1, 0), start, end), "inclusive start");
+        assert!(is_within_window(t(4, 0), start, end), "middle of window");
+        assert!(!is_within_window(t(8, 30), start, end), "exclusive end");
+        assert!(!is_within_window(t(0, 59), start, end), "just before window");
+        assert!(!is_within_window(t(12, 0), start, end), "outside window");
+    }
+
+    #[test]
+    fn overnight_window_crossing_midnight_is_handled() {
+        let start = t(22, 0);
+        let end = t(6, 0);
+        assert!(is_within_window(t(23, 30), start, end), "before midnight");
+        assert!(is_within_window(t(0, 30), start, end), "after midnight");
+        assert!(is_within_window(t(22, 0), start, end), "inclusive start");
+        assert!(!is_within_window(t(6, 0), start, end), "exclusive end");
+        assert!(!is_within_window(t(12, 0), start, end), "outside window");
+    }
 }
