@@ -73,40 +73,35 @@
 </div>
 <script>
     // Keeps the device/session view current without the operator having to
-    // reload by hand: a 60s baseline refresh, plus a faster background poll
-    // that reloads immediately if any device's online/offline status
-    // changes (i.e. a device appeared or disappeared) rather than waiting
-    // out the full minute.
+    // reload by hand. The server pushes a message over /ws/devices every
+    // time a device sends a heartbeat, registers, or the controller decides
+    // a device has gone offline (DeviceService broadcasts on all three) —
+    // any message is treated as "something changed, look again" rather than
+    // carrying the full state itself. A 60s timer is kept as a fallback in
+    // case the socket is down (also covers things a status change alone
+    // wouldn't, like an ongoing session's duration ticking up).
     (function () {
-        var POLL_INTERVAL_MS = 5000;
         var FULL_REFRESH_MS = 60000;
-        var lastSignature = null;
+        var RECONNECT_DELAY_MS = 3000;
+        var RELOAD_DEBOUNCE_MS = 500;
+        var reloadTimer = null;
 
-        function signatureOf(devices) {
-            return devices.map(function (d) { return d.deviceId + ':' + d.status; }).sort().join(',');
+        function scheduleReload() {
+            if (reloadTimer) {
+                return;
+            }
+            reloadTimer = setTimeout(function () { location.reload(); }, RELOAD_DEBOUNCE_MS);
         }
 
-        function poll() {
-            fetch('/api/v1/devices?size=200')
-                .then(function (response) { return response.ok ? response.json() : null; })
-                .then(function (data) {
-                    if (!data) {
-                        return;
-                    }
-                    var signature = signatureOf(data.items);
-                    if (lastSignature !== null && signature !== lastSignature) {
-                        location.reload();
-                        return;
-                    }
-                    lastSignature = signature;
-                })
-                .catch(function () {
-                    // Controller unreachable/restarting — try again next tick.
-                });
+        function connect() {
+            var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            var socket = new WebSocket(protocol + '//' + location.host + '/ws/devices');
+            socket.onmessage = scheduleReload;
+            socket.onclose = function () { setTimeout(connect, RECONNECT_DELAY_MS); };
+            socket.onerror = function () { socket.close(); };
         }
 
-        poll();
-        setInterval(poll, POLL_INTERVAL_MS);
+        connect();
         setInterval(function () { location.reload(); }, FULL_REFRESH_MS);
     })();
 </script>

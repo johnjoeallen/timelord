@@ -10,6 +10,7 @@ import com.timelord.controller.config.DeviceProperties;
 import com.timelord.controller.discovery.ControllerIdentityService;
 import com.timelord.controller.event.DeviceHeartbeat;
 import com.timelord.controller.event.DeviceHeartbeatRepository;
+import com.timelord.controller.ws.DeviceUpdatesWebSocketHandler;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -31,17 +32,20 @@ public class DeviceService {
     private final ControllerIdentityService controllerIdentityService;
     private final AgentDefaultsProperties agentDefaults;
     private final DeviceProperties deviceProperties;
+    private final DeviceUpdatesWebSocketHandler deviceUpdates;
 
     public DeviceService(DeviceRepository deviceRepository,
                           DeviceHeartbeatRepository heartbeatRepository,
                           ControllerIdentityService controllerIdentityService,
                           AgentDefaultsProperties agentDefaults,
-                          DeviceProperties deviceProperties) {
+                          DeviceProperties deviceProperties,
+                          DeviceUpdatesWebSocketHandler deviceUpdates) {
         this.deviceRepository = deviceRepository;
         this.heartbeatRepository = heartbeatRepository;
         this.controllerIdentityService = controllerIdentityService;
         this.agentDefaults = agentDefaults;
         this.deviceProperties = deviceProperties;
+        this.deviceUpdates = deviceUpdates;
     }
 
     /** Idempotent by deviceId: repeated registration updates metadata rather than creating a new row. */
@@ -70,6 +74,7 @@ public class DeviceService {
 
         deviceRepository.save(device);
         log.info("Device {} ({}) {}", device.getId(), device.getHostname(), isNew ? "registered" : "re-registered");
+        deviceUpdates.broadcastDeviceChanged(device, isNew ? "REGISTERED" : "RE_REGISTERED");
 
         return new RegisterResponse(device.getId(), controllerIdentityService.controllerId(), now,
                 agentDefaults.heartbeatIntervalSeconds(), true);
@@ -94,6 +99,7 @@ public class DeviceService {
         }
         device.setUpdatedAt(now);
         deviceRepository.save(device);
+        deviceUpdates.broadcastDeviceChanged(device, "HEARTBEAT");
 
         // Idempotent on eventId like everything else the agent submits, so a
         // retried heartbeat after a dropped response doesn't double-write.
@@ -156,6 +162,9 @@ public class DeviceService {
         if (!stale.isEmpty()) {
             deviceRepository.saveAll(stale);
             log.debug("Marked {} device(s) offline (no signal for {}s)", stale.size(), thresholdSeconds);
+            for (Device device : stale) {
+                deviceUpdates.broadcastDeviceChanged(device, "WENT_OFFLINE");
+            }
         }
     }
 }
