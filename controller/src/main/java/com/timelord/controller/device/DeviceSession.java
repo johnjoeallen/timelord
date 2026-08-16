@@ -5,9 +5,10 @@ import java.util.UUID;
 
 /**
  * A device's presence on the network from when it starts up until it either
- * shuts down explicitly or stops sending heartbeats. There's no persisted
- * session table — see {@link DeviceSessionService} for how these are
- * reconstructed from the event log.
+ * shuts down explicitly, is suspended, or stops sending heartbeats for
+ * longer than {@link DeviceSessionService#MAX_SESSION_GAP}. There's no
+ * persisted session table — see {@link DeviceSessionService} for how these
+ * are reconstructed from the event log.
  */
 public record DeviceSession(
         UUID deviceId,
@@ -21,7 +22,9 @@ public record DeviceSession(
     public enum EndReason {
         /** An AGENT_STOPPING event closed the session (graceful shutdown). */
         STOPPED,
-        /** No more heartbeats arrived before the next start (or before now). */
+        /** A SYSTEM_SUSPEND event closed the session (the device went to sleep). */
+        SUSPENDED,
+        /** No more heartbeats arrived for longer than the session gap threshold. */
         DISAPPEARED
     }
 

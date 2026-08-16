@@ -60,6 +60,8 @@
                     <span th:if="${s.ongoing}" class="badge session-badge-ongoing">Ongoing</span>
                     <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'STOPPED'}"
                           class="badge session-badge-stopped">Stopped</span>
+                    <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'SUSPENDED'}"
+                          class="badge session-badge-suspended">Suspended</span>
                     <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'DISAPPEARED'}"
                           class="badge session-badge-disappeared">Disappeared</span>
                 </td>

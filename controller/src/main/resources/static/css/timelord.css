@@ -14,6 +14,7 @@ body {
 .status-badge-offline,
 .session-badge-ongoing,
 .session-badge-stopped,
+.session-badge-suspended,
 .session-badge-disappeared {
     font-weight: 500;
 }
@@ -26,6 +27,10 @@ body {
 .status-badge-offline,
 .session-badge-stopped {
     background-color: #6c757d;
+}
+
+.session-badge-suspended {
+    background-color: #0d6efd;
 }
 
 .session-badge-disappeared {
