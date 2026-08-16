@@ -98,5 +98,44 @@
         </table>
     </div>
 </div>
+<script>
+    // Keeps the device/session view current without the operator having to
+    // reload by hand: a 60s baseline refresh, plus a faster background poll
+    // that reloads immediately if any device's online/offline status
+    // changes (i.e. a device appeared or disappeared) rather than waiting
+    // out the full minute.
+    (function () {
+        var POLL_INTERVAL_MS = 5000;
+        var FULL_REFRESH_MS = 60000;
+        var lastSignature = null;
+
+        function signatureOf(devices) {
+            return devices.map(function (d) { return d.deviceId + ':' + d.status; }).sort().join(',');
+        }
+
+        function poll() {
+            fetch('/api/v1/devices?size=200')
+                .then(function (response) { return response.ok ? response.json() : null; })
+                .then(function (data) {
+                    if (!data) {
+                        return;
+                    }
+                    var signature = signatureOf(data.items);
+                    if (lastSignature !== null && signature !== lastSignature) {
+                        location.reload();
+                        return;
+                    }
+                    lastSignature = signature;
+                })
+                .catch(function () {
+                    // Controller unreachable/restarting — try again next tick.
+                });
+        }
+
+        poll();
+        setInterval(poll, POLL_INTERVAL_MS);
+        setInterval(function () { location.reload(); }, FULL_REFRESH_MS);
+    })();
+</script>
 </body>
 </html>
