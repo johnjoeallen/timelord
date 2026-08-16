@@ -6,8 +6,12 @@ import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.Enumeration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -56,10 +60,36 @@ public class DiscoveryUdpListener {
             listenerThread = new Thread(this::listenLoop, "timelord-discovery-listener");
             listenerThread.setDaemon(true);
             listenerThread.start();
-            log.info("UDP discovery listener bound to port {}", discoveryProperties.port());
+            log.info("UDP discovery listener bound to {} (all interfaces), port {}",
+                    socket.getLocalSocketAddress(), discoveryProperties.port());
+            logLocalInterfaces();
         } catch (SocketException e) {
             healthy = false;
             log.error("Failed to bind UDP discovery listener on port {}: {}", discoveryProperties.port(), e.getMessage());
+        }
+    }
+
+    /**
+     * Logs every non-loopback local address this host sees, so a broadcast
+     * that never arrives can be cross-checked against which network this
+     * process is actually reachable on (e.g. the controller listening only
+     * on a virtual/VPN adapter's subnet rather than the LAN the agent is on).
+     */
+    private void logLocalInterfaces() {
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            for (NetworkInterface ni : Collections.list(interfaces)) {
+                if (!ni.isUp() || ni.isLoopback()) {
+                    continue;
+                }
+                for (InetAddress addr : Collections.list(ni.getInetAddresses())) {
+                    if (!addr.isLoopbackAddress()) {
+                        log.info("local network interface: {} -> {}", ni.getName(), addr.getHostAddress());
+                    }
+                }
+            }
+        } catch (SocketException e) {
+            log.warn("failed to enumerate local network interfaces for discovery debug logging: {}", e.getMessage());
         }
     }
 
@@ -87,25 +117,28 @@ public class DiscoveryUdpListener {
     }
 
     private void handlePacket(DatagramPacket packet) {
+        log.info("UDP packet received: {} bytes from {}", packet.getLength(), packet.getSocketAddress());
         try {
             String json = new String(packet.getData(), packet.getOffset(), packet.getLength(), StandardCharsets.UTF_8);
             DiscoverRequestMessage request = objectMapper.readValue(json, DiscoverRequestMessage.class);
             if (!isValidRequest(request)) {
-                log.debug("Ignoring invalid/unsupported discovery request from {}", packet.getSocketAddress());
+                log.info("Ignoring invalid/unsupported discovery request from {}: {}", packet.getSocketAddress(), json);
                 return;
             }
-            log.debug("Discovery request {} from hostname={} ({})", request.requestId(), request.hostname(),
-                    packet.getSocketAddress());
+            log.info("Discovery request {} from hostname={} ({}); replying with CONTROLLER_AVAILABLE",
+                    request.requestId(), request.hostname(), packet.getSocketAddress());
 
             ControllerAvailableMessage response = ControllerAvailableMessage.forRequest(
                     request.requestId(), identityService.controllerId(), identityService.controllerName(),
                     identityService.publicUrl(), identityService.priority());
             byte[] responseBytes = objectMapper.writeValueAsBytes(response);
             socket.send(new DatagramPacket(responseBytes, responseBytes.length, packet.getAddress(), packet.getPort()));
+            log.info("Sent CONTROLLER_AVAILABLE reply to {}", packet.getSocketAddress());
         } catch (Exception e) {
             // Malformed/foreign UDP traffic on this port is expected background
-            // noise, not a failure of the listener itself.
-            log.debug("Failed to handle discovery packet from {}: {}", packet.getSocketAddress(), e.toString());
+            // noise, not a failure of the listener itself — but still worth
+            // seeing while debugging why discovery isn't working.
+            log.info("Failed to handle discovery packet from {}: {}", packet.getSocketAddress(), e.toString());
         }
     }
 
