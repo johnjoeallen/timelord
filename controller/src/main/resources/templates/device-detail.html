@@ -43,6 +43,37 @@
         </div>
     </div>
 
+    <h2 class="h4">Sessions</h2>
+    <div class="table-responsive mb-4">
+        <table class="table table-sm table-hover">
+            <thead>
+            <tr>
+                <th>Start</th>
+                <th>End</th>
+                <th>Duration</th>
+                <th>Ended by</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="s : ${sessions}">
+                <td th:text="${s.start}"></td>
+                <td th:text="${s.end} ?: 'ongoing'"></td>
+                <td th:text="${s.durationLabel()}"></td>
+                <td>
+                    <span th:if="${s.ongoing}" class="badge session-badge-ongoing">Ongoing</span>
+                    <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'STOPPED'}"
+                          class="badge session-badge-stopped">Stopped</span>
+                    <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'DISAPPEARED'}"
+                          class="badge session-badge-disappeared">Disappeared</span>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(sessions)}">
+                <td colspan="4" class="text-muted text-center py-3">No sessions for this device yet.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
     <h2 class="h4">Recent events</h2>
     <div class="table-responsive">
         <table class="table table-sm table-hover">

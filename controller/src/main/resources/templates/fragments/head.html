@@ -3,6 +3,22 @@
 <head th:fragment="head(title)">
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <!--
+      Set the Bootstrap 5.3 color-mode attribute from the OS preference
+      before first paint (no manual toggle — this follows the platform
+      setting only), and keep it live if the OS theme changes while the
+      page is open.
+    -->
+    <script>
+        (function () {
+            var media = window.matchMedia('(prefers-color-scheme: dark)');
+            var apply = function () {
+                document.documentElement.setAttribute('data-bs-theme', media.matches ? 'dark' : 'light');
+            };
+            apply();
+            media.addEventListener('change', apply);
+        })();
+    </script>
     <title th:text="${title} + ' · TimeLord'">TimeLord</title>
     <link rel="stylesheet" th:href="@{/webjars/bootstrap/css/bootstrap.min.css}"/>
     <link rel="stylesheet" th:href="@{/css/timelord.css}"/>

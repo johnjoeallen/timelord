@@ -3,15 +3,15 @@ package com.timelord.controller.dashboard;
 import com.timelord.controller.device.Device;
 import com.timelord.controller.device.DeviceDetail;
 import com.timelord.controller.device.DeviceService;
+import com.timelord.controller.device.DeviceSessionService;
 import com.timelord.controller.device.DeviceStatus;
 import com.timelord.controller.device.DeviceSummary;
 import com.timelord.controller.event.EventDto;
 import com.timelord.controller.event.EventSeverity;
 import com.timelord.controller.event.EventService;
 import com.timelord.controller.event.EventType;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
@@ -26,24 +26,27 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 public class DashboardController {
 
+    private static final int RECENT_SESSIONS_LIMIT = 50;
+
     private final DeviceService deviceService;
     private final EventService eventService;
+    private final DeviceSessionService sessionService;
 
-    public DashboardController(DeviceService deviceService, EventService eventService) {
+    public DashboardController(DeviceService deviceService, EventService eventService, DeviceSessionService sessionService) {
         this.deviceService = deviceService;
         this.eventService = eventService;
+        this.sessionService = sessionService;
     }
 
     @GetMapping("/")
     public String dashboard(Model model) {
-        Instant now = Instant.now();
         model.addAttribute("totalDevices", deviceService.countByStatus(DeviceStatus.ONLINE) + deviceService.countByStatus(DeviceStatus.OFFLINE));
         model.addAttribute("onlineDevices", deviceService.countByStatus(DeviceStatus.ONLINE));
         model.addAttribute("offlineDevices", deviceService.countByStatus(DeviceStatus.OFFLINE));
-        model.addAttribute("eventsLastHour", eventService.countSince(now.minus(1, ChronoUnit.HOURS)));
-        model.addAttribute("errorsLast24h", eventService.countErrorsSince(now.minus(24, ChronoUnit.HOURS)));
-        model.addAttribute("recentEvents", toDtos(eventService.search(null, null, null, null, null,
-                PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "occurredAt"))).getContent()));
+
+        List<Device> devices = deviceService.list(null, null, PageRequest.of(0, 200, Sort.by(Sort.Direction.ASC, "deviceName"))).getContent();
+        model.addAttribute("devices", devices.stream().map(DeviceSummary::from).toList());
+        model.addAttribute("recentSessions", sessionService.recentSessions(devices, RECENT_SESSIONS_LIMIT));
         return "dashboard";
     }
 
@@ -63,6 +66,7 @@ public class DashboardController {
     public String deviceDetail(@PathVariable UUID deviceId, Model model) {
         Device device = deviceService.requireDevice(deviceId);
         model.addAttribute("device", DeviceDetail.from(device));
+        model.addAttribute("sessions", sessionService.sessionsFor(device));
         model.addAttribute("events", toDtos(eventService.forDevice(deviceId,
                 PageRequest.of(0, 50, Sort.by(Sort.Direction.DESC, "occurredAt"))).getContent()));
         return "device-detail";

@@ -7,70 +7,92 @@
     <h1 class="mb-4">Dashboard</h1>
 
     <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-lg-3">
-            <div class="card stat-card text-bg-light">
+        <div class="col-sm-4">
+            <div class="card stat-card">
                 <div class="card-body">
                     <div class="text-muted small">Total devices</div>
                     <div class="fs-2" th:text="${totalDevices}">0</div>
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-lg-3">
-            <div class="card stat-card text-bg-light">
+        <div class="col-sm-4">
+            <div class="card stat-card">
                 <div class="card-body">
                     <div class="text-muted small">Online</div>
                     <div class="fs-2 text-success" th:text="${onlineDevices}">0</div>
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-lg-3">
-            <div class="card stat-card text-bg-light">
+        <div class="col-sm-4">
+            <div class="card stat-card">
                 <div class="card-body">
                     <div class="text-muted small">Offline</div>
                     <div class="fs-2 text-secondary" th:text="${offlineDevices}">0</div>
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-lg-3">
-            <div class="card stat-card text-bg-light">
-                <div class="card-body">
-                    <div class="text-muted small">Events (last hour)</div>
-                    <div class="fs-2" th:text="${eventsLastHour}">0</div>
+    </div>
+
+    <h2 class="h4 mb-3">Devices</h2>
+    <div class="row g-3 mb-4">
+        <div class="col-md-6 col-lg-4" th:each="device : ${devices}">
+            <a class="text-decoration-none text-body" th:href="@{/devices/{id}(id=${device.deviceId})}">
+                <div class="card device-card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="fw-semibold" th:text="${device.deviceName}"></div>
+                            <span class="badge"
+                                  th:classappend="${device.status.name() == 'ONLINE'} ? 'status-badge-online' : 'status-badge-offline'"
+                                  th:text="${device.status}"></span>
+                        </div>
+                        <div class="text-muted small mb-2" th:text="${device.hostname}"></div>
+                        <div class="small">
+                            <span class="uptime-dot"
+                                  th:classappend="${device.status.name() == 'ONLINE'} ? 'uptime-dot-online' : 'uptime-dot-offline'"></span>
+                            <span th:if="${device.status.name() == 'ONLINE'}" th:text="${device.currentUser} ?: 'no user session'"></span>
+                            <span th:if="${device.status.name() != 'ONLINE'}"
+                                  th:text="${device.lastHeartbeatAt} ? ('last seen ' + ${device.lastHeartbeatAt}) : 'never seen'"></span>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            </a>
         </div>
-        <div class="col-sm-6 col-lg-3">
-            <div class="card stat-card text-bg-light">
-                <div class="card-body">
-                    <div class="text-muted small">Errors (last 24h)</div>
-                    <div class="fs-2" th:classappend="${errorsLast24h > 0} ? 'text-danger' : ''" th:text="${errorsLast24h}">0</div>
-                </div>
-            </div>
+        <div class="col-12" th:if="${#lists.isEmpty(devices)}">
+            <p class="text-muted text-center py-3">No devices registered yet.</p>
         </div>
     </div>
 
-    <h2 class="h4">Recent events</h2>
+    <h2 class="h4 mb-3">Recent sessions</h2>
+    <p class="text-muted small">
+        A session runs from when a device starts up until it either shuts down cleanly or stops sending heartbeats.
+    </p>
     <div class="table-responsive">
         <table class="table table-sm table-hover">
             <thead>
             <tr>
-                <th>Time</th>
                 <th>Device</th>
-                <th>Type</th>
-                <th>Severity</th>
-                <th>Username</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Duration</th>
+                <th>Ended by</th>
             </tr>
             </thead>
             <tbody>
-            <tr th:each="event : ${recentEvents}">
-                <td th:text="${event.occurredAt}"></td>
-                <td><a th:href="@{/devices/{id}(id=${event.deviceId})}" th:text="${event.deviceName}"></a></td>
-                <td th:text="${event.eventType}"></td>
-                <td><span th:class="'severity-' + ${event.severity}" th:text="${event.severity}"></span></td>
-                <td th:text="${event.username} ?: '–'"></td>
+            <tr th:each="s : ${recentSessions}">
+                <td><a th:href="@{/devices/{id}(id=${s.deviceId})}" th:text="${s.deviceName}"></a></td>
+                <td th:text="${s.start}"></td>
+                <td th:text="${s.end} ?: 'ongoing'"></td>
+                <td th:text="${s.durationLabel()}"></td>
+                <td>
+                    <span th:if="${s.ongoing}" class="badge session-badge-ongoing">Ongoing</span>
+                    <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'STOPPED'}"
+                          class="badge session-badge-stopped">Stopped</span>
+                    <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'DISAPPEARED'}"
+                          class="badge session-badge-disappeared">Disappeared</span>
+                </td>
             </tr>
-            <tr th:if="${#lists.isEmpty(recentEvents)}">
-                <td colspan="5" class="text-muted text-center py-3">No events yet.</td>
+            <tr th:if="${#lists.isEmpty(recentSessions)}">
+                <td colspan="5" class="text-muted text-center py-3">No sessions yet.</td>
             </tr>
             </tbody>
         </table>

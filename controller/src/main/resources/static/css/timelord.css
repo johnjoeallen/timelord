@@ -1,13 +1,35 @@
-.stat-card {
-    border-radius: 0.5rem;
+body {
+    background-color: var(--bs-body-bg);
 }
 
-.status-badge-online {
+.stat-card {
+    border-radius: 0.75rem;
+}
+
+.stat-card .fs-2 {
+    font-weight: 600;
+}
+
+.status-badge-online,
+.status-badge-offline,
+.session-badge-ongoing,
+.session-badge-stopped,
+.session-badge-disappeared {
+    font-weight: 500;
+}
+
+.status-badge-online,
+.session-badge-ongoing {
     background-color: #198754;
 }
 
-.status-badge-offline {
+.status-badge-offline,
+.session-badge-stopped {
     background-color: #6c757d;
+}
+
+.session-badge-disappeared {
+    background-color: #dc3545;
 }
 
 .severity-INFO {
@@ -24,4 +46,30 @@
 
 table td, table th {
     vertical-align: middle;
+}
+
+.device-card {
+    border-radius: 0.75rem;
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.device-card:hover {
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+}
+
+.uptime-dot {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    margin-right: 0.4rem;
+}
+
+.uptime-dot-online {
+    background-color: #198754;
+    box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.2);
+}
+
+.uptime-dot-offline {
+    background-color: #6c757d;
 }
