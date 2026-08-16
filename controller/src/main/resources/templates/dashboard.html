@@ -6,33 +6,6 @@
 <div class="container">
     <h1 class="mb-4">Dashboard</h1>
 
-    <div class="row g-3 mb-4">
-        <div class="col-sm-4">
-            <div class="card stat-card">
-                <div class="card-body">
-                    <div class="text-muted small">Total devices</div>
-                    <div class="fs-2" th:text="${totalDevices}">0</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-4">
-            <div class="card stat-card">
-                <div class="card-body">
-                    <div class="text-muted small">Online</div>
-                    <div class="fs-2 text-success" th:text="${onlineDevices}">0</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-4">
-            <div class="card stat-card">
-                <div class="card-body">
-                    <div class="text-muted small">Offline</div>
-                    <div class="fs-2 text-secondary" th:text="${offlineDevices}">0</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <h2 class="h4 mb-3">Devices</h2>
     <div class="row g-3 mb-4">
         <div class="col-md-6 col-lg-4" th:each="device : ${devices}">
@@ -51,7 +24,7 @@
                                   th:classappend="${device.status.name() == 'ONLINE'} ? 'uptime-dot-online' : 'uptime-dot-offline'"></span>
                             <span th:if="${device.status.name() == 'ONLINE'}" th:text="${device.currentUser} ?: 'no user session'"></span>
                             <span th:if="${device.status.name() != 'ONLINE'}"
-                                  th:text="${device.lastHeartbeatAt} ? ('last seen ' + ${device.lastHeartbeatAt}) : 'never seen'"></span>
+                                  th:text="${device.lastHeartbeatAt} ? ('last seen ' + ${#temporals.format(device.lastHeartbeatAt, 'MMM d, HH:mm')}) : 'never seen'"></span>
                         </div>
                     </div>
                 </div>
@@ -72,7 +45,7 @@
             <tr>
                 <th>Device</th>
                 <th>Start</th>
-                <th>End</th>
+                <th class="d-none d-sm-table-cell">End</th>
                 <th>Duration</th>
                 <th>Ended by</th>
             </tr>
@@ -80,8 +53,8 @@
             <tbody>
             <tr th:each="s : ${recentSessions}">
                 <td><a th:href="@{/devices/{id}(id=${s.deviceId})}" th:text="${s.deviceName}"></a></td>
-                <td th:text="${s.start}"></td>
-                <td th:text="${s.end} ?: 'ongoing'"></td>
+                <td th:text="${#temporals.format(s.start, 'MMM d, HH:mm')}"></td>
+                <td class="d-none d-sm-table-cell" th:text="${s.end} ? ${#temporals.format(s.end, 'MMM d, HH:mm')} : 'ongoing'"></td>
                 <td th:text="${s.durationLabel()}"></td>
                 <td>
                     <span th:if="${s.ongoing}" class="badge session-badge-ongoing">Ongoing</span>

@@ -49,15 +49,15 @@
             <thead>
             <tr>
                 <th>Start</th>
-                <th>End</th>
+                <th class="d-none d-sm-table-cell">End</th>
                 <th>Duration</th>
                 <th>Ended by</th>
             </tr>
             </thead>
             <tbody>
             <tr th:each="s : ${sessions}">
-                <td th:text="${s.start}"></td>
-                <td th:text="${s.end} ?: 'ongoing'"></td>
+                <td th:text="${#temporals.format(s.start, 'MMM d, HH:mm')}"></td>
+                <td class="d-none d-sm-table-cell" th:text="${s.end} ? ${#temporals.format(s.end, 'MMM d, HH:mm')} : 'ongoing'"></td>
                 <td th:text="${s.durationLabel()}"></td>
                 <td>
                     <span th:if="${s.ongoing}" class="badge session-badge-ongoing">Ongoing</span>

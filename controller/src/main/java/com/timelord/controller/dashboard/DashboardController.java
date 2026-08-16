@@ -40,10 +40,6 @@ public class DashboardController {
 
     @GetMapping("/")
     public String dashboard(Model model) {
-        model.addAttribute("totalDevices", deviceService.countByStatus(DeviceStatus.ONLINE) + deviceService.countByStatus(DeviceStatus.OFFLINE));
-        model.addAttribute("onlineDevices", deviceService.countByStatus(DeviceStatus.ONLINE));
-        model.addAttribute("offlineDevices", deviceService.countByStatus(DeviceStatus.OFFLINE));
-
         List<Device> devices = deviceService.list(null, null, PageRequest.of(0, 200, Sort.by(Sort.Direction.ASC, "deviceName"))).getContent();
         model.addAttribute("devices", devices.stream().map(DeviceSummary::from).toList());
         model.addAttribute("recentSessions", sessionService.recentSessions(devices, RECENT_SESSIONS_LIMIT));
