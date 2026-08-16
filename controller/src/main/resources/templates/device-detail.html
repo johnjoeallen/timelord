@@ -44,7 +44,7 @@
     </div>
 
     <h2 class="h4">Sessions</h2>
-    <div class="table-responsive mb-4">
+    <div class="table-responsive">
         <table class="table table-sm table-hover">
             <thead>
             <tr>
@@ -71,33 +71,6 @@
             </tr>
             <tr th:if="${#lists.isEmpty(sessions)}">
                 <td colspan="4" class="text-muted text-center py-3">No sessions for this device yet.</td>
-            </tr>
-            </tbody>
-        </table>
-    </div>
-
-    <h2 class="h4">Recent events</h2>
-    <div class="table-responsive">
-        <table class="table table-sm table-hover">
-            <thead>
-            <tr>
-                <th>Time</th>
-                <th>Type</th>
-                <th>Severity</th>
-                <th>Username</th>
-                <th>Data</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:each="event : ${events}">
-                <td th:text="${event.occurredAt}"></td>
-                <td th:text="${event.eventType}"></td>
-                <td><span th:class="'severity-' + ${event.severity}" th:text="${event.severity}"></span></td>
-                <td th:text="${event.username} ?: '–'"></td>
-                <td><code th:text="${event.data}"></code></td>
-            </tr>
-            <tr th:if="${#lists.isEmpty(events)}">
-                <td colspan="5" class="text-muted text-center py-3">No events for this device yet.</td>
             </tr>
             </tbody>
         </table>

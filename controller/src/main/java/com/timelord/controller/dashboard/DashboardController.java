@@ -26,8 +26,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 public class DashboardController {
 
-    private static final int RECENT_SESSIONS_LIMIT = 50;
-
     private final DeviceService deviceService;
     private final EventService eventService;
     private final DeviceSessionService sessionService;
@@ -42,7 +40,6 @@ public class DashboardController {
     public String dashboard(Model model) {
         List<Device> devices = deviceService.list(null, null, PageRequest.of(0, 200, Sort.by(Sort.Direction.ASC, "deviceName"))).getContent();
         model.addAttribute("devices", devices.stream().map(DeviceSummary::from).toList());
-        model.addAttribute("recentSessions", sessionService.recentSessions(devices, RECENT_SESSIONS_LIMIT));
         return "dashboard";
     }
 
@@ -63,8 +60,6 @@ public class DashboardController {
         Device device = deviceService.requireDevice(deviceId);
         model.addAttribute("device", DeviceDetail.from(device));
         model.addAttribute("sessions", sessionService.sessionsFor(device));
-        model.addAttribute("events", toDtos(eventService.forDevice(deviceId,
-                PageRequest.of(0, 50, Sort.by(Sort.Direction.DESC, "occurredAt"))).getContent()));
         return "device-detail";
     }
 

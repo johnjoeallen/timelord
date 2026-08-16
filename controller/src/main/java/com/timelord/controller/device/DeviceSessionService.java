@@ -7,7 +7,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
@@ -125,16 +124,6 @@ public class DeviceSessionService {
 
         Collections.reverse(sessions);
         return sessions;
-    }
-
-    /** Newest session first, across every given device, capped at `limit` total. */
-    public List<DeviceSession> recentSessions(List<Device> devices, int limit) {
-        List<DeviceSession> all = new ArrayList<>();
-        for (Device device : devices) {
-            all.addAll(sessionsFor(device));
-        }
-        all.sort(Comparator.comparing(DeviceSession::start).reversed());
-        return all.size() > limit ? all.subList(0, limit) : all;
     }
 
     private static boolean exceedsGap(Instant from, Instant to) {
