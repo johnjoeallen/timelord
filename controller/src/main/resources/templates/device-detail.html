@@ -22,7 +22,28 @@
                     <li class="list-group-item d-flex justify-content-between"><span>Agent version</span><span th:text="${device.agentVersion}"></span></li>
                     <li class="list-group-item d-flex justify-content-between"><span>Operating system</span><span th:text="${device.operatingSystem} + ' ' + ${device.operatingSystemVersion}"></span></li>
                     <li class="list-group-item d-flex justify-content-between"><span>Architecture</span><span th:text="${device.architecture}"></span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span>Local IPs</span><span th:text="${#strings.listJoin(device.localIpAddresses, ', ')}"></span></li>
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <span>Local IPs</span>
+                            <span th:text="${#strings.listJoin(device.localIpAddresses, ', ')}"></span>
+                        </div>
+                        <div th:if="${not #lists.isEmpty(device.networkInterfaces)}" class="table-responsive mt-2">
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>MAC</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="iface : ${device.networkInterfaces}">
+                                    <td th:text="${iface.name}"></td>
+                                    <td th:text="${iface.macAddress} ?: '–'"></td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </li>
                     <li class="list-group-item d-flex justify-content-between"><span>Source IP</span><span th:text="${device.sourceIp}"></span></li>
                 </ul>
             </div>

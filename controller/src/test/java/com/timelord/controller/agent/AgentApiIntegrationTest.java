@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.timelord.controller.common.ApiError;
 import com.timelord.controller.device.DeviceDetail;
 import com.timelord.controller.device.DeviceStatus;
+import com.timelord.controller.device.NetworkInterfaceInfo;
 import com.timelord.controller.event.EventSeverity;
 import com.timelord.controller.event.EventSource;
 import com.timelord.controller.event.EventType;
@@ -21,7 +22,7 @@ class AgentApiIntegrationTest extends AbstractIntegrationTest {
 
     private RegisterRequest newRegisterRequest(UUID deviceId, String name) {
         return new RegisterRequest(deviceId, name, "test-host", "0.1.0", "Windows 11", "10.0.26100",
-                "x86_64", List.of("192.168.1.50"));
+                "x86_64", List.of("192.168.1.50"), List.of(new NetworkInterfaceInfo("Ethernet", "AA:BB:CC:DD:EE:FF")));
     }
 
     @Test
@@ -58,7 +59,7 @@ class AgentApiIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void registeringWithMissingRequiredFieldsReturns400() {
-        RegisterRequest invalid = new RegisterRequest(null, "", "", null, null, null, null, null);
+        RegisterRequest invalid = new RegisterRequest(null, "", "", null, null, null, null, null, null);
 
         ResponseEntity<ApiError> response = restTemplate.postForEntity(
                 "/api/v1/agents/register", invalid, ApiError.class);

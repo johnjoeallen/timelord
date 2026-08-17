@@ -46,7 +46,12 @@ fn service_main(_arguments: Vec<OsString>) {
 fn run_service() -> anyhow::Result<()> {
     let event_handler = move |control_event| -> ServiceControlHandlerResult {
         match control_event {
-            ServiceControl::Stop => {
+            // `Stop` is a manual "net stop"/SCM-initiated stop; `Shutdown`
+            // is what the SCM actually sends on a system shutdown/restart —
+            // without accepting and handling it too, the process is just
+            // killed on shutdown and never gets to close the open usage
+            // session or make a final delivery attempt for queued events.
+            ServiceControl::Stop | ServiceControl::Shutdown => {
                 platform::request_stop();
                 ServiceControlHandlerResult::NoError
             }
@@ -57,7 +62,7 @@ fn run_service() -> anyhow::Result<()> {
 
     let status_handle = service_control_handler::register(SERVICE_NAME, event_handler)?;
     set_status(&status_handle, ServiceState::StartPending, ServiceControlAccept::empty())?;
-    set_status(&status_handle, ServiceState::Running, ServiceControlAccept::STOP)?;
+    set_status(&status_handle, ServiceState::Running, ServiceControlAccept::STOP | ServiceControlAccept::SHUTDOWN)?;
 
     // Blocks until `platform::request_stop()` is called from the control
     // handler above, closing any open usage session and delivering queued

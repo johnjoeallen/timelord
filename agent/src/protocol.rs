@@ -62,6 +62,18 @@ pub enum EventSource {
     Controller,
 }
 
+/// One network adapter as reported by the OS, regardless of whether it has
+/// a routable address right now (unlike `RegisterRequest.local_ip_addresses`,
+/// which is filtered down to routable IPs for the summary view — see
+/// `agent::local_ip_addresses`). Lets the dashboard show every adapter the
+/// device has, not just the ones currently carrying traffic.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkInterfaceInfo {
+    pub name: String,
+    pub mac_address: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RegisterRequest {
@@ -73,6 +85,7 @@ pub struct RegisterRequest {
     pub operating_system_version: String,
     pub architecture: String,
     pub local_ip_addresses: Vec<String>,
+    pub network_interfaces: Vec<NetworkInterfaceInfo>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -186,11 +199,13 @@ mod tests {
             operating_system_version: "10.0".into(),
             architecture: "x86_64".into(),
             local_ip_addresses: vec!["10.0.0.1".into()],
+            network_interfaces: vec![NetworkInterfaceInfo { name: "Ethernet".into(), mac_address: Some("aa:bb:cc:dd:ee:ff".into()) }],
         };
         let json = serde_json::to_value(&req).unwrap();
         assert!(json.get("deviceId").is_some());
         assert!(json.get("operatingSystemVersion").is_some());
         assert!(json.get("localIpAddresses").is_some());
+        assert_eq!(json["networkInterfaces"][0]["macAddress"], "aa:bb:cc:dd:ee:ff");
     }
 
     #[test]

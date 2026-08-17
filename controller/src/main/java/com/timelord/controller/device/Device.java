@@ -41,6 +41,10 @@ public class Device {
     @Column(name = "local_ip_addresses", columnDefinition = "jsonb", nullable = false)
     private List<String> localIpAddresses = new ArrayList<>();
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "network_interfaces", columnDefinition = "jsonb", nullable = false)
+    private List<NetworkInterfaceInfo> networkInterfaces = new ArrayList<>();
+
     @Column(name = "source_ip")
     private String sourceIp;
 
@@ -141,6 +145,14 @@ public class Device {
 
     public void setLocalIpAddresses(List<String> localIpAddresses) {
         this.localIpAddresses = localIpAddresses != null ? localIpAddresses : new ArrayList<>();
+    }
+
+    public List<NetworkInterfaceInfo> getNetworkInterfaces() {
+        return networkInterfaces;
+    }
+
+    public void setNetworkInterfaces(List<NetworkInterfaceInfo> networkInterfaces) {
+        this.networkInterfaces = networkInterfaces != null ? networkInterfaces : new ArrayList<>();
     }
 
     public String getSourceIp() {

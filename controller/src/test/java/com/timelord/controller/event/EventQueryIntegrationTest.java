@@ -19,7 +19,7 @@ class EventQueryIntegrationTest extends AbstractIntegrationTest {
         UUID deviceId = UUID.randomUUID();
         restTemplate.postForEntity("/api/v1/agents/register",
                 new RegisterRequest(deviceId, "Event Test Device", "evt-host-" + deviceId, "0.1.0", "Windows 11",
-                        "10.0", "x86_64", List.of("10.0.0.1")),
+                        "10.0", "x86_64", List.of("10.0.0.1"), List.of()),
                 RegisterResponse.class);
         return deviceId;
     }

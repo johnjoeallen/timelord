@@ -30,13 +30,27 @@ fn new_event(event_type: EventType, severity: EventSeverity, data: HashMap<Strin
     }
 }
 
+fn new_session_event(
+    event_type: EventType,
+    severity: EventSeverity,
+    username: Option<String>,
+    data: HashMap<String, serde_json::Value>,
+) -> QueuedEvent {
+    QueuedEvent { username, ..new_event(event_type, severity, data) }
+}
+
 fn data(pairs: impl IntoIterator<Item = (&'static str, serde_json::Value)>) -> HashMap<String, serde_json::Value> {
     pairs.into_iter().map(|(k, v)| (k.to_string(), v)).collect()
 }
 
 /// Maps every tracker notification to its corresponding protocol event —
-/// see design brief section 8 for the full vocabulary.
-pub fn from_session_event(event: SessionEvent) -> QueuedEvent {
+/// see design brief section 8 for the full vocabulary. `username` is the
+/// Windows account associated with the event's session, if the caller was
+/// able to resolve one (see `platform::windows::session_username` and
+/// `UsageRecorder`'s per-session username cache) — it ends up in
+/// `EventItem.username` so the controller/dashboard can show who is
+/// actually logged on instead of always reporting no session.
+pub fn from_session_event(event: SessionEvent, username: Option<String>) -> QueuedEvent {
     let (event_type, windows_session_id) = match event {
         SessionEvent::Logon(id) => (EventType::UserLogon, Some(id)),
         SessionEvent::Logoff(id) => (EventType::UserLogoff, Some(id)),
@@ -53,7 +67,7 @@ pub fn from_session_event(event: SessionEvent) -> QueuedEvent {
         Some(id) => data([("windowsSessionId", json!(id))]),
         None => HashMap::new(),
     };
-    new_event(event_type, EventSeverity::Info, event_data)
+    new_session_event(event_type, EventSeverity::Info, username, event_data)
 }
 
 pub fn agent_started(agent_version: &str, start_reason: &str) -> QueuedEvent {
@@ -138,31 +152,37 @@ mod tests {
 
     #[test]
     fn logon_maps_to_user_logon_with_windows_session_id_in_data() {
-        let event = from_session_event(SessionEvent::Logon(1));
+        let event = from_session_event(SessionEvent::Logon(1), None);
         assert_eq!(event.event_type, EventType::UserLogon);
         assert_eq!(event.data.get("windowsSessionId"), Some(&json!(1)));
         assert_eq!(event.session_id, None, "Phase 1 has no device_session concept yet");
     }
 
     #[test]
+    fn logon_carries_the_resolved_username() {
+        let event = from_session_event(SessionEvent::Logon(1), Some("jallen".to_string()));
+        assert_eq!(event.username.as_deref(), Some("jallen"));
+    }
+
+    #[test]
     fn lock_maps_to_user_lock() {
-        assert_eq!(from_session_event(SessionEvent::Lock(1)).event_type, EventType::UserLock);
+        assert_eq!(from_session_event(SessionEvent::Lock(1), None).event_type, EventType::UserLock);
     }
 
     #[test]
     fn suspend_and_resume_map_to_system_events_without_a_session_id() {
-        let suspend = from_session_event(SessionEvent::Suspend);
+        let suspend = from_session_event(SessionEvent::Suspend, None);
         assert_eq!(suspend.event_type, EventType::SystemSuspend);
         assert!(suspend.data.is_empty());
 
-        let resume = from_session_event(SessionEvent::Resume);
+        let resume = from_session_event(SessionEvent::Resume, None);
         assert_eq!(resume.event_type, EventType::SystemResume);
     }
 
     #[test]
     fn remote_and_console_connect_both_map_to_session_connected() {
-        assert_eq!(from_session_event(SessionEvent::ConsoleConnect(1)).event_type, EventType::SessionConnected);
-        assert_eq!(from_session_event(SessionEvent::RemoteConnect(1)).event_type, EventType::SessionConnected);
+        assert_eq!(from_session_event(SessionEvent::ConsoleConnect(1), None).event_type, EventType::SessionConnected);
+        assert_eq!(from_session_event(SessionEvent::RemoteConnect(1), None).event_type, EventType::SessionConnected);
     }
 
     #[test]

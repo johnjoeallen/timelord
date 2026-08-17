@@ -36,23 +36,24 @@ pub fn run(mut recorder: UsageRecorder) -> anyhow::Result<()> {
             break; // EOF
         }
         let cmd = line.trim();
-        let event = match cmd {
+        let mut parts = cmd.split_whitespace();
+        let (event, username) = match parts.next().unwrap_or("") {
             "" => continue,
             "help" => {
                 print_help();
                 continue;
             }
             "quit" | "exit" => break,
-            "logon" => SessionEvent::Logon(SESSION_ID),
-            "logoff" => SessionEvent::Logoff(SESSION_ID),
-            "lock" => SessionEvent::Lock(SESSION_ID),
-            "unlock" => SessionEvent::Unlock(SESSION_ID),
-            "console-connect" => SessionEvent::ConsoleConnect(SESSION_ID),
-            "console-disconnect" => SessionEvent::ConsoleDisconnect(SESSION_ID),
-            "remote-connect" => SessionEvent::RemoteConnect(SESSION_ID),
-            "remote-disconnect" => SessionEvent::RemoteDisconnect(SESSION_ID),
-            "suspend" => SessionEvent::Suspend,
-            "resume" => SessionEvent::Resume,
+            "logon" => (SessionEvent::Logon(SESSION_ID), Some(parts.next().unwrap_or("dev-user").to_string())),
+            "logoff" => (SessionEvent::Logoff(SESSION_ID), None),
+            "lock" => (SessionEvent::Lock(SESSION_ID), None),
+            "unlock" => (SessionEvent::Unlock(SESSION_ID), None),
+            "console-connect" => (SessionEvent::ConsoleConnect(SESSION_ID), None),
+            "console-disconnect" => (SessionEvent::ConsoleDisconnect(SESSION_ID), None),
+            "remote-connect" => (SessionEvent::RemoteConnect(SESSION_ID), None),
+            "remote-disconnect" => (SessionEvent::RemoteDisconnect(SESSION_ID), None),
+            "suspend" => (SessionEvent::Suspend, None),
+            "resume" => (SessionEvent::Resume, None),
             "status" => {
                 println!("active: {}", recorder.is_active());
                 continue;
@@ -62,7 +63,7 @@ pub fn run(mut recorder: UsageRecorder) -> anyhow::Result<()> {
                 continue;
             }
         };
-        recorder.handle(event)?;
+        recorder.handle(event, username)?;
     }
 
     recorder.shutdown()?;
@@ -71,7 +72,7 @@ pub fn run(mut recorder: UsageRecorder) -> anyhow::Result<()> {
 
 fn print_help() {
     println!(
-        "commands: logon logoff lock unlock console-connect console-disconnect \
+        "commands: logon [username] logoff lock unlock console-connect console-disconnect \
          remote-connect remote-disconnect suspend resume status quit"
     );
 }

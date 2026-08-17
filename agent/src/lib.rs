@@ -11,8 +11,9 @@ pub mod service_win;
 pub mod store;
 pub mod tracker;
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex};
 
 use chrono::Utc;
 use tokio::sync::Mutex as AsyncMutex;
@@ -20,7 +21,25 @@ use tracing::{error, info, warn};
 
 use queue::EventQueue;
 use store::{Store, StoreError};
-use tracker::{EndReason, SessionEvent, Transition, UsageTracker};
+use tracker::{EndReason, SessionEvent, SessionId, Transition, UsageTracker};
+
+/// Live view of "who is logged on and how" that the async networking side
+/// (heartbeats — see `agent::heartbeat_loop`) reads from, since it has no
+/// other way to see what the synchronous platform-pump thread observes.
+/// Defaults to "no one's logged on" until the first session notification
+/// arrives (or `UsageRecorder::open` seeds it from any session that was
+/// already active when the agent started — see `platform::windows::run`).
+#[derive(Debug, Clone)]
+pub struct SessionSnapshot {
+    pub username: Option<String>,
+    pub state: String,
+}
+
+impl Default for SessionSnapshot {
+    fn default() -> Self {
+        Self { username: None, state: "NO_SESSION".to_string() }
+    }
+}
 
 /// Directory the agent persists its state under. Honours `TIMELORD_DATA_DIR`
 /// (used for local development and tests) and otherwise defaults to
@@ -45,6 +64,12 @@ pub struct UsageRecorder {
     store: Store,
     open_session_id: Option<uuid::Uuid>,
     event_queue: Option<Arc<AsyncMutex<EventQueue>>>,
+    /// Windows account per currently logged-on session, so a later event
+    /// for the same session (lock/unlock/logoff/...) — which carries no
+    /// username of its own — can still be reported and reflected in
+    /// `snapshot` correctly.
+    session_usernames: HashMap<SessionId, String>,
+    snapshot: Arc<StdMutex<SessionSnapshot>>,
 }
 
 impl UsageRecorder {
@@ -64,7 +89,14 @@ impl UsageRecorder {
             }
             None => (UsageTracker::new(), None),
         };
-        Ok(Self { tracker, store, open_session_id, event_queue: None })
+        Ok(Self {
+            tracker,
+            store,
+            open_session_id,
+            event_queue: None,
+            session_usernames: HashMap::new(),
+            snapshot: Arc::new(StdMutex::new(SessionSnapshot::default())),
+        })
     }
 
     /// Also report every tracker notification to the controller via `queue`
@@ -75,12 +107,28 @@ impl UsageRecorder {
         self
     }
 
+    /// A handle to the live "who's logged on" snapshot, shared with the
+    /// async networking side (`agent::heartbeat_loop`) so heartbeats report
+    /// the actual current user/session state instead of a hardcoded stub.
+    pub fn snapshot_handle(&self) -> Arc<StdMutex<SessionSnapshot>> {
+        self.snapshot.clone()
+    }
+
     /// Feeds a platform event into the tracker and persists any resulting
     /// session start/end, and — if wired to one — mirrors the raw event
     /// into the reporting queue regardless of whether it changed usage
-    /// session state.
-    pub fn handle(&mut self, event: SessionEvent) -> Result<(), StoreError> {
+    /// session state. `username` is the Windows account for the event's
+    /// session, if the caller was able to resolve one (typically only
+    /// available at `Logon`; later events for the same session reuse the
+    /// cached value).
+    pub fn handle(&mut self, event: SessionEvent, username: Option<String>) -> Result<(), StoreError> {
         let now = Utc::now();
+
+        if let (SessionEvent::Logon(id), Some(name)) = (event, &username) {
+            self.session_usernames.insert(id, name.clone());
+        }
+        let event_username = event.session_id().and_then(|id| self.session_usernames.get(&id).cloned());
+
         match self.tracker.apply(event, now) {
             Transition::Started { start } => {
                 info!(%start, ?event, "usage session started");
@@ -100,8 +148,13 @@ impl UsageRecorder {
             Transition::NoChange => {}
         }
 
+        if let SessionEvent::Logoff(id) = event {
+            self.session_usernames.remove(&id);
+        }
+        self.refresh_snapshot(event);
+
         if let Some(queue) = &self.event_queue {
-            let queued = events::from_session_event(event);
+            let queued = events::from_session_event(event, event_username);
             // This runs on the synchronous platform-pump thread, never on a
             // Tokio worker, so blocking on the async mutex here is safe and
             // avoids needing an async `handle`.
@@ -111,6 +164,30 @@ impl UsageRecorder {
         }
 
         Ok(())
+    }
+
+    /// Recomputes the shared snapshot from current tracker/session state.
+    /// Called after every event so heartbeats always reflect reality rather
+    /// than the value at agent startup.
+    fn refresh_snapshot(&self, event: SessionEvent) {
+        let state = if self.tracker.is_active() {
+            "ACTIVE"
+        } else {
+            match event {
+                SessionEvent::Suspend => "SUSPENDED",
+                SessionEvent::Logoff(_) => "NO_SESSION",
+                SessionEvent::Lock(_) => "LOCKED",
+                SessionEvent::ConsoleDisconnect(_) | SessionEvent::RemoteDisconnect(_) => "DISCONNECTED",
+                _ => "NO_SESSION",
+            }
+        };
+        // Single-user-at-a-time is the common case this is designed for;
+        // with multiple concurrent sessions (fast user switching, RDP) this
+        // just reports one of them rather than modelling all of them.
+        let username = self.session_usernames.values().next().cloned();
+        let mut snapshot = self.snapshot.lock().unwrap();
+        snapshot.state = state.to_string();
+        snapshot.username = username;
     }
 
     /// Call on clean agent shutdown so an in-progress session isn't left

@@ -10,13 +10,15 @@ use std::cell::RefCell;
 use std::sync::OnceLock;
 
 use anyhow::{anyhow, Context};
-use tracing::{error, warn};
-use windows::core::PCWSTR;
+use tracing::{error, info, warn};
+use windows::core::{PCWSTR, PWSTR};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Power::{RegisterSuspendResumeNotification, SetSuspendState};
 use windows::Win32::System::RemoteDesktop::{
-    WTSRegisterSessionNotification, WTSUnRegisterSessionNotification, NOTIFY_FOR_ALL_SESSIONS,
+    WTSConnected, WTSEnumerateSessionsW, WTSFreeMemory, WTSQuerySessionInformationW,
+    WTSRegisterSessionNotification, WTSUnRegisterSessionNotification, WTSActive,
+    WTS_CURRENT_SERVER_HANDLE, WTS_SESSION_INFOW, WTSUserName, NOTIFY_FOR_ALL_SESSIONS,
 };
 use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -94,6 +96,8 @@ pub fn run(recorder: UsageRecorder) -> anyhow::Result<()> {
     }
     .context("RegisterSuspendResumeNotification failed")?;
 
+    seed_active_sessions();
+
     let mut msg = MSG::default();
     // SAFETY: standard Win32 message loop; `msg` is valid for the call.
     while unsafe { GetMessageW(&mut msg, None, 0, 0) }.into() {
@@ -164,9 +168,14 @@ fn create_message_window() -> anyhow::Result<HWND> {
 extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match msg {
         WM_WTSSESSION_CHANGE => {
+            let reason = wparam.0 as u32;
             let session_id = lparam.0 as u32;
-            if let Some(event) = wts_reason_to_event(wparam.0 as u32, session_id) {
-                dispatch(event);
+            if let Some(event) = wts_reason_to_event(reason, session_id) {
+                // Only a fresh logon can resolve a *new* username; every
+                // other transition for this session reuses the one
+                // `UsageRecorder` already cached from the logon.
+                let username = (reason == WTS_SESSION_LOGON).then(|| session_username(session_id)).flatten();
+                dispatch(event, username);
             }
             LRESULT(0)
         }
@@ -177,7 +186,7 @@ extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM)
                 _ => None,
             };
             if let Some(event) = event {
-                dispatch(event);
+                dispatch(event, None);
             }
             LRESULT(1)
         }
@@ -206,12 +215,66 @@ fn wts_reason_to_event(reason: u32, session_id: u32) -> Option<SessionEvent> {
     }
 }
 
-fn dispatch(event: SessionEvent) {
+fn dispatch(event: SessionEvent, username: Option<String>) {
     RECORDER.with(|cell| {
         if let Some(recorder) = cell.borrow_mut().as_mut() {
-            if let Err(err) = recorder.handle(event) {
+            if let Err(err) = recorder.handle(event, username) {
                 warn!(?err, ?event, "failed to persist session event");
             }
         }
     });
+}
+
+/// Resolves the Windows account logged into `session_id`, if any. Returns
+/// `None` for sessions with no interactive user (e.g. Session 0) or if the
+/// query fails for any other reason (session already gone, access denied).
+fn session_username(session_id: u32) -> Option<String> {
+    let mut buffer = PWSTR::null();
+    let mut bytes_returned: u32 = 0;
+    // SAFETY: WTS_CURRENT_SERVER_HANDLE is the documented sentinel for "the
+    // local server"; `buffer`/`bytes_returned` are valid out-params, and the
+    // buffer WTS allocates on success is freed via WTSFreeMemory below.
+    let result = unsafe {
+        WTSQuerySessionInformationW(WTS_CURRENT_SERVER_HANDLE, session_id, WTSUserName, &mut buffer, &mut bytes_returned)
+    };
+    if result.is_err() || buffer.is_null() {
+        return None;
+    }
+    // SAFETY: on success `buffer` points to a NUL-terminated wide string
+    // allocated by WTS; freed unconditionally right after reading it.
+    let name = unsafe { buffer.to_string() }.ok().filter(|s| !s.is_empty());
+    unsafe { WTSFreeMemory(buffer.0.cast()) };
+    name
+}
+
+/// Best-effort recovery for a session that was already logged on before
+/// this process started listening for `WM_WTSSESSION_CHANGE` — the normal
+/// case after a service restart, or a reboot with an existing interactive
+/// logon. Windows only notifies about *changes*, not the state at
+/// registration time, so without this the agent would report no session
+/// (and the dashboard would show no current user) until the next
+/// lock/unlock cycle even though someone is actively using the device.
+fn seed_active_sessions() {
+    let mut sessions: *mut WTS_SESSION_INFOW = std::ptr::null_mut();
+    let mut count: u32 = 0;
+    // SAFETY: standard WTSEnumerateSessionsW usage; the buffer WTS
+    // allocates on success is freed via WTSFreeMemory below.
+    let result = unsafe { WTSEnumerateSessionsW(WTS_CURRENT_SERVER_HANDLE, 0, 1, &mut sessions, &mut count) };
+    if result.is_err() || sessions.is_null() {
+        return;
+    }
+    // SAFETY: on success `sessions` points to `count` contiguous
+    // WTS_SESSION_INFOW entries, valid until WTSFreeMemory below.
+    let entries = unsafe { std::slice::from_raw_parts(sessions, count as usize) };
+    for entry in entries {
+        if entry.State == WTSActive || entry.State == WTSConnected {
+            if let Some(username) = session_username(entry.SessionId) {
+                info!(session_id = entry.SessionId, %username, "found pre-existing session at startup");
+                dispatch(SessionEvent::Logon(entry.SessionId), Some(username));
+            }
+        }
+    }
+    // SAFETY: `sessions` was allocated by the WTSEnumerateSessionsW call
+    // above and hasn't been freed yet.
+    unsafe { WTSFreeMemory(sessions.cast()) };
 }

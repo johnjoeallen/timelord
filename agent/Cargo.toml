@@ -20,6 +20,7 @@ clap = { version = "4", features = ["derive"] }
 hostname = "0.4"
 if-addrs = "0.15.0"
 local-ip-address = "0.6"
+network-interface = "2.0.5"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }

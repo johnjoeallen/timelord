@@ -67,6 +67,7 @@ public class DeviceService {
         device.setOperatingSystemVersion(request.operatingSystemVersion());
         device.setArchitecture(request.architecture());
         device.setLocalIpAddresses(request.localIpAddresses());
+        device.setNetworkInterfaces(request.networkInterfaces());
         device.setSourceIp(sourceIp);
         device.setStatus(DeviceStatus.ONLINE);
         device.setLastRegistrationAt(now);

@@ -244,6 +244,7 @@ fn build_register_request(config: &timelord_agent::config::AgentConfig) -> timel
         operating_system_version: String::new(),
         architecture: std::env::consts::ARCH.to_string(),
         local_ip_addresses: Vec::new(),
+        network_interfaces: Vec::new(),
     }
 }
 

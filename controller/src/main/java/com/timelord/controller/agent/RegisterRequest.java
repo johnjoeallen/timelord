@@ -1,5 +1,6 @@
 package com.timelord.controller.agent;
 
+import com.timelord.controller.device.NetworkInterfaceInfo;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
@@ -13,6 +14,7 @@ public record RegisterRequest(
         String operatingSystem,
         String operatingSystemVersion,
         String architecture,
-        List<String> localIpAddresses
+        List<String> localIpAddresses,
+        List<NetworkInterfaceInfo> networkInterfaces
 ) {
 }

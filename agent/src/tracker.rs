@@ -87,6 +87,24 @@ impl Transition {
     }
 }
 
+impl SessionEvent {
+    /// The Windows session this event pertains to, if any (`Suspend`/`Resume`
+    /// are device-level and have none).
+    pub fn session_id(&self) -> Option<SessionId> {
+        match *self {
+            SessionEvent::Logon(id)
+            | SessionEvent::Logoff(id)
+            | SessionEvent::Lock(id)
+            | SessionEvent::Unlock(id)
+            | SessionEvent::ConsoleConnect(id)
+            | SessionEvent::ConsoleDisconnect(id)
+            | SessionEvent::RemoteConnect(id)
+            | SessionEvent::RemoteDisconnect(id) => Some(id),
+            SessionEvent::Suspend | SessionEvent::Resume => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct SessionPresence {
     /// `false` while locked, disconnected from console, or RDP-disconnected.

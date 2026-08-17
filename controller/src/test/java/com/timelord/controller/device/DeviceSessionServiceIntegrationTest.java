@@ -35,7 +35,7 @@ class DeviceSessionServiceIntegrationTest extends AbstractIntegrationTest {
     private UUID register(String hostname) {
         UUID deviceId = UUID.randomUUID();
         restTemplate.postForEntity("/api/v1/agents/register",
-                new RegisterRequest(deviceId, hostname, hostname, "0.1.0", "Windows 11", "10.0", "x86_64", List.of("10.0.0.1")),
+                new RegisterRequest(deviceId, hostname, hostname, "0.1.0", "Windows 11", "10.0", "x86_64", List.of("10.0.0.1"), List.of()),
                 RegisterResponse.class);
         return deviceId;
     }
