@@ -742,10 +742,22 @@ trusted local network.</p>
   someone logged in), or Inactive (online with nobody logged in).</figcaption>
 </figure>
 <figure>
-<p><img alt="Device detail page showing status, network interfaces, and login session history" src="images/device-detail.png" />
+<p><img alt="Device detail page, Session tab, showing status, network interfaces, and current user" src="images/device-detail.png" />
   </p>
-<figcaption>Device detail: live status, every network adapter (name/MAC/address), and login
-  session history with how each one ended.</figcaption>
+<figcaption>Device detail — Session tab: live status, every network adapter (name/MAC/address),
+  and who's currently logged in.</figcaption>
+</figure>
+<figure>
+<p><img alt="Device detail page, History tab, showing a table of past login sessions" src="images/device-detail-history.png" />
+  </p>
+<figcaption>Device detail — History tab: every login session for this device, and how each one
+  ended (logged out, disappeared, and so on).</figcaption>
+</figure>
+<figure>
+<p><img alt="Device detail page, Service tab, showing agent service state and registration times" src="images/device-detail-service.png" />
+  </p>
+<figcaption>Device detail — Service tab: the agent service's own state — registration and
+  heartbeat timestamps, independent of whether anyone's logged in.</figcaption>
 </figure>
 <h2 id="get-started">Get started<a class="headerlink" href="#get-started" title="Permanent link">&para;</a></h2>
 <p>TimeLord runs as two containers — <code>postgres</code> + <code>controller</code> — via <code>docker compose</code>:</p>
