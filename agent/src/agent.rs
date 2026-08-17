@@ -317,13 +317,31 @@ fn os_info() -> (String, String) {
     (std::env::consts::OS.to_string(), String::new())
 }
 
+/// True for link-local addresses: IPv4 APIPA (169.254.0.0/16, RFC 3927) and
+/// IPv6 link-local (fe80::/10, RFC 4291). Windows reports one of each per
+/// network adapter it enumerates — Wi-Fi, Ethernet, VPN, Hyper-V virtual
+/// switches, Bluetooth PAN, disconnected/unconfigured NICs, etc. — which
+/// are never reachable from another host and only add noise to the
+/// reported address list. Checked manually (rather than relying on
+/// `is_link_local`/`is_unicast_link_local`) to avoid depending on exact
+/// stdlib stabilization details across the toolchain versions this builds
+/// against.
+fn is_link_local(ip: &std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(v4) => {
+            let o = v4.octets();
+            o[0] == 169 && o[1] == 254
+        }
+        std::net::IpAddr::V6(v6) => (v6.segments()[0] & 0xffc0) == 0xfe80,
+    }
+}
+
 fn local_ip_addresses() -> Vec<String> {
     match local_ip_address::list_afinet_netifas() {
         Ok(interfaces) => interfaces
             .into_iter()
-            .map(|(_, ip)| ip)
-            .filter(|ip| !ip.is_loopback())
-            .map(|ip| ip.to_string())
+            .filter(|(_, ip)| !ip.is_loopback() && !is_link_local(ip))
+            .map(|(name, ip)| format!("{name}: {ip}"))
             .collect(),
         Err(err) => {
             warn!(?err, "failed to enumerate local IP addresses");
