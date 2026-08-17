@@ -16,9 +16,10 @@
                         <span>Status</span>
                         <span>
                             <span th:if="${device.active}" class="badge status-badge-active">Active</span>
-                            <span th:if="${!device.active}" class="badge"
-                                  th:classappend="${device.status.name() == 'ONLINE'} ? 'status-badge-online' : 'status-badge-offline'"
-                                  th:text="${device.status}"></span>
+                            <span th:if="${!device.active and device.status.name() == 'ONLINE'}"
+                                  class="badge status-badge-inactive">Inactive</span>
+                            <span th:if="${device.status.name() == 'OFFLINE'}"
+                                  class="badge status-badge-offline">Offline</span>
                         </span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between"><span>Hostname</span><span th:text="${device.hostname}"></span></li>

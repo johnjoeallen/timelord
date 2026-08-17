@@ -12,6 +12,7 @@ body {
 
 .status-badge-online,
 .status-badge-offline,
+.status-badge-inactive,
 .status-badge-active,
 .session-state-locked,
 .session-badge-logged-out,
@@ -21,7 +22,8 @@ body {
     font-weight: 500;
 }
 
-.status-badge-online {
+.status-badge-online,
+.session-badge-logged-out {
     background-color: #198754;
 }
 
@@ -29,13 +31,14 @@ body {
     background-color: #6610f2;
 }
 
+.status-badge-inactive {
+    background-color: #0dcaf0;
+    color: #055160;
+}
+
 .status-badge-offline,
 .session-badge-stopped {
     background-color: #6c757d;
-}
-
-.session-badge-logged-out {
-    background-color: #198754;
 }
 
 .session-state-locked,

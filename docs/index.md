@@ -29,9 +29,10 @@ for how long, and whether the machine is even reachable — and shows it on a li
   a controller. Every event is queued to local disk before delivery, so a controller outage never
   loses data; queued events retry with backoff and flush immediately on reconnect or shutdown.
 - **Controller** (Java / Spring Boot / PostgreSQL) accepts registration, heartbeats, and events
-  over HTTP, and computes two independent statuses per device:
-    - **Online / Offline** — is the agent reachable (recent heartbeats)?
-    - **Active** — is a user actually logged in right now?
+  over HTTP, and shows each device as one of three states:
+    - **Offline** — no events received within the timeout window.
+    - **Inactive** — online (agent reachable, recent heartbeats), but nobody's logged in.
+    - **Active** — online and a user is actually logged in right now.
 - **Login sessions** — a per-device history of login → logout spans, derived from the event log,
   distinct from "the agent was running." Starting the service with nobody logged in shows the
   machine online but produces no session at all.
@@ -41,9 +42,9 @@ for how long, and whether the machine is even reachable — and shows it on a li
 ## Screenshots
 
 <figure markdown>
-  ![Dashboard showing three devices: offline, online-and-active, online-with-no-user](images/dashboard.png)
-  <figcaption>The dashboard distinguishes three states per device: offline, online with someone
-  logged in ("Active"), and online with nobody logged in.</figcaption>
+  ![Dashboard showing three devices: Offline, Active, and Inactive](images/dashboard.png)
+  <figcaption>The dashboard shows exactly one status badge per device: Offline, Active (online with
+  someone logged in), or Inactive (online with nobody logged in).</figcaption>
 </figure>
 
 <figure markdown>

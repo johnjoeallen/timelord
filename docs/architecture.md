@@ -140,7 +140,7 @@ sequenceDiagram
     else no URL configured
         Agent->>Controller: UDP broadcast DISCOVER_CONTROLLER (requestId)
         Controller-->>Agent: UDP unicast CONTROLLER_AVAILABLE (same requestId)
-        Note over Agent: validate protocol/version/requestId/URL;<br/>if multiple replies, pick by priority,<br/>then speed, then smallest controller ID
+        Note over Agent: validate protocol/version/requestId/URL, if multiple replies, pick by priority, then speed, then smallest controller ID
         Agent->>Agent: persist chosen URL to agent.toml
     end
 
