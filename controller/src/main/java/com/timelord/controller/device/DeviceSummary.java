@@ -13,6 +13,7 @@ public record DeviceSummary(
         boolean active,
         String currentUser,
         String sessionState,
+        String displayStatus,
         Long idleSeconds,
         Instant lastHeartbeatAt,
         String sourceIp
@@ -28,6 +29,7 @@ public record DeviceSummary(
                 device.isActive(),
                 device.getCurrentUsername(),
                 device.getSessionState(),
+                device.getDisplayStatus(),
                 device.getIdleSeconds(),
                 device.getLastHeartbeatAt(),
                 device.getSourceIp()

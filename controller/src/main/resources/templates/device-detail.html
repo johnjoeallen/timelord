@@ -31,7 +31,7 @@
                         <ul class="list-group list-group-flush">
                             <li class="list-group-item d-flex justify-content-between">
                                 <span>Status</span>
-                                <span th:switch="${device.status.name() == 'OFFLINE' ? 'OFFLINE' : (device.active ? 'ACTIVE' : (device.sessionState ?: 'NO_SESSION'))}">
+                                <span th:switch="${device.displayStatus}">
                                     <span th:case="'OFFLINE'" class="badge status-badge-offline">Offline</span>
                                     <span th:case="'ACTIVE'" class="badge status-badge-active">Active</span>
                                     <span th:case="'LOCKED'" class="badge session-state-locked">Locked</span>
@@ -90,7 +90,7 @@
                                     <td th:text="${s.durationLabel()}"></td>
                                     <td th:text="${s.username} ?: '–'"></td>
                                     <td th:if="${s.ongoing}"
-                                        th:switch="${device.status.name() == 'OFFLINE' ? 'OFFLINE' : (device.active ? 'ACTIVE' : (device.sessionState ?: 'NO_SESSION'))}">
+                                        th:switch="${device.displayStatus}">
                                         <span th:case="'OFFLINE'" class="badge status-badge-offline">Offline</span>
                                         <span th:case="'ACTIVE'" class="badge status-badge-active">Active</span>
                                         <span th:case="'LOCKED'" class="badge session-state-locked">Locked</span>

@@ -207,6 +207,28 @@ public class Device {
                 && currentUsername != null && !currentUsername.isBlank();
     }
 
+    /**
+     * The single status badge value the UI should render: one of OFFLINE,
+     * ACTIVE, LOCKED, SUSPENDED, DISCONNECTED, or NO_SESSION. Deliberately
+     * not just the raw {@link #sessionState} column — that alone can't be
+     * trusted to mean "active" (see {@link #isActive()}'s extra guards), so
+     * a stale or inconsistent {@code sessionState == "ACTIVE"} with no
+     * confirmed current user collapses to NO_SESSION here instead of
+     * leaking through as a false Active badge.
+     */
+    public String getDisplayStatus() {
+        if (status == DeviceStatus.OFFLINE) {
+            return "OFFLINE";
+        }
+        if (isActive()) {
+            return "ACTIVE";
+        }
+        if ("ACTIVE".equals(sessionState)) {
+            return "NO_SESSION";
+        }
+        return sessionState != null ? sessionState : "NO_SESSION";
+    }
+
     public Long getIdleSeconds() {
         return idleSeconds;
     }
