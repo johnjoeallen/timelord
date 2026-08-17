@@ -2,6 +2,8 @@ package com.timelord.controller.timezone;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -34,8 +36,13 @@ public class RequestZoneResolver {
         for (Cookie cookie : cookies) {
             if (COOKIE_NAME.equals(cookie.getName())) {
                 try {
-                    return ZoneId.of(cookie.getValue());
-                } catch (DateTimeException | NullPointerException ex) {
+                    // The client sets this via encodeURIComponent (zone ids
+                    // like "Europe/Dublin" contain '/', which cookie values
+                    // can't hold literally) — servlet containers don't
+                    // decode cookie values themselves, so this has to.
+                    String decoded = URLDecoder.decode(cookie.getValue(), StandardCharsets.UTF_8);
+                    return ZoneId.of(decoded);
+                } catch (DateTimeException | NullPointerException | IllegalArgumentException ex) {
                     log.debug("Ignoring invalid '{}' cookie value '{}'", COOKIE_NAME, cookie.getValue());
                 }
             }
