@@ -132,5 +132,25 @@
     </div>
 </div>
 <div th:replace="~{fragments/live-refresh :: live-refresh}"></div>
+<script>
+    (function () {
+        // Keeps the selected Session/History/Service tab across the
+        // full-page reloads live-refresh does (a plain page load would
+        // otherwise always land back on the first, Session, tab).
+        document.addEventListener('DOMContentLoaded', function () {
+            if (location.hash) {
+                var trigger = document.querySelector('#stateTabs button[data-bs-target="' + location.hash + '"]');
+                if (trigger) {
+                    new bootstrap.Tab(trigger).show();
+                }
+            }
+            document.querySelectorAll('#stateTabs button[data-bs-toggle="tab"]').forEach(function (button) {
+                button.addEventListener('shown.bs.tab', function (event) {
+                    history.replaceState(null, '', event.target.getAttribute('data-bs-target'));
+                });
+            });
+        });
+    })();
+</script>
 </body>
 </html>
