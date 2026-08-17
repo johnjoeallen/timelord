@@ -18,7 +18,8 @@ use windows::Win32::System::Power::{RegisterSuspendResumeNotification, SetSuspen
 use windows::Win32::System::RemoteDesktop::{
     WTSConnected, WTSEnumerateSessionsW, WTSFreeMemory, WTSQuerySessionInformationW,
     WTSRegisterSessionNotification, WTSUnRegisterSessionNotification, WTSActive,
-    WTS_CURRENT_SERVER_HANDLE, WTS_SESSION_INFOW, WTSUserName, NOTIFY_FOR_ALL_SESSIONS,
+    WTSSessionInfoEx, WTS_CURRENT_SERVER_HANDLE, WTS_SESSIONSTATE_LOCK, WTS_SESSIONSTATE_UNLOCK,
+    WTS_SESSION_INFOW, WTSINFOEXW, WTSUserName, NOTIFY_FOR_ALL_SESSIONS,
 };
 use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -261,13 +262,16 @@ fn session_username(session_id: u32) -> Option<String> {
 /// user until the next lock/unlock cycle even though someone is actively
 /// using the device.
 ///
-/// Deliberately reports this via `UsageRecorder::seed_current_user`, not a
-/// synthetic `Logon` dispatch: there's no way to tell a genuinely new login
-/// apart from the agent process simply restarting while the same login
-/// continues, and treating every restart as a fresh logon would open (and
-/// report to the controller) a brand-new usage session each time the
-/// service bounces — fragmenting one continuous stretch of usage into
-/// spurious back-to-back session rows in the dashboard.
+/// For a session Windows can positively report as unlocked (see
+/// `session_locked`), this dispatches a real `Unlock` through
+/// `UsageRecorder::handle` rather than the conservative `seed_current_user`
+/// path — it correctly opens a local usage session and reports `ACTIVE`,
+/// and (unlike `Logon`) `USER_UNLOCK` isn't a controller-side session
+/// boundary, so it doesn't fragment the dashboard's session history the
+/// way a synthetic `Logon` would. When the lock state can't be determined
+/// (older Windows, or an RDP session WTS reports as `UNKNOWN`), it falls
+/// back to `seed_current_user`, which reports the conservative `LOCKED`
+/// state — logged in, presence unconfirmed — rather than overclaiming.
 fn seed_active_sessions() {
     let mut sessions: *mut WTS_SESSION_INFOW = std::ptr::null_mut();
     let mut count: u32 = 0;
@@ -283,10 +287,17 @@ fn seed_active_sessions() {
     for entry in entries {
         if entry.State == WTSActive || entry.State == WTSConnected {
             if let Some(username) = session_username(entry.SessionId) {
-                info!(session_id = entry.SessionId, %username, "found pre-existing session at startup");
+                let locked = session_locked(entry.SessionId);
+                info!(session_id = entry.SessionId, %username, ?locked, "found pre-existing session at startup");
                 RECORDER.with(|cell| {
                     if let Some(recorder) = cell.borrow_mut().as_mut() {
-                        recorder.seed_current_user(entry.SessionId, username);
+                        if locked == Some(false) {
+                            if let Err(err) = recorder.handle(SessionEvent::Unlock(entry.SessionId), Some(username)) {
+                                warn!(?err, "failed to persist seeded unlock event");
+                            }
+                        } else {
+                            recorder.seed_current_user(entry.SessionId, username);
+                        }
                     }
                 });
             }
@@ -295,4 +306,40 @@ fn seed_active_sessions() {
     // SAFETY: `sessions` was allocated by the WTSEnumerateSessionsW call
     // above and hasn't been freed yet.
     unsafe { WTSFreeMemory(sessions.cast()) };
+}
+
+/// Queries whether `session_id`'s workstation is currently locked, via
+/// `WTSSessionInfoEx` (Vista+) — unlike a plain `WTSEnumerateSessionsW`
+/// state, this can actually distinguish a locked console session from an
+/// unlocked one. Returns `None` if the query fails or Windows itself
+/// doesn't know (`WTS_SESSIONSTATE_UNKNOWN`, mainly seen on RDP sessions),
+/// so the caller can fall back to the conservative "logged in, presence
+/// unconfirmed" state.
+fn session_locked(session_id: u32) -> Option<bool> {
+    let mut buffer = PWSTR::null();
+    let mut bytes_returned: u32 = 0;
+    // SAFETY: WTS_CURRENT_SERVER_HANDLE is the documented sentinel for "the
+    // local server"; `buffer`/`bytes_returned` are valid out-params, and the
+    // buffer WTS allocates on success is freed via WTSFreeMemory below.
+    let result = unsafe {
+        WTSQuerySessionInformationW(WTS_CURRENT_SERVER_HANDLE, session_id, WTSSessionInfoEx, &mut buffer, &mut bytes_returned)
+    };
+    if result.is_err() || buffer.is_null() {
+        return None;
+    }
+    // SAFETY: on success `buffer` points to a WTSINFOEXW allocated by WTS;
+    // freed unconditionally right after reading it. Only Level 1 has a
+    // defined `Data` layout — anything else, treat as unknown.
+    let flags = unsafe {
+        match buffer.0.cast::<WTSINFOEXW>().as_ref() {
+            Some(info) if info.Level == 1 => Some(info.Data.WTSInfoExLevel1.SessionFlags),
+            _ => None,
+        }
+    };
+    unsafe { WTSFreeMemory(buffer.0.cast()) };
+    match flags {
+        Some(f) if f as u32 == WTS_SESSIONSTATE_LOCK => Some(true),
+        Some(f) if f as u32 == WTS_SESSIONSTATE_UNLOCK => Some(false),
+        _ => None,
+    }
 }
