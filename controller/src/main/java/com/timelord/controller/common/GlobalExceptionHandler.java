@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -14,6 +15,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiError> handleApiException(ApiException ex, HttpServletRequest request) {
         return build(ex.status(), ex.code(), ex.getMessage(), ex.details(), request);
+    }
+
+    /**
+     * Spring throws this for any unmatched path (a missing static asset
+     * like /favicon.ico, or just a typo'd URL) — without this handler it
+     * falls through to {@link #handleUnexpected}, which is wrong: a request
+     * for something that was never there isn't "unexpected", and reporting
+     * it as a 500 is actively misleading when debugging something else.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiError> handleNotFound(NoResourceFoundException ex, HttpServletRequest request) {
+        return build(HttpStatus.NOT_FOUND, "NOT_FOUND", "No resource at this path", List.of(), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
