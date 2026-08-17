@@ -12,6 +12,8 @@ body {
 
 .status-badge-online,
 .status-badge-offline,
+.status-badge-active,
+.session-badge-logged-out,
 .session-badge-stopped,
 .session-badge-suspended,
 .session-badge-disappeared {
@@ -22,9 +24,17 @@ body {
     background-color: #198754;
 }
 
+.status-badge-active {
+    background-color: #6610f2;
+}
+
 .status-badge-offline,
 .session-badge-stopped {
     background-color: #6c757d;
+}
+
+.session-badge-logged-out {
+    background-color: #198754;
 }
 
 .session-badge-suspended {

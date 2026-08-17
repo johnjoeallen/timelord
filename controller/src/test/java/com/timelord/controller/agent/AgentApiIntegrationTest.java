@@ -98,6 +98,21 @@ class AgentApiIntegrationTest extends AbstractIntegrationTest {
         assertThat(detail.sessionState()).isEqualTo("ACTIVE");
         assertThat(detail.idleSeconds()).isEqualTo(12L);
         assertThat(detail.status()).isEqualTo(DeviceStatus.ONLINE);
+        assertThat(detail.active()).isTrue();
+    }
+
+    @Test
+    void deviceIsNotActiveWithoutACurrentUser() {
+        UUID deviceId = UUID.randomUUID();
+        restTemplate.postForEntity("/api/v1/agents/register", newRegisterRequest(deviceId, "No User Device"), RegisterResponse.class);
+
+        HeartbeatRequest heartbeat = new HeartbeatRequest(UUID.randomUUID(), Instant.now(), "0.1.0", 60L,
+                "RUNNING", null, "NO_SESSION", null, null);
+        restTemplate.postForEntity("/api/v1/agents/" + deviceId + "/heartbeat", heartbeat, HeartbeatResponse.class);
+
+        DeviceDetail detail = restTemplate.getForObject("/api/v1/devices/" + deviceId, DeviceDetail.class);
+        assertThat(detail.status()).isEqualTo(DeviceStatus.ONLINE);
+        assertThat(detail.active()).isFalse();
     }
 
     @Test

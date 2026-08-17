@@ -14,9 +14,12 @@
                 <ul class="list-group list-group-flush">
                     <li class="list-group-item d-flex justify-content-between">
                         <span>Status</span>
-                        <span class="badge"
-                              th:classappend="${device.status.name() == 'ONLINE'} ? 'status-badge-online' : 'status-badge-offline'"
-                              th:text="${device.status}"></span>
+                        <span>
+                            <span class="badge"
+                                  th:classappend="${device.status.name() == 'ONLINE'} ? 'status-badge-online' : 'status-badge-offline'"
+                                  th:text="${device.status}"></span>
+                            <span th:if="${device.active}" class="badge status-badge-active">Active</span>
+                        </span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between"><span>Hostname</span><span th:text="${device.hostname}"></span></li>
                     <li class="list-group-item d-flex justify-content-between"><span>Agent version</span><span th:text="${device.agentVersion}"></span></li>
@@ -64,7 +67,7 @@
         </div>
     </div>
 
-    <h2 class="h4">Sessions</h2>
+    <h2 class="h4">User sessions</h2>
     <div class="table-responsive">
         <table class="table table-sm table-hover">
             <thead>
@@ -82,6 +85,8 @@
                 <td th:text="${s.durationLabel()}"></td>
                 <td>
                     <span th:if="${s.ongoing}">---</span>
+                    <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'LOGGED_OUT'}"
+                          class="badge session-badge-logged-out">Logged out</span>
                     <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'STOPPED'}"
                           class="badge session-badge-stopped">Stopped</span>
                     <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'SUSPENDED'}"
@@ -91,7 +96,7 @@
                 </td>
             </tr>
             <tr th:if="${#lists.isEmpty(sessions)}">
-                <td colspan="4" class="text-muted text-center py-3">No sessions for this device yet.</td>
+                <td colspan="4" class="text-muted text-center py-3">No user sessions for this device yet.</td>
             </tr>
             </tbody>
         </table>

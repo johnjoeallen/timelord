@@ -11,12 +11,14 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 /**
- * Derives per-device sessions — from when a device is first seen until it
- * either shuts down explicitly, is suspended, or stops sending heartbeats
- * for too long — from the device_event history, rather than a separately
- * maintained session table. At Phase 1 scale, reconstructing on read from
- * AGENT_STARTED / AGENT_STOPPING / SYSTEM_SUSPEND / SYSTEM_RESUME /
- * HEARTBEAT_SENT events is cheap and avoids a second source of truth to
+ * Derives per-device *login* sessions — from a USER_LOGON until the user
+ * logs off, the device suspends, the agent stops, or it stops sending
+ * heartbeats for too long — from the device_event history, rather than a
+ * separately maintained session table. A device simply being online
+ * (AGENT_STARTED, heartbeats) with nobody logged in has no session at all;
+ * see {@link Device#isActive()} for that live "is someone logged in right
+ * now" signal shown elsewhere on the dashboard. At Phase 1 scale,
+ * reconstructing on read is cheap and avoids a second source of truth to
  * keep in sync with the event log.
  */
 @Service
@@ -25,14 +27,16 @@ public class DeviceSessionService {
     /**
      * A silence longer than this — between any two consecutive session
      * events, or between the last one and now — ends the session even
-     * without an explicit stop/suspend, and a later heartbeat starts a new
-     * one rather than resurrecting the old session across the gap.
+     * without an explicit logoff/stop/suspend. Only a fresh USER_LOGON
+     * starts a new one; a heartbeat alone never resurrects or restarts a
+     * session across the gap, since it says nothing about whether anyone
+     * is actually logged in.
      */
     static final Duration MAX_SESSION_GAP = Duration.ofMinutes(3);
 
     private static final List<EventType> SESSION_BOUNDARY_TYPES = List.of(
-            EventType.AGENT_STARTED, EventType.AGENT_STOPPING,
-            EventType.SYSTEM_SUSPEND, EventType.SYSTEM_RESUME,
+            EventType.USER_LOGON, EventType.USER_LOGOFF,
+            EventType.AGENT_STOPPING, EventType.SYSTEM_SUSPEND,
             EventType.HEARTBEAT_SENT);
 
     private final DeviceEventRepository eventRepository;
@@ -52,19 +56,27 @@ public class DeviceSessionService {
 
         for (DeviceEvent event : events) {
             switch (event.getEventType()) {
-                case AGENT_STARTED -> {
+                case USER_LOGON -> {
                     if (sessionStart != null) {
-                        // No AGENT_STOPPING/SUSPEND arrived before this restart
-                        // — the previous run ended by disappearing.
+                        // Shouldn't normally happen (a logon while one is
+                        // already open implies a missed logoff) — close the
+                        // earlier one defensively rather than losing it.
                         sessions.add(closed(device, sessionStart, lastSeenAt, DeviceSession.EndReason.DISAPPEARED));
                     }
                     sessionStart = event.getOccurredAt();
                     lastSeenAt = event.getOccurredAt();
                 }
-                case AGENT_STOPPING -> {
-                    // An explicit stop always closes at its own timestamp,
+                case USER_LOGOFF -> {
+                    // An explicit logoff always closes at its own timestamp,
                     // regardless of how long it's been since the last
                     // heartbeat — it's authoritative, not a guess from silence.
+                    if (sessionStart != null) {
+                        sessions.add(closed(device, sessionStart, event.getOccurredAt(), DeviceSession.EndReason.LOGGED_OUT));
+                        sessionStart = null;
+                        lastSeenAt = null;
+                    }
+                }
+                case AGENT_STOPPING -> {
                     if (sessionStart != null) {
                         sessions.add(closed(device, sessionStart, event.getOccurredAt(), DeviceSession.EndReason.STOPPED));
                         sessionStart = null;
@@ -72,7 +84,6 @@ public class DeviceSessionService {
                     }
                 }
                 case SYSTEM_SUSPEND -> {
-                    // Same reasoning as AGENT_STOPPING: explicit and authoritative.
                     if (sessionStart != null) {
                         sessions.add(closed(device, sessionStart, event.getOccurredAt(), DeviceSession.EndReason.SUSPENDED));
                         sessionStart = null;
@@ -80,20 +91,20 @@ public class DeviceSessionService {
                     }
                 }
                 default -> {
-                    // SYSTEM_RESUME or HEARTBEAT_SENT: both are "still alive"
-                    // signals rather than explicit boundaries, so a silence
-                    // longer than the gap threshold before one of these means
-                    // the session actually ended partway through the gap —
-                    // close it there and let this event start a new one,
-                    // instead of resurrecting the old session across the gap.
-                    if (sessionStart != null && lastSeenAt != null && exceedsGap(lastSeenAt, event.getOccurredAt())) {
-                        sessions.add(closed(device, sessionStart, lastSeenAt, DeviceSession.EndReason.DISAPPEARED));
-                        sessionStart = null;
+                    // HEARTBEAT_SENT: a "still alive" signal for whatever
+                    // session is already open. Never starts one on its own —
+                    // a heartbeat says nothing about whether a user is
+                    // logged in, only USER_LOGON does that. A silence
+                    // longer than the gap threshold before one arrives means
+                    // the session actually ended partway through the gap.
+                    if (sessionStart != null) {
+                        if (lastSeenAt != null && exceedsGap(lastSeenAt, event.getOccurredAt())) {
+                            sessions.add(closed(device, sessionStart, lastSeenAt, DeviceSession.EndReason.DISAPPEARED));
+                            sessionStart = null;
+                        } else {
+                            lastSeenAt = event.getOccurredAt();
+                        }
                     }
-                    if (sessionStart == null) {
-                        sessionStart = event.getOccurredAt();
-                    }
-                    lastSeenAt = event.getOccurredAt();
                 }
             }
         }
@@ -105,20 +116,6 @@ public class DeviceSessionService {
             } else {
                 Instant end = lastSeenAt != null ? lastSeenAt : sessionStart;
                 sessions.add(closed(device, sessionStart, end, DeviceSession.EndReason.DISAPPEARED));
-            }
-        }
-
-        if (sessions.isEmpty() && device.getRegisteredAt() != null) {
-            // No AGENT_STARTED on record (e.g. a device registered before
-            // session tracking existed) — fall back to registration time so
-            // the device still shows up with a session.
-            Instant start = device.getRegisteredAt();
-            boolean stillFresh = device.getLastHeartbeatAt() != null && !exceedsGap(device.getLastHeartbeatAt(), Instant.now());
-            if (device.getStatus() == DeviceStatus.ONLINE && stillFresh) {
-                sessions.add(open(device, start));
-            } else {
-                Instant end = device.getLastHeartbeatAt() != null ? device.getLastHeartbeatAt() : start;
-                sessions.add(closed(device, start, end, DeviceSession.EndReason.DISAPPEARED));
             }
         }
 

@@ -4,11 +4,14 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * A device's presence on the network from when it starts up until it either
- * shuts down explicitly, is suspended, or stops sending heartbeats for
- * longer than {@link DeviceSessionService#MAX_SESSION_GAP}. There's no
- * persisted session table — see {@link DeviceSessionService} for how these
- * are reconstructed from the event log.
+ * A span of time a user was actually logged in — from a USER_LOGON until
+ * they log off, the device suspends, the agent stops, or it stops sending
+ * heartbeats for longer than {@link DeviceSessionService#MAX_SESSION_GAP}.
+ * A device merely being online with nobody logged in has no session at all
+ * — see {@link Device#isActive()} for that live "is someone logged in right
+ * now" signal. There's no persisted session table — see
+ * {@link DeviceSessionService} for how these are reconstructed from the
+ * event log.
  */
 public record DeviceSession(
         UUID deviceId,
@@ -20,9 +23,11 @@ public record DeviceSession(
         long durationSeconds
 ) {
     public enum EndReason {
-        /** An AGENT_STOPPING event closed the session (graceful shutdown). */
+        /** A USER_LOGOFF event closed the session (the user logged out). */
+        LOGGED_OUT,
+        /** An AGENT_STOPPING event closed the session (agent/service shut down while a user was logged in). */
         STOPPED,
-        /** A SYSTEM_SUSPEND event closed the session (the device went to sleep). */
+        /** A SYSTEM_SUSPEND event closed the session (the device went to sleep while a user was logged in). */
         SUSPENDED,
         /** No more heartbeats arrived for longer than the session gap threshold. */
         DISAPPEARED
