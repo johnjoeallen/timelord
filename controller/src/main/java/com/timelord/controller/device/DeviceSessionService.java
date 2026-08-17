@@ -11,15 +11,19 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 /**
- * Derives per-device *login* sessions — from a USER_LOGON until the user
- * logs off, the device suspends, the agent stops, or it stops sending
- * heartbeats for too long — from the device_event history, rather than a
- * separately maintained session table. A device simply being online
- * (AGENT_STARTED, heartbeats) with nobody logged in has no session at all;
- * see {@link Device#isActive()} for that live "is someone logged in right
- * now" signal shown elsewhere on the dashboard. At Phase 1 scale,
- * reconstructing on read is cheap and avoids a second source of truth to
- * keep in sync with the event log.
+ * Derives per-device *active use* sessions — from a USER_LOGON or
+ * USER_UNLOCK until the workstation locks, the user logs off, the device
+ * suspends, the agent stops, or it stops sending heartbeats for too long —
+ * from the device_event history, rather than a separately maintained
+ * session table. Locking ends a session the same as logging off does: a
+ * session is "someone actually using the device," not "someone logged in,"
+ * so a lock/unlock cycle is a boundary between two sessions rather than a
+ * pause within one. A device simply being online (AGENT_STARTED,
+ * heartbeats) with nobody logged in has no session at all; see
+ * {@link Device#isActive()} for that live "is someone logged in right now"
+ * signal shown elsewhere on the dashboard. At Phase 1 scale, reconstructing
+ * on read is cheap and avoids a second source of truth to keep in sync with
+ * the event log.
  */
 @Service
 public class DeviceSessionService {
@@ -27,15 +31,16 @@ public class DeviceSessionService {
     /**
      * A silence longer than this — between any two consecutive session
      * events, or between the last one and now — ends the session even
-     * without an explicit logoff/stop/suspend. Only a fresh USER_LOGON
-     * starts a new one; a heartbeat alone never resurrects or restarts a
-     * session across the gap, since it says nothing about whether anyone
-     * is actually logged in.
+     * without an explicit logoff/lock/stop/suspend. Only a fresh
+     * USER_LOGON/USER_UNLOCK starts a new one; a heartbeat alone never
+     * resurrects or restarts a session across the gap, since it says
+     * nothing about whether anyone is actually logged in.
      */
     static final Duration MAX_SESSION_GAP = Duration.ofMinutes(3);
 
     private static final List<EventType> SESSION_BOUNDARY_TYPES = List.of(
             EventType.USER_LOGON, EventType.USER_LOGOFF,
+            EventType.USER_LOCK, EventType.USER_UNLOCK,
             EventType.AGENT_STOPPING, EventType.SYSTEM_SUSPEND,
             EventType.HEARTBEAT_SENT);
 
@@ -57,11 +62,12 @@ public class DeviceSessionService {
 
         for (DeviceEvent event : events) {
             switch (event.getEventType()) {
-                case USER_LOGON -> {
+                case USER_LOGON, USER_UNLOCK -> {
                     if (sessionStart != null) {
-                        // Shouldn't normally happen (a logon while one is
-                        // already open implies a missed logoff) — close the
-                        // earlier one defensively rather than losing it.
+                        // Shouldn't normally happen (a logon/unlock while one
+                        // is already open implies a missed logoff/lock) —
+                        // close the earlier one defensively rather than
+                        // losing it.
                         sessions.add(closed(device, sessionUsername, sessionStart, lastSeenAt, DeviceSession.EndReason.DISAPPEARED));
                     }
                     sessionStart = event.getOccurredAt();
@@ -74,6 +80,21 @@ public class DeviceSessionService {
                     // heartbeat — it's authoritative, not a guess from silence.
                     if (sessionStart != null) {
                         sessions.add(closed(device, sessionUsername, sessionStart, event.getOccurredAt(), DeviceSession.EndReason.LOGGED_OUT));
+                        sessionStart = null;
+                        lastSeenAt = null;
+                        sessionUsername = null;
+                    }
+                }
+                case USER_LOCK -> {
+                    // A session is "active use", not "logged in" — locking
+                    // the workstation ends the current one the same way a
+                    // logoff does, just with its own end reason. The next
+                    // USER_UNLOCK (or USER_LOGON, if they log back in as
+                    // someone else) opens a fresh one rather than resuming
+                    // this one, so each row reflects one contiguous stretch
+                    // of actual use.
+                    if (sessionStart != null) {
+                        sessions.add(closed(device, sessionUsername, sessionStart, event.getOccurredAt(), DeviceSession.EndReason.LOCKED));
                         sessionStart = null;
                         lastSeenAt = null;
                         sessionUsername = null;

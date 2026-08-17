@@ -101,6 +101,8 @@
                                     <td th:if="${!s.ongoing}">
                                         <span th:if="${s.endReason != null and s.endReason.name() == 'LOGGED_OUT'}"
                                               class="badge session-badge-logged-out">Logged out</span>
+                                        <span th:if="${s.endReason != null and s.endReason.name() == 'LOCKED'}"
+                                              class="badge session-state-locked">Locked</span>
                                         <span th:if="${s.endReason != null and s.endReason.name() == 'STOPPED'}"
                                               class="badge session-badge-stopped">Stopped</span>
                                         <span th:if="${s.endReason != null and s.endReason.name() == 'SUSPENDED'}"

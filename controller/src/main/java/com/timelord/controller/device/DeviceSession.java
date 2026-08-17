@@ -4,12 +4,13 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * A span of time a user was actually logged in — from a USER_LOGON until
- * they log off, the device suspends, the agent stops, or it stops sending
- * heartbeats for longer than {@link DeviceSessionService#MAX_SESSION_GAP}.
- * A device merely being online with nobody logged in has no session at all
- * — see {@link Device#isActive()} for that live "is someone logged in right
- * now" signal. There's no persisted session table — see
+ * A span of time a user was actually, actively using the device — from a
+ * USER_LOGON or USER_UNLOCK until they lock the workstation, log off, the
+ * device suspends, the agent stops, or it stops sending heartbeats for
+ * longer than {@link DeviceSessionService#MAX_SESSION_GAP}. A device merely
+ * being online with nobody logged in has no session at all — see
+ * {@link Device#isActive()} for that live "is someone logged in right now"
+ * signal. There's no persisted session table — see
  * {@link DeviceSessionService} for how these are reconstructed from the
  * event log.
  */
@@ -26,6 +27,8 @@ public record DeviceSession(
     public enum EndReason {
         /** A USER_LOGOFF event closed the session (the user logged out). */
         LOGGED_OUT,
+        /** A USER_LOCK event closed the session (the workstation was locked). */
+        LOCKED,
         /** An AGENT_STOPPING event closed the session (agent/service shut down while a user was logged in). */
         STOPPED,
         /** A SYSTEM_SUSPEND event closed the session (the device went to sleep while a user was logged in). */

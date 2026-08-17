@@ -91,6 +91,46 @@ class DeviceSessionServiceIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void logonThenLockClosesOneSessionAsLocked() {
+        UUID deviceId = register("lock-host-" + UUID.randomUUID());
+        Instant start = now().minus(1, ChronoUnit.HOURS);
+        submit(deviceId, EventType.USER_LOGON, start, "alice");
+        submit(deviceId, EventType.USER_LOCK, start.plus(10, ChronoUnit.MINUTES));
+
+        Device device = deviceRepository.findById(deviceId).orElseThrow();
+        List<DeviceSession> sessions = sessionService.sessionsFor(device);
+
+        assertThat(sessions).hasSize(1);
+        assertThat(sessions.get(0).isOngoing()).isFalse();
+        assertThat(sessions.get(0).endReason()).isEqualTo(DeviceSession.EndReason.LOCKED);
+        assertThat(sessions.get(0).durationSeconds()).isEqualTo(600);
+        assertThat(sessions.get(0).username()).isEqualTo("alice");
+    }
+
+    @Test
+    void unlockingAfterALockStartsANewSession() {
+        UUID deviceId = register("unlock-host-" + UUID.randomUUID());
+        Instant start = now().minus(90, ChronoUnit.MINUTES);
+        submit(deviceId, EventType.USER_LOGON, start, "alice");
+        submit(deviceId, EventType.USER_LOCK, start.plus(20, ChronoUnit.MINUTES));
+        Instant unlockedAt = now().minus(2, ChronoUnit.MINUTES);
+        submit(deviceId, EventType.USER_UNLOCK, unlockedAt, "alice");
+        Instant lastHeartbeat = now().minus(30, ChronoUnit.SECONDS);
+        submit(deviceId, EventType.HEARTBEAT_SENT, lastHeartbeat);
+        setStatus(deviceId, DeviceStatus.ONLINE, lastHeartbeat);
+
+        Device device = deviceRepository.findById(deviceId).orElseThrow();
+        List<DeviceSession> sessions = sessionService.sessionsFor(device);
+
+        assertThat(sessions).hasSize(2);
+        // Newest first.
+        assertThat(sessions.get(0).start()).isEqualTo(unlockedAt);
+        assertThat(sessions.get(0).isOngoing()).isTrue();
+        assertThat(sessions.get(0).username()).isEqualTo("alice");
+        assertThat(sessions.get(1).endReason()).isEqualTo(DeviceSession.EndReason.LOCKED);
+    }
+
+    @Test
     void logonThenStoppingClosesOneSessionAsStopped() {
         UUID deviceId = register("stopped-host-" + UUID.randomUUID());
         Instant start = now().minus(1, ChronoUnit.HOURS);
