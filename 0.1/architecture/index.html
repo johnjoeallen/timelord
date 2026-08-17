@@ -398,6 +398,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#before-you-deploy-this" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Before you deploy this
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#summary" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -509,6 +520,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#before-you-deploy-this" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Before you deploy this
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#summary" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -612,6 +634,11 @@
 
 <h1 id="timelord-phase-1-architecture">TimeLord Phase 1 Architecture<a class="headerlink" href="#timelord-phase-1-architecture" title="Permanent link">&para;</a></h1>
 <blockquote>
+<p><strong>This is a developer preview, not a product.</strong> Phase 1 exists to prove the
+shape of the system on a single trusted local network. It has not been
+hardened, load-tested, or run unattended for long periods, there are no
+stability guarantees between versions, and it is not meant for production
+use. See <a href="#before-you-deploy-this">Before you deploy this</a> below.</p>
 <p><strong>Phase 1 is monitoring only.</strong> There is no schedule engine, session-limit
 enforcement, mandatory-break logic, or remote power control — TimeLord
 observes and reports what's happening on each device; it doesn't act on it
@@ -623,6 +650,32 @@ network, ahead of a later security phase. See
 <a href="#security-boundary">Security boundary</a> below before running this anywhere
 else.</p>
 </blockquote>
+<h2 id="before-you-deploy-this">Before you deploy this<a class="headerlink" href="#before-you-deploy-this" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Developer preview.</strong> Expect rough edges, breaking config/schema changes
+  between versions, and no migration tooling. Test on a couple of
+  non-critical machines before trusting it with anything that matters.</li>
+<li><strong>Every agent must be able to reach the controller directly, on the same
+  network(s).</strong> All traffic — registration, heartbeats, event delivery, and
+  discovery replies — is unicast HTTP (broadcast UDP only for the initial
+  discovery request). There's no NAT traversal, no relay, and no
+  cloud/VPN-aware routing: if an agent's machine can't open a TCP connection
+  straight to <code>TIMELORD_PUBLIC_URL</code>, it can't be managed at all. See
+  <a href="#known-limitations">Known limitations</a> for the additional constraint this
+  puts on UDP discovery specifically (same broadcast domain, not just same
+  routed network).</li>
+<li><strong>The agent will put an unreachable device to sleep overnight.</strong> If an
+  agent can't reach the controller <em>at all</em> (not merely a slow heartbeat —
+  registration, heartbeats, and event delivery all failing), it falls back to
+  a local safety schedule: by default, between <strong>01:00 and 08:30 local time</strong>,
+  every 5 minutes while still disconnected, it puts the device to sleep
+  (<code>SetSuspendState</code> — sleep, never a shutdown or hibernate). This is a
+  per-agent behavior with <strong>no way to configure or disable it from the
+  controller/dashboard</strong> — changing the window, or turning it off, means
+  hand-editing that device's local <code>agent.toml</code> and restarting the service.
+  See <code>agent/README.md</code>'s "Offline fallback" section for exactly how it
+  behaves.</li>
+</ul>
 <h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
 <p>TimeLord Phase 1 has three moving pieces:</p>
 <ul>

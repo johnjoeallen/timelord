@@ -569,13 +569,23 @@
 <h1 id="timelord">TimeLord<a class="headerlink" href="#timelord" title="Permanent link">&para;</a></h1>
 <p>TimeLord tracks how Windows devices on your network are actually being used — who's logged in,
 for how long, and whether the machine is even reachable — and shows it on a live dashboard.</p>
-<div class="admonition warning">
-<p class="admonition-title">Phase 1 is monitoring only</p>
-<p>Nothing in this build enforces anything. There's no schedule engine, no session-limit
-enforcement, no forced breaks, and no remote power control — the <a href="https://github.com/johnjoeallen/timelord#readme"><code>README</code></a>
-tagline about "securely enforcing schedules" describes the eventual project, not what's
-running today. Today, TimeLord <strong>observes and reports</strong>: it tells you what's happening, it
-doesn't act on it. It also runs over plain, unauthenticated HTTP — see
+<div class="admonition danger">
+<p class="admonition-title">Developer preview — not for production use</p>
+<p>This is Phase 1: a working proof of the system's shape, not a hardened product. Expect rough
+edges and breaking changes between versions. Three things worth knowing before you point it
+at real devices — details in <a href="architecture/#before-you-deploy-this">Before you deploy this</a>:</p>
+<ul>
+<li><strong>Monitoring only.</strong> No schedule engine, session-limit enforcement, forced breaks, or
+  remote power control — the <a href="https://github.com/johnjoeallen/timelord#readme"><code>README</code></a>
+  tagline describes the eventual project, not what's running today. TimeLord <strong>observes and
+  reports</strong>; it doesn't act.</li>
+<li><strong>Every agent must reach the controller directly, on the same network(s).</strong> Everything is
+  unicast HTTP — no NAT traversal, relay, or cloud/VPN routing.</li>
+<li><strong>Unreachable devices get put to sleep overnight.</strong> By default, an agent that can't reach
+  the controller <em>at all</em> puts the device to sleep between 01:00–08:30 local time — not
+  configurable from the controller, only from that device's local <code>agent.toml</code>.</li>
+</ul>
+<p>It also runs over plain, unauthenticated HTTP — see
 <a href="architecture/#security-boundary">Security boundary</a> before running it anywhere but a
 trusted local network.</p>
 </div>
