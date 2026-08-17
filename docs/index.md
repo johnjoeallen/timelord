@@ -48,9 +48,21 @@ for how long, and whether the machine is even reachable — and shows it on a li
 </figure>
 
 <figure markdown>
-  ![Device detail page showing status, network interfaces, and login session history](images/device-detail.png)
-  <figcaption>Device detail: live status, every network adapter (name/MAC/address), and login
-  session history with how each one ended.</figcaption>
+  ![Device detail page, Session tab, showing status, network interfaces, and current user](images/device-detail.png)
+  <figcaption>Device detail — Session tab: live status, every network adapter (name/MAC/address),
+  and who's currently logged in.</figcaption>
+</figure>
+
+<figure markdown>
+  ![Device detail page, History tab, showing a table of past login sessions](images/device-detail-history.png)
+  <figcaption>Device detail — History tab: every login session for this device, and how each one
+  ended (logged out, disappeared, and so on).</figcaption>
+</figure>
+
+<figure markdown>
+  ![Device detail page, Service tab, showing agent service state and registration times](images/device-detail-service.png)
+  <figcaption>Device detail — Service tab: the agent service's own state — registration and
+  heartbeat timestamps, independent of whether anyone's logged in.</figcaption>
 </figure>
 
 ## Get started
