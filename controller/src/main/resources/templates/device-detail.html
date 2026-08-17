@@ -23,7 +23,6 @@
                             <span th:case="*" class="badge status-badge-inactive">Inactive</span>
                         </span>
                     </li>
-                    <li class="list-group-item d-flex justify-content-between"><span>Current user</span><span th:text="${device.currentUser} ?: '–'"></span></li>
                     <li class="list-group-item d-flex justify-content-between"><span>Hostname</span><span th:text="${device.hostname}"></span></li>
                     <li class="list-group-item d-flex justify-content-between"><span>Agent version</span><span th:text="${device.agentVersion}"></span></li>
                     <li class="list-group-item d-flex justify-content-between"><span>Operating system</span><span th:text="${device.operatingSystem} + ' ' + ${device.operatingSystemVersion}"></span></li>
@@ -66,11 +65,16 @@
                             <button class="nav-link" id="service-tab" data-bs-toggle="tab" data-bs-target="#service-pane"
                                     type="button" role="tab" aria-controls="service-pane" aria-selected="false">Service</button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="session-history-tab" data-bs-toggle="tab" data-bs-target="#session-history-pane"
+                                    type="button" role="tab" aria-controls="session-history-pane" aria-selected="false">Session History</button>
+                        </li>
                     </ul>
                 </div>
                 <div class="tab-content" id="stateTabsContent">
                     <div class="tab-pane fade show active" id="session-pane" role="tabpanel" aria-labelledby="session-tab">
                         <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between"><span>Current user</span><span th:text="${device.currentUser} ?: '–'"></span></li>
                             <li class="list-group-item d-flex justify-content-between"><span>Idle seconds</span><span th:text="${device.idleSeconds} ?: '–'"></span></li>
                         </ul>
                     </div>
@@ -82,54 +86,54 @@
                             <li class="list-group-item d-flex justify-content-between"><span>Last heartbeat</span><span th:text="${device.lastHeartbeatAt} ? ${@timeFormat.format(device.lastHeartbeatAt, zone)} : 'never'"></span></li>
                         </ul>
                     </div>
+                    <div class="tab-pane fade" id="session-history-pane" role="tabpanel" aria-labelledby="session-history-tab">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead>
+                                <tr>
+                                    <th>Start</th>
+                                    <th class="d-none d-sm-table-cell">End</th>
+                                    <th>Duration</th>
+                                    <th>User</th>
+                                    <th>Status</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="s : ${sessions}">
+                                    <td th:text="${@timeFormat.format(s.start, zone)}"></td>
+                                    <td class="d-none d-sm-table-cell" th:text="${s.end} ? ${@timeFormat.format(s.end, zone)} : '---'"></td>
+                                    <td th:text="${s.durationLabel()}"></td>
+                                    <td th:text="${s.username} ?: '–'"></td>
+                                    <td th:if="${s.ongoing}"
+                                        th:switch="${device.status.name() == 'OFFLINE' ? 'OFFLINE' : (device.active ? 'ACTIVE' : (device.sessionState ?: 'NO_SESSION'))}">
+                                        <span th:case="'OFFLINE'" class="badge status-badge-offline">Offline</span>
+                                        <span th:case="'ACTIVE'" class="badge status-badge-active">Active</span>
+                                        <span th:case="'LOCKED'" class="badge session-state-locked">Locked</span>
+                                        <span th:case="'SUSPENDED'" class="badge session-badge-suspended">Suspended</span>
+                                        <span th:case="'DISCONNECTED'" class="badge session-badge-disappeared">Disconnected</span>
+                                        <span th:case="*" class="badge status-badge-inactive">Inactive</span>
+                                    </td>
+                                    <td th:if="${!s.ongoing}">
+                                        <span th:if="${s.endReason != null and s.endReason.name() == 'LOGGED_OUT'}"
+                                              class="badge session-badge-logged-out">Logged out</span>
+                                        <span th:if="${s.endReason != null and s.endReason.name() == 'STOPPED'}"
+                                              class="badge session-badge-stopped">Stopped</span>
+                                        <span th:if="${s.endReason != null and s.endReason.name() == 'SUSPENDED'}"
+                                              class="badge session-badge-suspended">Suspended</span>
+                                        <span th:if="${s.endReason != null and s.endReason.name() == 'DISAPPEARED'}"
+                                              class="badge session-badge-disappeared">Disappeared</span>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(sessions)}">
+                                    <td colspan="5" class="text-muted text-center py-3">No user sessions for this device yet.</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-
-    <h2 class="h4">User sessions</h2>
-    <div class="table-responsive">
-        <table class="table table-sm table-hover">
-            <thead>
-            <tr>
-                <th>Start</th>
-                <th class="d-none d-sm-table-cell">End</th>
-                <th>Duration</th>
-                <th>User</th>
-                <th>Status</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:each="s : ${sessions}">
-                <td th:text="${@timeFormat.format(s.start, zone)}"></td>
-                <td class="d-none d-sm-table-cell" th:text="${s.end} ? ${@timeFormat.format(s.end, zone)} : '---'"></td>
-                <td th:text="${s.durationLabel()}"></td>
-                <td th:text="${s.username} ?: '–'"></td>
-                <td th:if="${s.ongoing}"
-                    th:switch="${device.status.name() == 'OFFLINE' ? 'OFFLINE' : (device.active ? 'ACTIVE' : (device.sessionState ?: 'NO_SESSION'))}">
-                    <span th:case="'OFFLINE'" class="badge status-badge-offline">Offline</span>
-                    <span th:case="'ACTIVE'" class="badge status-badge-active">Active</span>
-                    <span th:case="'LOCKED'" class="badge session-state-locked">Locked</span>
-                    <span th:case="'SUSPENDED'" class="badge session-badge-suspended">Suspended</span>
-                    <span th:case="'DISCONNECTED'" class="badge session-badge-disappeared">Disconnected</span>
-                    <span th:case="*" class="badge status-badge-inactive">Inactive</span>
-                </td>
-                <td th:if="${!s.ongoing}">
-                    <span th:if="${s.endReason != null and s.endReason.name() == 'LOGGED_OUT'}"
-                          class="badge session-badge-logged-out">Logged out</span>
-                    <span th:if="${s.endReason != null and s.endReason.name() == 'STOPPED'}"
-                          class="badge session-badge-stopped">Stopped</span>
-                    <span th:if="${s.endReason != null and s.endReason.name() == 'SUSPENDED'}"
-                          class="badge session-badge-suspended">Suspended</span>
-                    <span th:if="${s.endReason != null and s.endReason.name() == 'DISAPPEARED'}"
-                          class="badge session-badge-disappeared">Disappeared</span>
-                </td>
-            </tr>
-            <tr th:if="${#lists.isEmpty(sessions)}">
-                <td colspan="5" class="text-muted text-center py-3">No user sessions for this device yet.</td>
-            </tr>
-            </tbody>
-        </table>
     </div>
 </div>
 <div th:replace="~{fragments/live-refresh :: live-refresh}"></div>
