@@ -17,6 +17,7 @@ public record DeviceSession(
         UUID deviceId,
         String deviceName,
         String hostname,
+        String username,
         Instant start,
         Instant end,
         EndReason endReason,

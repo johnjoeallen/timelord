@@ -41,8 +41,12 @@ class DeviceSessionServiceIntegrationTest extends AbstractIntegrationTest {
     }
 
     private void submit(UUID deviceId, EventType type, Instant occurredAt) {
+        submit(deviceId, type, occurredAt, null);
+    }
+
+    private void submit(UUID deviceId, EventType type, Instant occurredAt, String username) {
         EventSubmissionRequest request = new EventSubmissionRequest(List.of(
-                new EventItem(UUID.randomUUID(), type, occurredAt, EventSeverity.INFO, EventSource.AGENT, null, null, Map.of())));
+                new EventItem(UUID.randomUUID(), type, occurredAt, EventSeverity.INFO, EventSource.AGENT, null, username, Map.of())));
         EventSubmissionResponse response = restTemplate.postForObject(
                 "/api/v1/agents/" + deviceId + "/events", request, EventSubmissionResponse.class);
         assertThat(response.accepted()).isEqualTo(1);
@@ -73,7 +77,7 @@ class DeviceSessionServiceIntegrationTest extends AbstractIntegrationTest {
     void logonThenLogoffClosesOneSessionAsLoggedOut() {
         UUID deviceId = register("logout-host-" + UUID.randomUUID());
         Instant start = now().minus(1, ChronoUnit.HOURS);
-        submit(deviceId, EventType.USER_LOGON, start);
+        submit(deviceId, EventType.USER_LOGON, start, "alice");
         submit(deviceId, EventType.USER_LOGOFF, start.plus(15, ChronoUnit.MINUTES));
 
         Device device = deviceRepository.findById(deviceId).orElseThrow();
@@ -83,6 +87,7 @@ class DeviceSessionServiceIntegrationTest extends AbstractIntegrationTest {
         assertThat(sessions.get(0).isOngoing()).isFalse();
         assertThat(sessions.get(0).endReason()).isEqualTo(DeviceSession.EndReason.LOGGED_OUT);
         assertThat(sessions.get(0).durationSeconds()).isEqualTo(900);
+        assertThat(sessions.get(0).username()).isEqualTo("alice");
     }
 
     @Test
@@ -123,10 +128,10 @@ class DeviceSessionServiceIntegrationTest extends AbstractIntegrationTest {
         // unlike the other tests, the tail end of this timeline has to be
         // genuinely recent, not just relatively spaced from `start`.
         Instant start = now().minus(90, ChronoUnit.MINUTES);
-        submit(deviceId, EventType.USER_LOGON, start);
+        submit(deviceId, EventType.USER_LOGON, start, "alice");
         submit(deviceId, EventType.SYSTEM_SUSPEND, start.plus(20, ChronoUnit.MINUTES));
         Instant loggedBackInAt = now().minus(2, ChronoUnit.MINUTES);
-        submit(deviceId, EventType.USER_LOGON, loggedBackInAt);
+        submit(deviceId, EventType.USER_LOGON, loggedBackInAt, "bob");
         Instant lastHeartbeat = now().minus(30, ChronoUnit.SECONDS);
         submit(deviceId, EventType.HEARTBEAT_SENT, lastHeartbeat);
         setStatus(deviceId, DeviceStatus.ONLINE, lastHeartbeat);
@@ -138,7 +143,9 @@ class DeviceSessionServiceIntegrationTest extends AbstractIntegrationTest {
         // Newest first.
         assertThat(sessions.get(0).start()).isEqualTo(loggedBackInAt);
         assertThat(sessions.get(0).isOngoing()).isTrue();
+        assertThat(sessions.get(0).username()).isEqualTo("bob");
         assertThat(sessions.get(1).endReason()).isEqualTo(DeviceSession.EndReason.SUSPENDED);
+        assertThat(sessions.get(1).username()).isEqualTo("alice");
     }
 
     @Test

@@ -53,6 +53,7 @@ public class DeviceSessionService {
         List<DeviceSession> sessions = new ArrayList<>();
         Instant sessionStart = null;
         Instant lastSeenAt = null;
+        String sessionUsername = null;
 
         for (DeviceEvent event : events) {
             switch (event.getEventType()) {
@@ -61,33 +62,37 @@ public class DeviceSessionService {
                         // Shouldn't normally happen (a logon while one is
                         // already open implies a missed logoff) — close the
                         // earlier one defensively rather than losing it.
-                        sessions.add(closed(device, sessionStart, lastSeenAt, DeviceSession.EndReason.DISAPPEARED));
+                        sessions.add(closed(device, sessionUsername, sessionStart, lastSeenAt, DeviceSession.EndReason.DISAPPEARED));
                     }
                     sessionStart = event.getOccurredAt();
                     lastSeenAt = event.getOccurredAt();
+                    sessionUsername = event.getUsername();
                 }
                 case USER_LOGOFF -> {
                     // An explicit logoff always closes at its own timestamp,
                     // regardless of how long it's been since the last
                     // heartbeat — it's authoritative, not a guess from silence.
                     if (sessionStart != null) {
-                        sessions.add(closed(device, sessionStart, event.getOccurredAt(), DeviceSession.EndReason.LOGGED_OUT));
+                        sessions.add(closed(device, sessionUsername, sessionStart, event.getOccurredAt(), DeviceSession.EndReason.LOGGED_OUT));
                         sessionStart = null;
                         lastSeenAt = null;
+                        sessionUsername = null;
                     }
                 }
                 case AGENT_STOPPING -> {
                     if (sessionStart != null) {
-                        sessions.add(closed(device, sessionStart, event.getOccurredAt(), DeviceSession.EndReason.STOPPED));
+                        sessions.add(closed(device, sessionUsername, sessionStart, event.getOccurredAt(), DeviceSession.EndReason.STOPPED));
                         sessionStart = null;
                         lastSeenAt = null;
+                        sessionUsername = null;
                     }
                 }
                 case SYSTEM_SUSPEND -> {
                     if (sessionStart != null) {
-                        sessions.add(closed(device, sessionStart, event.getOccurredAt(), DeviceSession.EndReason.SUSPENDED));
+                        sessions.add(closed(device, sessionUsername, sessionStart, event.getOccurredAt(), DeviceSession.EndReason.SUSPENDED));
                         sessionStart = null;
                         lastSeenAt = null;
+                        sessionUsername = null;
                     }
                 }
                 default -> {
@@ -99,8 +104,9 @@ public class DeviceSessionService {
                     // the session actually ended partway through the gap.
                     if (sessionStart != null) {
                         if (lastSeenAt != null && exceedsGap(lastSeenAt, event.getOccurredAt())) {
-                            sessions.add(closed(device, sessionStart, lastSeenAt, DeviceSession.EndReason.DISAPPEARED));
+                            sessions.add(closed(device, sessionUsername, sessionStart, lastSeenAt, DeviceSession.EndReason.DISAPPEARED));
                             sessionStart = null;
+                            sessionUsername = null;
                         } else {
                             lastSeenAt = event.getOccurredAt();
                         }
@@ -112,10 +118,10 @@ public class DeviceSessionService {
         if (sessionStart != null) {
             boolean stillFresh = lastSeenAt != null && !exceedsGap(lastSeenAt, Instant.now());
             if (device.getStatus() == DeviceStatus.ONLINE && stillFresh) {
-                sessions.add(open(device, sessionStart));
+                sessions.add(open(device, sessionUsername, sessionStart));
             } else {
                 Instant end = lastSeenAt != null ? lastSeenAt : sessionStart;
-                sessions.add(closed(device, sessionStart, end, DeviceSession.EndReason.DISAPPEARED));
+                sessions.add(closed(device, sessionUsername, sessionStart, end, DeviceSession.EndReason.DISAPPEARED));
             }
         }
 
@@ -127,13 +133,13 @@ public class DeviceSessionService {
         return Duration.between(from, to).compareTo(MAX_SESSION_GAP) > 0;
     }
 
-    private DeviceSession closed(Device device, Instant start, Instant end, DeviceSession.EndReason reason) {
+    private DeviceSession closed(Device device, String username, Instant start, Instant end, DeviceSession.EndReason reason) {
         long duration = Math.max(0, end.getEpochSecond() - start.getEpochSecond());
-        return new DeviceSession(device.getId(), device.getDeviceName(), device.getHostname(), start, end, reason, duration);
+        return new DeviceSession(device.getId(), device.getDeviceName(), device.getHostname(), username, start, end, reason, duration);
     }
 
-    private DeviceSession open(Device device, Instant start) {
+    private DeviceSession open(Device device, String username, Instant start) {
         long duration = Math.max(0, Instant.now().getEpochSecond() - start.getEpochSecond());
-        return new DeviceSession(device.getId(), device.getDeviceName(), device.getHostname(), start, null, null, duration);
+        return new DeviceSession(device.getId(), device.getDeviceName(), device.getHostname(), username, start, null, null, duration);
     }
 }

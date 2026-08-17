@@ -76,7 +76,8 @@
                 <th>Start</th>
                 <th class="d-none d-sm-table-cell">End</th>
                 <th>Duration</th>
-                <th>Ended by</th>
+                <th>User</th>
+                <th>Status</th>
             </tr>
             </thead>
             <tbody>
@@ -84,20 +85,29 @@
                 <td th:text="${@timeFormat.format(s.start, zone)}"></td>
                 <td class="d-none d-sm-table-cell" th:text="${s.end} ? ${@timeFormat.format(s.end, zone)} : '---'"></td>
                 <td th:text="${s.durationLabel()}"></td>
-                <td>
-                    <span th:if="${s.ongoing}">---</span>
-                    <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'LOGGED_OUT'}"
+                <td th:text="${s.username} ?: '–'"></td>
+                <td th:if="${s.ongoing}"
+                    th:switch="${device.status.name() == 'OFFLINE' ? 'OFFLINE' : (device.active ? 'ACTIVE' : (device.sessionState ?: 'NO_SESSION'))}">
+                    <span th:case="'OFFLINE'" class="badge status-badge-offline">Offline</span>
+                    <span th:case="'ACTIVE'" class="badge status-badge-active">Active</span>
+                    <span th:case="'LOCKED'" class="badge session-state-locked">Locked</span>
+                    <span th:case="'SUSPENDED'" class="badge session-badge-suspended">Suspended</span>
+                    <span th:case="'DISCONNECTED'" class="badge session-badge-disappeared">Disconnected</span>
+                    <span th:case="*" class="badge status-badge-inactive">Inactive</span>
+                </td>
+                <td th:if="${!s.ongoing}">
+                    <span th:if="${s.endReason != null and s.endReason.name() == 'LOGGED_OUT'}"
                           class="badge session-badge-logged-out">Logged out</span>
-                    <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'STOPPED'}"
+                    <span th:if="${s.endReason != null and s.endReason.name() == 'STOPPED'}"
                           class="badge session-badge-stopped">Stopped</span>
-                    <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'SUSPENDED'}"
+                    <span th:if="${s.endReason != null and s.endReason.name() == 'SUSPENDED'}"
                           class="badge session-badge-suspended">Suspended</span>
-                    <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'DISAPPEARED'}"
+                    <span th:if="${s.endReason != null and s.endReason.name() == 'DISAPPEARED'}"
                           class="badge session-badge-disappeared">Disappeared</span>
                 </td>
             </tr>
             <tr th:if="${#lists.isEmpty(sessions)}">
-                <td colspan="4" class="text-muted text-center py-3">No user sessions for this device yet.</td>
+                <td colspan="5" class="text-muted text-center py-3">No user sessions for this device yet.</td>
             </tr>
             </tbody>
         </table>
