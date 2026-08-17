@@ -78,10 +78,10 @@
             <tbody>
             <tr th:each="s : ${sessions}">
                 <td th:text="${@timeFormat.format(s.start, zone)}"></td>
-                <td class="d-none d-sm-table-cell" th:text="${s.end} ? ${@timeFormat.format(s.end, zone)} : 'ongoing'"></td>
+                <td class="d-none d-sm-table-cell" th:text="${s.end} ? ${@timeFormat.format(s.end, zone)} : '---'"></td>
                 <td th:text="${s.durationLabel()}"></td>
                 <td>
-                    <span th:if="${s.ongoing}" class="badge session-badge-ongoing">Ongoing</span>
+                    <span th:if="${s.ongoing}">---</span>
                     <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'STOPPED'}"
                           class="badge session-badge-stopped">Stopped</span>
                     <span th:if="${!s.ongoing and s.endReason != null and s.endReason.name() == 'SUSPENDED'}"
