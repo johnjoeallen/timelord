@@ -23,6 +23,7 @@
                             <span th:case="*" class="badge status-badge-inactive">Inactive</span>
                         </span>
                     </li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Current user</span><span th:text="${device.currentUser} ?: '–'"></span></li>
                     <li class="list-group-item d-flex justify-content-between"><span>Hostname</span><span th:text="${device.hostname}"></span></li>
                     <li class="list-group-item d-flex justify-content-between"><span>Agent version</span><span th:text="${device.agentVersion}"></span></li>
                     <li class="list-group-item d-flex justify-content-between"><span>Operating system</span><span th:text="${device.operatingSystem} + ' ' + ${device.operatingSystemVersion}"></span></li>
@@ -55,15 +56,21 @@
         </div>
         <div class="col-md-6">
             <div class="card">
-                <div class="card-header">Current state</div>
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item d-flex justify-content-between"><span>Service state</span><span th:text="${device.serviceState} ?: '–'"></span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span>Current user</span><span th:text="${device.currentUser} ?: '–'"></span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span>Idle seconds</span><span th:text="${device.idleSeconds} ?: '–'"></span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span>Registered</span><span th:text="${@timeFormat.format(device.registeredAt, zone)}"></span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span>Last registration</span><span th:text="${@timeFormat.format(device.lastRegistrationAt, zone)}"></span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span>Last heartbeat</span><span th:text="${device.lastHeartbeatAt} ? ${@timeFormat.format(device.lastHeartbeatAt, zone)} : 'never'"></span></li>
-                </ul>
+                <button class="card-header btn btn-link text-decoration-none text-body d-flex justify-content-between align-items-center w-100"
+                        type="button" data-bs-toggle="collapse" data-bs-target="#serviceStateCollapse"
+                        aria-expanded="false" aria-controls="serviceStateCollapse">
+                    <span>Service state</span>
+                    <span class="small text-muted">details ▾</span>
+                </button>
+                <div class="collapse" id="serviceStateCollapse">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between"><span>Service state</span><span th:text="${device.serviceState} ?: '–'"></span></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Idle seconds</span><span th:text="${device.idleSeconds} ?: '–'"></span></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Registered</span><span th:text="${@timeFormat.format(device.registeredAt, zone)}"></span></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Last registration</span><span th:text="${@timeFormat.format(device.lastRegistrationAt, zone)}"></span></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Last heartbeat</span><span th:text="${device.lastHeartbeatAt} ? ${@timeFormat.format(device.lastHeartbeatAt, zone)} : 'never'"></span></li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
