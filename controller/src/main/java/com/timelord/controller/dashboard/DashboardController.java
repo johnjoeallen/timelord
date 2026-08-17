@@ -4,7 +4,6 @@ import com.timelord.controller.device.Device;
 import com.timelord.controller.device.DeviceDetail;
 import com.timelord.controller.device.DeviceService;
 import com.timelord.controller.device.DeviceSessionService;
-import com.timelord.controller.device.DeviceStatus;
 import com.timelord.controller.device.DeviceSummary;
 import com.timelord.controller.event.EventDto;
 import com.timelord.controller.event.EventSeverity;
@@ -58,18 +57,6 @@ public class DashboardController {
         List<Device> devices = deviceService.list(null, null, PageRequest.of(0, 200, Sort.by(Sort.Direction.ASC, "deviceName"))).getContent();
         model.addAttribute("devices", devices.stream().map(DeviceSummary::from).toList());
         return "dashboard";
-    }
-
-    @GetMapping("/devices")
-    public String devices(@RequestParam(required = false) Boolean online,
-                           @RequestParam(required = false) String hostname,
-                           Model model) {
-        DeviceStatus status = online == null ? null : (online ? DeviceStatus.ONLINE : DeviceStatus.OFFLINE);
-        Pageable pageable = PageRequest.of(0, 100, Sort.by(Sort.Direction.ASC, "deviceName"));
-        model.addAttribute("devices", deviceService.list(status, hostname, pageable).map(DeviceSummary::from).getContent());
-        model.addAttribute("online", online);
-        model.addAttribute("hostname", hostname);
-        return "devices";
     }
 
     @GetMapping("/devices/{deviceId}")
