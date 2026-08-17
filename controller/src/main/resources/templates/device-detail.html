@@ -14,12 +14,13 @@
                 <ul class="list-group list-group-flush">
                     <li class="list-group-item d-flex justify-content-between">
                         <span>Status</span>
-                        <span>
-                            <span th:if="${device.active}" class="badge status-badge-active">Active</span>
-                            <span th:if="${!device.active and device.status.name() == 'ONLINE'}"
-                                  class="badge status-badge-inactive">Inactive</span>
-                            <span th:if="${device.status.name() == 'OFFLINE'}"
-                                  class="badge status-badge-offline">Offline</span>
+                        <span th:switch="${device.status.name() == 'OFFLINE' ? 'OFFLINE' : (device.active ? 'ACTIVE' : (device.sessionState ?: 'NO_SESSION'))}">
+                            <span th:case="'OFFLINE'" class="badge status-badge-offline">Offline</span>
+                            <span th:case="'ACTIVE'" class="badge status-badge-active">Active</span>
+                            <span th:case="'LOCKED'" class="badge session-state-locked">Locked</span>
+                            <span th:case="'SUSPENDED'" class="badge session-badge-suspended">Suspended</span>
+                            <span th:case="'DISCONNECTED'" class="badge session-badge-disappeared">Disconnected</span>
+                            <span th:case="*" class="badge status-badge-inactive">Inactive</span>
                         </span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between"><span>Hostname</span><span th:text="${device.hostname}"></span></li>
@@ -57,21 +58,6 @@
                 <div class="card-header">Current state</div>
                 <ul class="list-group list-group-flush">
                     <li class="list-group-item d-flex justify-content-between"><span>Service state</span><span th:text="${device.serviceState} ?: '–'"></span></li>
-                    <li class="list-group-item d-flex justify-content-between">
-                        <span>Session state</span>
-                        <span>
-                            <span th:if="${device.sessionState == null or device.sessionState == 'NO_SESSION'}"
-                                  class="badge status-badge-offline">INACTIVE</span>
-                            <span th:if="${device.sessionState == 'ACTIVE'}"
-                                  class="badge status-badge-online">ACTIVE</span>
-                            <span th:if="${device.sessionState == 'LOCKED'}"
-                                  class="badge session-state-locked">LOCKED</span>
-                            <span th:if="${device.sessionState == 'SUSPENDED'}"
-                                  class="badge session-badge-suspended">SUSPENDED</span>
-                            <span th:if="${device.sessionState == 'DISCONNECTED'}"
-                                  class="badge session-badge-disappeared">DISCONNECTED</span>
-                        </span>
-                    </li>
                     <li class="list-group-item d-flex justify-content-between"><span>Current user</span><span th:text="${device.currentUser} ?: '–'"></span></li>
                     <li class="list-group-item d-flex justify-content-between"><span>Idle seconds</span><span th:text="${device.idleSeconds} ?: '–'"></span></li>
                     <li class="list-group-item d-flex justify-content-between"><span>Registered</span><span th:text="${@timeFormat.format(device.registeredAt, zone)}"></span></li>
