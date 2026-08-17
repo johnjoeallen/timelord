@@ -23,26 +23,26 @@
                     <li class="list-group-item d-flex justify-content-between"><span>Operating system</span><span th:text="${device.operatingSystem} + ' ' + ${device.operatingSystemVersion}"></span></li>
                     <li class="list-group-item d-flex justify-content-between"><span>Architecture</span><span th:text="${device.architecture}"></span></li>
                     <li class="list-group-item">
-                        <div class="d-flex justify-content-between">
-                            <span>Local IPs</span>
-                            <span th:text="${#strings.listJoin(device.localIpAddresses, ', ')}"></span>
-                        </div>
+                        <div>Local IPs</div>
                         <div th:if="${not #lists.isEmpty(device.networkInterfaces)}" class="table-responsive mt-2">
                             <table class="table table-sm mb-0">
                                 <thead>
                                 <tr>
                                     <th>Name</th>
                                     <th>MAC</th>
+                                    <th>Address</th>
                                 </tr>
                                 </thead>
                                 <tbody>
                                 <tr th:each="iface : ${device.networkInterfaces}">
                                     <td th:text="${iface.name}"></td>
                                     <td th:text="${iface.macAddress} ?: '–'"></td>
+                                    <td th:text="${#lists.isEmpty(iface.addresses)} ? '–' : ${#strings.listJoin(iface.addresses, ', ')}"></td>
                                 </tr>
                                 </tbody>
                             </table>
                         </div>
+                        <div th:if="${#lists.isEmpty(device.networkInterfaces)}" class="text-muted mt-1">–</div>
                     </li>
                     <li class="list-group-item d-flex justify-content-between"><span>Source IP</span><span th:text="${device.sourceIp}"></span></li>
                 </ul>

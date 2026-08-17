@@ -22,7 +22,8 @@ class AgentApiIntegrationTest extends AbstractIntegrationTest {
 
     private RegisterRequest newRegisterRequest(UUID deviceId, String name) {
         return new RegisterRequest(deviceId, name, "test-host", "0.1.0", "Windows 11", "10.0.26100",
-                "x86_64", List.of("192.168.1.50"), List.of(new NetworkInterfaceInfo("Ethernet", "AA:BB:CC:DD:EE:FF")));
+                "x86_64", List.of("192.168.1.50"),
+                List.of(new NetworkInterfaceInfo("Ethernet", "AA:BB:CC:DD:EE:FF", List.of("192.168.1.50"))));
     }
 
     @Test

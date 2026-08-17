@@ -451,7 +451,11 @@ fn network_interfaces() -> Vec<crate::protocol::NetworkInterfaceInfo> {
             interfaces.sort_by(|a, b| a.name.cmp(&b.name));
             interfaces
                 .into_iter()
-                .map(|iface| crate::protocol::NetworkInterfaceInfo { name: iface.name, mac_address: iface.mac_addr })
+                .map(|iface| crate::protocol::NetworkInterfaceInfo {
+                    name: iface.name,
+                    mac_address: iface.mac_addr,
+                    addresses: iface.addr.into_iter().map(|addr| addr.ip().to_string()).collect(),
+                })
                 .collect()
         }
         Err(err) => {

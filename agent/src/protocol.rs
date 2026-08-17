@@ -72,6 +72,7 @@ pub enum EventSource {
 pub struct NetworkInterfaceInfo {
     pub name: String,
     pub mac_address: Option<String>,
+    pub addresses: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -199,7 +200,11 @@ mod tests {
             operating_system_version: "10.0".into(),
             architecture: "x86_64".into(),
             local_ip_addresses: vec!["10.0.0.1".into()],
-            network_interfaces: vec![NetworkInterfaceInfo { name: "Ethernet".into(), mac_address: Some("aa:bb:cc:dd:ee:ff".into()) }],
+            network_interfaces: vec![NetworkInterfaceInfo {
+                name: "Ethernet".into(),
+                mac_address: Some("aa:bb:cc:dd:ee:ff".into()),
+                addresses: vec!["10.0.0.5".into()],
+            }],
         };
         let json = serde_json::to_value(&req).unwrap();
         assert!(json.get("deviceId").is_some());
