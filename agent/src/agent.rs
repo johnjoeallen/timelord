@@ -25,7 +25,7 @@ use crate::{platform, UsageRecorder};
 pub const AGENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const EVENT_BATCH_SIZE: usize = 100;
 const RECONNECT_BACKOFF: Duration = Duration::from_secs(15);
-const OFFLINE_FALLBACK_CHECK_INTERVAL: Duration = Duration::from_secs(60);
+const OFFLINE_FALLBACK_CHECK_INTERVAL: Duration = Duration::from_secs(300);
 
 /// Shared handle the CLI's other commands (`status`, `test-event`) also use.
 pub struct Agent {
@@ -268,7 +268,15 @@ pub async fn offline_fallback_loop(agent: Arc<Agent>) {
     if !agent.config.offline_fallback_enabled {
         return;
     }
-    let mut interval = tokio::time::interval(OFFLINE_FALLBACK_CHECK_INTERVAL);
+    // `tokio::time::interval` fires its first tick immediately on creation,
+    // not after one period — without `interval_at` here, a freshly started
+    // agent that's disconnected during the fallback window would suspend
+    // within moments of launch instead of waiting out a full check
+    // interval first.
+    let mut interval = tokio::time::interval_at(
+        tokio::time::Instant::now() + OFFLINE_FALLBACK_CHECK_INTERVAL,
+        OFFLINE_FALLBACK_CHECK_INTERVAL,
+    );
     loop {
         interval.tick().await;
         if agent.is_connected() {
