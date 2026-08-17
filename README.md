@@ -29,7 +29,7 @@ a Postgres it can reach, and compose is what sets that up.
 
 ```console
 $ cp .env.example .env        # edit TIMELORD_PUBLIC_URL to your LAN IP
-$ docker compose up --build   # postgres + controller on :8080, discovery UDP on :45821
+$ docker compose up --build   # postgres + controller on :9099, discovery UDP on :45821
 ```
 
 **Without cloning**, pull the published image instead — grab just the two files compose needs
@@ -43,17 +43,17 @@ $ cp .env.example .env        # edit TIMELORD_PUBLIC_URL to your LAN IP
 $ docker compose up -d        # pulls postgres + controller, no source needed
 ```
 
-Either way, open `http://localhost:8080` for the dashboard, or:
+Either way, open `http://localhost:9099` for the dashboard, or:
 
 ```console
-$ curl http://localhost:8080/api/v1/system/info
+$ curl http://localhost:9099/api/v1/system/info
 ```
 
 ### Try the agent against it (from a dev machine, any OS)
 
 ```console
 $ cd agent
-$ TIMELORD_CONTROLLER_URL=http://localhost:8080 cargo run -- run
+$ TIMELORD_CONTROLLER_URL=http://localhost:9099 cargo run -- run
 timelord-agent> logon
 timelord-agent> lock
 timelord-agent> quit

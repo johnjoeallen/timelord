@@ -28,12 +28,12 @@ services:
       TIMELORD_CONTROLLER_NAME: ${TIMELORD_CONTROLLER_NAME:-Home TimeLord}
       # Must be an address Windows agents on your LAN can actually reach —
       # not the in-Docker hostname "controller". See README / docs.
-      TIMELORD_PUBLIC_URL: ${TIMELORD_PUBLIC_URL:-http://localhost:8080}
+      TIMELORD_PUBLIC_URL: ${TIMELORD_PUBLIC_URL:-http://localhost:9099}
       TIMELORD_DISCOVERY_ENABLED: ${TIMELORD_DISCOVERY_ENABLED:-true}
       TIMELORD_DISCOVERY_PORT: ${TIMELORD_DISCOVERY_PORT:-45821}
       TIMELORD_ANNOUNCEMENT_ENABLED: ${TIMELORD_ANNOUNCEMENT_ENABLED:-false}
     ports:
-      - "${TIMELORD_HTTP_PORT:-8080}:8080"
+      - "${TIMELORD_HTTP_PORT:-9099}:8080"
       - "${TIMELORD_DISCOVERY_PORT:-45821}:45821/udp"
     restart: unless-stopped
 
