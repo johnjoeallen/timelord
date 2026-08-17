@@ -10,6 +10,9 @@ import com.timelord.controller.event.EventDto;
 import com.timelord.controller.event.EventSeverity;
 import com.timelord.controller.event.EventService;
 import com.timelord.controller.event.EventType;
+import com.timelord.controller.timezone.RequestZoneResolver;
+import jakarta.servlet.http.HttpServletRequest;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +23,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -29,11 +33,24 @@ public class DashboardController {
     private final DeviceService deviceService;
     private final EventService eventService;
     private final DeviceSessionService sessionService;
+    private final RequestZoneResolver zoneResolver;
 
-    public DashboardController(DeviceService deviceService, EventService eventService, DeviceSessionService sessionService) {
+    public DashboardController(DeviceService deviceService, EventService eventService,
+                                DeviceSessionService sessionService, RequestZoneResolver zoneResolver) {
         this.deviceService = deviceService;
         this.eventService = eventService;
         this.sessionService = sessionService;
+        this.zoneResolver = zoneResolver;
+    }
+
+    /**
+     * Resolved once per request and added to every view's model as
+     * {@code zone}, so templates can convert stored UTC instants to the
+     * browser's local time via {@code @timeFormat.format(instant, zone)}.
+     */
+    @ModelAttribute("zone")
+    public ZoneId zone(HttpServletRequest request) {
+        return zoneResolver.resolve(request);
     }
 
     @GetMapping("/")

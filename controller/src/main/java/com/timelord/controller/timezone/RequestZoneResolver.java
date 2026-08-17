@@ -1,0 +1,45 @@
+package com.timelord.controller.timezone;
+
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import java.time.DateTimeException;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+/**
+ * Resolves the browser's local timezone for rendering, from a {@code tz}
+ * cookie set client-side (see {@code fragments/head.html}) to the IANA zone
+ * name the browser reports via {@code Intl.DateTimeFormat().resolvedOptions().timeZone}.
+ *
+ * Falls back to UTC when the cookie is absent (first-ever request, before
+ * the client-side detection script has had a chance to set it) or contains
+ * a value that isn't a valid zone id.
+ */
+@Component
+public class RequestZoneResolver {
+
+    private static final Logger log = LoggerFactory.getLogger(RequestZoneResolver.class);
+
+    public static final String COOKIE_NAME = "tz";
+    public static final ZoneId DEFAULT_ZONE = ZoneOffset.UTC;
+
+    public ZoneId resolve(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return DEFAULT_ZONE;
+        }
+        for (Cookie cookie : cookies) {
+            if (COOKIE_NAME.equals(cookie.getName())) {
+                try {
+                    return ZoneId.of(cookie.getValue());
+                } catch (DateTimeException | NullPointerException ex) {
+                    log.debug("Ignoring invalid '{}' cookie value '{}'", COOKIE_NAME, cookie.getValue());
+                }
+            }
+        }
+        return DEFAULT_ZONE;
+    }
+}

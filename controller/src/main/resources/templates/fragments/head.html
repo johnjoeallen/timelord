@@ -4,6 +4,26 @@
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <!--
+      Detect the browser's IANA timezone and store it in a `tz` cookie so
+      RequestZoneResolver (server-side) can render all timestamps in local
+      time. Runs first, before paint: on a mismatch (first-ever visit, or a
+      browser zone change e.g. from travel) it sets the cookie and does a
+      single reload so this page's own render already reflects it, rather
+      than lagging a request behind.
+    -->
+    <script>
+        (function () {
+            var COOKIE_NAME = 'tz';
+            var detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            var match = document.cookie.match(new RegExp('(?:^|; )' + COOKIE_NAME + '=([^;]*)'));
+            var current = match ? decodeURIComponent(match[1]) : null;
+            if (detected && detected !== current) {
+                document.cookie = COOKIE_NAME + '=' + encodeURIComponent(detected) + '; path=/; max-age=31536000; SameSite=Lax';
+                location.reload();
+            }
+        })();
+    </script>
+    <!--
       Set the Bootstrap 5.3 color-mode attribute from the OS preference
       before first paint (no manual toggle — this follows the platform
       setting only), and keep it live if the OS theme changes while the

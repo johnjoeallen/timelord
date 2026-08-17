@@ -41,7 +41,7 @@
             </thead>
             <tbody>
             <tr th:each="event : ${events}">
-                <td th:text="${event.occurredAt}"></td>
+                <td th:text="${@timeFormat.format(event.occurredAt, zone)}"></td>
                 <td><a th:href="@{/devices/{id}(id=${event.deviceId})}" th:text="${event.deviceName}"></a></td>
                 <td th:text="${event.eventType}"></td>
                 <td><span th:class="'severity-' + ${event.severity}" th:text="${event.severity}"></span></td>

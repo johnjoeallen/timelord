@@ -35,9 +35,9 @@
                     <li class="list-group-item d-flex justify-content-between"><span>Session state</span><span th:text="${device.sessionState} ?: '–'"></span></li>
                     <li class="list-group-item d-flex justify-content-between"><span>Current user</span><span th:text="${device.currentUser} ?: '–'"></span></li>
                     <li class="list-group-item d-flex justify-content-between"><span>Idle seconds</span><span th:text="${device.idleSeconds} ?: '–'"></span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span>Registered</span><span th:text="${device.registeredAt}"></span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span>Last registration</span><span th:text="${device.lastRegistrationAt}"></span></li>
-                    <li class="list-group-item d-flex justify-content-between"><span>Last heartbeat</span><span th:text="${device.lastHeartbeatAt} ?: 'never'"></span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Registered</span><span th:text="${@timeFormat.format(device.registeredAt, zone)}"></span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Last registration</span><span th:text="${@timeFormat.format(device.lastRegistrationAt, zone)}"></span></li>
+                    <li class="list-group-item d-flex justify-content-between"><span>Last heartbeat</span><span th:text="${device.lastHeartbeatAt} ? ${@timeFormat.format(device.lastHeartbeatAt, zone)} : 'never'"></span></li>
                 </ul>
             </div>
         </div>
@@ -56,8 +56,8 @@
             </thead>
             <tbody>
             <tr th:each="s : ${sessions}">
-                <td th:text="${#temporals.format(s.start, 'MMM d, HH:mm')}"></td>
-                <td class="d-none d-sm-table-cell" th:text="${s.end} ? ${#temporals.format(s.end, 'MMM d, HH:mm')} : 'ongoing'"></td>
+                <td th:text="${@timeFormat.format(s.start, zone)}"></td>
+                <td class="d-none d-sm-table-cell" th:text="${s.end} ? ${@timeFormat.format(s.end, zone)} : 'ongoing'"></td>
                 <td th:text="${s.durationLabel()}"></td>
                 <td>
                     <span th:if="${s.ongoing}" class="badge session-badge-ongoing">Ongoing</span>

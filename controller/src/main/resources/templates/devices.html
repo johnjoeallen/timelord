@@ -52,7 +52,7 @@
                 <td th:text="${device.currentUser} ?: '–'"></td>
                 <td th:text="${device.sessionState} ?: '–'"></td>
                 <td th:text="${device.idleSeconds} ?: '–'"></td>
-                <td th:text="${device.lastHeartbeatAt} ?: 'never'"></td>
+                <td th:text="${device.lastHeartbeatAt} ? ${@timeFormat.format(device.lastHeartbeatAt, zone)} : 'never'"></td>
                 <td th:text="${device.sourceIp}"></td>
             </tr>
             <tr th:if="${#lists.isEmpty(devices)}">

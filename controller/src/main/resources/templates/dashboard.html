@@ -24,7 +24,7 @@
                                   th:classappend="${device.status.name() == 'ONLINE'} ? 'uptime-dot-online' : 'uptime-dot-offline'"></span>
                             <span th:if="${device.status.name() == 'ONLINE'}" th:text="${device.currentUser} ?: 'no user session'"></span>
                             <span th:if="${device.status.name() != 'ONLINE'}"
-                                  th:text="${device.lastHeartbeatAt} ? ('last seen ' + ${#temporals.format(device.lastHeartbeatAt, 'MMM d, HH:mm')}) : 'never seen'"></span>
+                                  th:text="${device.lastHeartbeatAt} ? ('last seen ' + ${@timeFormat.format(device.lastHeartbeatAt, zone)}) : 'never seen'"></span>
                         </div>
                     </div>
                 </div>
