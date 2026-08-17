@@ -1,5 +1,11 @@
 # TimeLord Phase 1 Architecture
 
+> **This is a developer preview, not a product.** Phase 1 exists to prove the
+> shape of the system on a single trusted local network. It has not been
+> hardened, load-tested, or run unattended for long periods, there are no
+> stability guarantees between versions, and it is not meant for production
+> use. See [Before you deploy this](#before-you-deploy-this) below.
+
 > **Phase 1 is monitoring only.** There is no schedule engine, session-limit
 > enforcement, mandatory-break logic, or remote power control — TimeLord
 > observes and reports what's happening on each device; it doesn't act on it
@@ -11,6 +17,32 @@
 > network, ahead of a later security phase. See
 > [Security boundary](#security-boundary) below before running this anywhere
 > else.
+
+## Before you deploy this
+
+- **Developer preview.** Expect rough edges, breaking config/schema changes
+  between versions, and no migration tooling. Test on a couple of
+  non-critical machines before trusting it with anything that matters.
+- **Every agent must be able to reach the controller directly, on the same
+  network(s).** All traffic — registration, heartbeats, event delivery, and
+  discovery replies — is unicast HTTP (broadcast UDP only for the initial
+  discovery request). There's no NAT traversal, no relay, and no
+  cloud/VPN-aware routing: if an agent's machine can't open a TCP connection
+  straight to `TIMELORD_PUBLIC_URL`, it can't be managed at all. See
+  [Known limitations](#known-limitations) for the additional constraint this
+  puts on UDP discovery specifically (same broadcast domain, not just same
+  routed network).
+- **The agent will put an unreachable device to sleep overnight.** If an
+  agent can't reach the controller *at all* (not merely a slow heartbeat —
+  registration, heartbeats, and event delivery all failing), it falls back to
+  a local safety schedule: by default, between **01:00 and 08:30 local time**,
+  every 5 minutes while still disconnected, it puts the device to sleep
+  (`SetSuspendState` — sleep, never a shutdown or hibernate). This is a
+  per-agent behavior with **no way to configure or disable it from the
+  controller/dashboard** — changing the window, or turning it off, means
+  hand-editing that device's local `agent.toml` and restarting the service.
+  See `agent/README.md`'s "Offline fallback" section for exactly how it
+  behaves.
 
 ## Summary
 

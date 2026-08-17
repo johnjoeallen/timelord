@@ -13,9 +13,12 @@ the [docs site](https://johnjoeallen.github.io/timelord/) for the same content, 
 
 **TimeLord — The Authority on Computer Time.** *(eventually.)*
 
-> **⚠ Phase 1 security warning:** this build uses plain, unauthenticated HTTP — no TLS, no
-> request signing, no access control. It is meant for a trusted local/dev network only. See
-> [`docs/architecture.md`](docs/architecture.md#security-boundary).
+> **⚠ Developer preview — not for production use.** This build uses plain, unauthenticated HTTP
+> (no TLS, no request signing, no access control) and every agent must be able to reach the
+> controller directly on the same network(s) — there's no NAT traversal or relay. It's meant for a
+> trusted local/dev network only. It also puts an unreachable device to sleep between 01:00–08:30
+> local time by default (not configurable from the controller). See
+> [Before you deploy this](docs/architecture.md#before-you-deploy-this) for the full list.
 
 ## Screenshots
 

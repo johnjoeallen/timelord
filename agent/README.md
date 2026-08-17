@@ -57,13 +57,17 @@ discovery_timeout_seconds = 5
 ### Offline fallback
 
 If the agent can't reach the controller at all (registration, heartbeats, and event delivery are
-all failing), it falls back to a local safety schedule: every 60 seconds, if still disconnected
+all failing), it falls back to a local safety schedule: every 5 minutes, if still disconnected
 and local time falls within `offline_fallback_start`-`offline_fallback_end` (wrapping past
 midnight is supported, e.g. `22:00`-`06:00`), it puts the device to sleep (`SetSuspendState`, not
-hibernate). This only runs while disconnected — once the controller is reachable again this stops
-immediately. `POWER_ACTION_REQUESTED`/`_COMPLETED`/`_FAILED` events are queued locally and
-delivered once connectivity returns, so the outage and the fallback action it triggered are both
-visible on the dashboard afterward.
+hibernate — a shutdown never happens). This only runs while disconnected — once the controller is
+reachable again this stops immediately. `POWER_ACTION_REQUESTED`/`_COMPLETED`/`_FAILED` events are
+queued locally and delivered once connectivity returns, so the outage and the fallback action it
+triggered are both visible on the dashboard afterward.
+
+There is no way to configure this per-device from the controller/dashboard, or via environment
+variable/CLI flag, yet — the only way to change or disable it is hand-editing that device's local
+`agent.toml` (the `offline_fallback_*` keys above) and restarting the service.
 
 Precedence is **CLI flags > environment variables > `agent.toml` > defaults**
 (`src/config.rs::resolve`, unit tested for every combination). Environment overrides:

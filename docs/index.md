@@ -3,12 +3,22 @@
 TimeLord tracks how Windows devices on your network are actually being used — who's logged in,
 for how long, and whether the machine is even reachable — and shows it on a live dashboard.
 
-!!! warning "Phase 1 is monitoring only"
-    Nothing in this build enforces anything. There's no schedule engine, no session-limit
-    enforcement, no forced breaks, and no remote power control — the [`README`](https://github.com/johnjoeallen/timelord#readme)
-    tagline about "securely enforcing schedules" describes the eventual project, not what's
-    running today. Today, TimeLord **observes and reports**: it tells you what's happening, it
-    doesn't act on it. It also runs over plain, unauthenticated HTTP — see
+!!! danger "Developer preview — not for production use"
+    This is Phase 1: a working proof of the system's shape, not a hardened product. Expect rough
+    edges and breaking changes between versions. Three things worth knowing before you point it
+    at real devices — details in [Before you deploy this](architecture.md#before-you-deploy-this):
+
+    - **Monitoring only.** No schedule engine, session-limit enforcement, forced breaks, or
+      remote power control — the [`README`](https://github.com/johnjoeallen/timelord#readme)
+      tagline describes the eventual project, not what's running today. TimeLord **observes and
+      reports**; it doesn't act.
+    - **Every agent must reach the controller directly, on the same network(s).** Everything is
+      unicast HTTP — no NAT traversal, relay, or cloud/VPN routing.
+    - **Unreachable devices get put to sleep overnight.** By default, an agent that can't reach
+      the controller *at all* puts the device to sleep between 01:00–08:30 local time — not
+      configurable from the controller, only from that device's local `agent.toml`.
+
+    It also runs over plain, unauthenticated HTTP — see
     [Security boundary](architecture.md#security-boundary) before running it anywhere but a
     trusted local network.
 
