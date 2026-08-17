@@ -35,39 +35,6 @@
         </div>
     </div>
 </div>
-<script>
-    // Keeps the device/session view current without the operator having to
-    // reload by hand. The server pushes a message over /ws/devices every
-    // time a device sends a heartbeat, registers, or the controller decides
-    // a device has gone offline (DeviceService broadcasts on all three) —
-    // any message is treated as "something changed, look again" rather than
-    // carrying the full state itself. A 60s timer is kept as a fallback in
-    // case the socket is down (also covers things a status change alone
-    // wouldn't, like an ongoing session's duration ticking up).
-    (function () {
-        var FULL_REFRESH_MS = 60000;
-        var RECONNECT_DELAY_MS = 3000;
-        var RELOAD_DEBOUNCE_MS = 500;
-        var reloadTimer = null;
-
-        function scheduleReload() {
-            if (reloadTimer) {
-                return;
-            }
-            reloadTimer = setTimeout(function () { location.reload(); }, RELOAD_DEBOUNCE_MS);
-        }
-
-        function connect() {
-            var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            var socket = new WebSocket(protocol + '//' + location.host + '/ws/devices');
-            socket.onmessage = scheduleReload;
-            socket.onclose = function () { setTimeout(connect, RECONNECT_DELAY_MS); };
-            socket.onerror = function () { socket.close(); };
-        }
-
-        connect();
-        setInterval(function () { location.reload(); }, FULL_REFRESH_MS);
-    })();
-</script>
+<div th:replace="~{fragments/live-refresh :: live-refresh}"></div>
 </body>
 </html>

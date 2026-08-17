@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  Keeps any page current without the operator having to reload by hand. The
+  server pushes a message over /ws/devices every time a device sends a
+  heartbeat, registers, or the controller decides a device has gone offline
+  (DeviceService broadcasts on all three) — any message is treated as
+  "something changed, look again" rather than carrying the full state
+  itself. A 60s timer is kept as an unconditional fallback — independent of
+  the socket, so pages stay reasonably fresh even if it never connects (or
+  the browser blocks WebSockets entirely) — and also covers things a status
+  change alone wouldn't, like an ongoing session's duration ticking up.
+-->
+<script th:fragment="live-refresh">
+    (function () {
+        var FULL_REFRESH_MS = 60000;
+        var RECONNECT_DELAY_MS = 3000;
+        var RELOAD_DEBOUNCE_MS = 500;
+        var reloadTimer = null;
+
+        function scheduleReload() {
+            if (reloadTimer) {
+                return;
+            }
+            reloadTimer = setTimeout(function () { location.reload(); }, RELOAD_DEBOUNCE_MS);
+        }
+
+        function connect() {
+            var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            var socket = new WebSocket(protocol + '//' + location.host + '/ws/devices');
+            socket.onmessage = scheduleReload;
+            socket.onclose = function () { setTimeout(connect, RECONNECT_DELAY_MS); };
+            socket.onerror = function () { socket.close(); };
+        }
+
+        connect();
+        setInterval(function () { location.reload(); }, FULL_REFRESH_MS);
+    })();
+</script>
+</body>
+</html>
