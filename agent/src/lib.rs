@@ -114,6 +114,26 @@ impl UsageRecorder {
         self.snapshot.clone()
     }
 
+    /// Records who's logged into `session_id` when the agent discovers a
+    /// session that was already active *before* it started observing
+    /// (service restart, or a reboot with an existing interactive logon —
+    /// see `platform::windows::seed_active_sessions`). Deliberately does
+    /// *not* go through [`Self::handle`]: we have no way to tell "this is a
+    /// brand-new login" apart from "the agent process simply restarted
+    /// while the same login continued", and treating it as a fresh `Logon`
+    /// would open a new usage session (and emit a `UserLogon` event) every
+    /// time the service bounces, fragmenting one continuous stretch of
+    /// usage into spurious back-to-back session rows. The next real
+    /// lock/unlock/logoff still opens/closes a usage session normally;
+    /// this only fixes up `current_user`/`session_state` for heartbeats in
+    /// the meantime.
+    pub fn seed_current_user(&mut self, session_id: SessionId, username: String) {
+        self.session_usernames.insert(session_id, username);
+        let mut snapshot = self.snapshot.lock().unwrap();
+        snapshot.state = "ACTIVE".to_string();
+        snapshot.username = self.session_usernames.values().next().cloned();
+    }
+
     /// Feeds a platform event into the tracker and persists any resulting
     /// session start/end, and — if wired to one — mirrors the raw event
     /// into the reporting queue regardless of whether it changed usage

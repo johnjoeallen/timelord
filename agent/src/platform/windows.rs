@@ -251,9 +251,17 @@ fn session_username(session_id: u32) -> Option<String> {
 /// this process started listening for `WM_WTSSESSION_CHANGE` — the normal
 /// case after a service restart, or a reboot with an existing interactive
 /// logon. Windows only notifies about *changes*, not the state at
-/// registration time, so without this the agent would report no session
-/// (and the dashboard would show no current user) until the next
-/// lock/unlock cycle even though someone is actively using the device.
+/// registration time, so without this the agent would report no current
+/// user until the next lock/unlock cycle even though someone is actively
+/// using the device.
+///
+/// Deliberately reports this via `UsageRecorder::seed_current_user`, not a
+/// synthetic `Logon` dispatch: there's no way to tell a genuinely new login
+/// apart from the agent process simply restarting while the same login
+/// continues, and treating every restart as a fresh logon would open (and
+/// report to the controller) a brand-new usage session each time the
+/// service bounces — fragmenting one continuous stretch of usage into
+/// spurious back-to-back session rows in the dashboard.
 fn seed_active_sessions() {
     let mut sessions: *mut WTS_SESSION_INFOW = std::ptr::null_mut();
     let mut count: u32 = 0;
@@ -270,7 +278,11 @@ fn seed_active_sessions() {
         if entry.State == WTSActive || entry.State == WTSConnected {
             if let Some(username) = session_username(entry.SessionId) {
                 info!(session_id = entry.SessionId, %username, "found pre-existing session at startup");
-                dispatch(SessionEvent::Logon(entry.SessionId), Some(username));
+                RECORDER.with(|cell| {
+                    if let Some(recorder) = cell.borrow_mut().as_mut() {
+                        recorder.seed_current_user(entry.SessionId, username);
+                    }
+                });
             }
         }
     }
