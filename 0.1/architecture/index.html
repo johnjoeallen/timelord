@@ -858,7 +858,7 @@ into the same registration flow:</p>
     else no URL configured
         Agent-&gt;&gt;Controller: UDP broadcast DISCOVER_CONTROLLER (requestId)
         Controller--&gt;&gt;Agent: UDP unicast CONTROLLER_AVAILABLE (same requestId)
-        Note over Agent: validate protocol/version/requestId/URL;&lt;br/&gt;if multiple replies, pick by priority,&lt;br/&gt;then speed, then smallest controller ID
+        Note over Agent: validate protocol/version/requestId/URL, if multiple replies, pick by priority, then speed, then smallest controller ID
         Agent-&gt;&gt;Agent: persist chosen URL to agent.toml
     end
 

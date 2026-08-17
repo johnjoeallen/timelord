@@ -722,9 +722,10 @@ trusted local network.</p>
   a controller. Every event is queued to local disk before delivery, so a controller outage never
   loses data; queued events retry with backoff and flush immediately on reconnect or shutdown.</li>
 <li><strong>Controller</strong> (Java / Spring Boot / PostgreSQL) accepts registration, heartbeats, and events
-  over HTTP, and computes two independent statuses per device:<ul>
-<li><strong>Online / Offline</strong> — is the agent reachable (recent heartbeats)?</li>
-<li><strong>Active</strong> — is a user actually logged in right now?</li>
+  over HTTP, and shows each device as one of three states:<ul>
+<li><strong>Offline</strong> — no events received within the timeout window.</li>
+<li><strong>Inactive</strong> — online (agent reachable, recent heartbeats), but nobody's logged in.</li>
+<li><strong>Active</strong> — online and a user is actually logged in right now.</li>
 </ul>
 </li>
 <li><strong>Login sessions</strong> — a per-device history of login → logout spans, derived from the event log,
@@ -735,10 +736,10 @@ trusted local network.</p>
 </ul>
 <h2 id="screenshots">Screenshots<a class="headerlink" href="#screenshots" title="Permanent link">&para;</a></h2>
 <figure>
-<p><img alt="Dashboard showing three devices: offline, online-and-active, online-with-no-user" src="images/dashboard.png" />
+<p><img alt="Dashboard showing three devices: Offline, Active, and Inactive" src="images/dashboard.png" />
   </p>
-<figcaption>The dashboard distinguishes three states per device: offline, online with someone
-  logged in ("Active"), and online with nobody logged in.</figcaption>
+<figcaption>The dashboard shows exactly one status badge per device: Offline, Active (online with
+  someone logged in), or Inactive (online with nobody logged in).</figcaption>
 </figure>
 <figure>
 <p><img alt="Device detail page showing status, network interfaces, and login session history" src="images/device-detail.png" />
