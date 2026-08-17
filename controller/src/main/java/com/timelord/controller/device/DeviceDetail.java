@@ -1,5 +1,7 @@
 package com.timelord.controller.device;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -32,7 +34,7 @@ public record DeviceDetail(
                 device.getOperatingSystem(),
                 device.getOperatingSystemVersion(),
                 device.getArchitecture(),
-                device.getLocalIpAddresses(),
+                withoutLinkLocal(device.getLocalIpAddresses()),
                 device.getSourceIp(),
                 device.getStatus(),
                 device.getServiceState(),
@@ -43,5 +45,32 @@ public record DeviceDetail(
                 device.getLastRegistrationAt(),
                 device.getLastHeartbeatAt()
         );
+    }
+
+    /**
+     * Drops loopback/link-local addresses (169.254.0.0/16, fe80::/10) from
+     * an agent-reported IP list — never reachable from another host, so
+     * only ever noise. Filtered here rather than trusting the agent to
+     * always have sent a clean list, since a device's stored
+     * localIpAddresses is whatever it last registered with; an older agent
+     * build's un-filtered list stays on the row until that device
+     * re-registers with a newer build. Tolerates both the old bare
+     * "10.0.0.1" format and the newer "Ethernet: 10.0.0.1" format.
+     */
+    private static List<String> withoutLinkLocal(List<String> addresses) {
+        if (addresses == null) {
+            return List.of();
+        }
+        return addresses.stream().filter(DeviceDetail::isRoutable).toList();
+    }
+
+    private static boolean isRoutable(String entry) {
+        String ip = entry.contains(": ") ? entry.substring(entry.lastIndexOf(": ") + 2) : entry;
+        try {
+            InetAddress addr = InetAddress.getByName(ip);
+            return !addr.isLoopbackAddress() && !addr.isLinkLocalAddress();
+        } catch (UnknownHostException e) {
+            return true; // not a parseable literal — keep it rather than silently dropping it
+        }
     }
 }
