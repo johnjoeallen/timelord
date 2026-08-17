@@ -196,12 +196,15 @@ public class Device {
     }
 
     /**
-     * Whether a user is actually logged in right now — distinct from
-     * {@link #status}, which only reflects whether the agent is reachable
-     * (recent heartbeats). A device can be ONLINE with nobody logged in.
+     * Whether a user is actually, visibly using the device right now —
+     * distinct from {@link #status}, which only reflects whether the agent
+     * is reachable (recent heartbeats). A device can be ONLINE with nobody
+     * logged in, or ONLINE with someone logged in but LOCKED (screen
+     * locked, RDP disconnected, etc.) — neither counts as active.
      */
     public boolean isActive() {
-        return status == DeviceStatus.ONLINE && currentUsername != null && !currentUsername.isBlank();
+        return status == DeviceStatus.ONLINE && "ACTIVE".equals(sessionState)
+                && currentUsername != null && !currentUsername.isBlank();
     }
 
     public Long getIdleSeconds() {

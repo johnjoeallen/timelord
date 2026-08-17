@@ -127,10 +127,19 @@ impl UsageRecorder {
     /// lock/unlock/logoff still opens/closes a usage session normally;
     /// this only fixes up `current_user`/`session_state` for heartbeats in
     /// the meantime.
+    ///
+    /// Reports `LOCKED`, not `ACTIVE`, even though the WTS session state
+    /// this was seeded from is `WTSActive`/`WTSConnected`: Windows has no
+    /// connect-state for "locked" — a locked workstation's console session
+    /// is still reported as `WTSActive` with its username still resolvable
+    /// — so at startup there's no way to tell a locked screen from someone
+    /// actually sitting at the desk. `LOCKED` is the state that's true
+    /// either way (logged in, presence unconfirmed) instead of overclaiming
+    /// active use; a subsequent real `Unlock` corrects it to `ACTIVE`.
     pub fn seed_current_user(&mut self, session_id: SessionId, username: String) {
         self.session_usernames.insert(session_id, username);
         let mut snapshot = self.snapshot.lock().unwrap();
-        snapshot.state = "ACTIVE".to_string();
+        snapshot.state = "LOCKED".to_string();
         snapshot.username = self.session_usernames.values().next().cloned();
     }
 
