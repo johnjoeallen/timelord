@@ -1,21 +1,34 @@
 # TimeLord
 
-TimeLord is a centrally managed computer-usage policy platform that securely enforces schedules,
-session limits, mandatory breaks, connectivity requirements, and remote power controls across
-Windows devices.
+TimeLord is aiming to become a centrally managed computer-usage policy platform that securely
+enforces schedules, session limits, mandatory breaks, connectivity requirements, and remote power
+controls across Windows devices. **It isn't that yet.**
 
-**TimeLord — The Authority on Computer Time.**
+**Today, Phase 1 is monitoring only:** a Windows agent tracks who's logged into a device and for
+how long, and a controller/dashboard shows it live — device online/offline status, whether someone
+is actually using it right now ("Active"), login session history, and network interfaces. There is
+no schedule engine, no enforcement, and no remote power control. See
+[`docs/architecture.md`](docs/architecture.md#whats-implemented) for exactly what exists today, or
+the [docs site](https://johnjoeallen.github.io/timelord/) for the same content, nicer.
+
+**TimeLord — The Authority on Computer Time.** *(eventually.)*
 
 > **⚠ Phase 1 security warning:** this build uses plain, unauthenticated HTTP — no TLS, no
 > request signing, no access control. It is meant for a trusted local/dev network only. See
 > [`docs/architecture.md`](docs/architecture.md#security-boundary).
 
+## Screenshots
+
+<img src="docs/images/dashboard.png" alt="Dashboard showing three devices: offline, online-and-active, online-with-no-user" width="800">
+
+<img src="docs/images/device-detail.png" alt="Device detail page showing status, network interfaces, and login session history" width="800">
+
 ## Components
 
 | Component            | Path          | Language                | Status                          |
 |-----------------------|---------------|--------------------------|----------------------------------|
-| TimeLord Agent        | `agent/`      | Rust (Windows service)   | Phase 1: usage tracking + reporting |
-| TimeLord Controller    | `controller/` | Java 21 / Spring Boot    | Phase 1: registration, events, UI |
+| TimeLord Agent        | `agent/`      | Rust (Windows service)   | Phase 1: usage tracking + reporting (monitoring only) |
+| TimeLord Controller    | `controller/` | Java 21 / Spring Boot    | Phase 1: registration, events, status, dashboard |
 | TimeLord Console       | (controller)  | Thymeleaf (server-rendered) | Phase 1: dashboard/devices/events |
 | TimeLord Protocol      | `protocol/`   | JSON Schema              | Not yet populated |
 
@@ -78,8 +91,12 @@ timelord/
 
 ## Documentation
 
-- [`docs/architecture.md`](docs/architecture.md) — component diagram, discovery sequence,
-  event delivery/idempotency, security boundary, known limitations
+**[johnjoeallen.github.io/timelord](https://johnjoeallen.github.io/timelord/)** — the docs site
+(built from `docs/` via MkDocs, published on every push to `main`).
+
+- [`docs/architecture.md`](docs/architecture.md) — what's implemented (monitoring only),
+  component diagram, discovery sequence, event delivery/idempotency, security boundary, known
+  limitations
 - [`agent/README.md`](agent/README.md) — agent internals, CLI, local dev workflow
 - [`controller/README.md`](controller/README.md) — controller internals, API, running tests
 - [`deployment/windows/README.md`](deployment/windows/README.md) — Windows service install

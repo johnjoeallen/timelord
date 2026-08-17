@@ -13,6 +13,7 @@ body {
 .status-badge-online,
 .status-badge-offline,
 .status-badge-active,
+.session-state-locked,
 .session-badge-logged-out,
 .session-badge-stopped,
 .session-badge-suspended,
@@ -37,6 +38,7 @@ body {
     background-color: #198754;
 }
 
+.session-state-locked,
 .session-badge-suspended {
     background-color: #0d6efd;
 }

@@ -1,0 +1,57 @@
+site_name: TimeLord
+site_description: >-
+  Phase 1 of TimeLord — a Windows device monitoring platform: usage tracking,
+  reporting, and a live dashboard. No enforcement yet.
+site_url: https://johnjoeallen.github.io/timelord/
+repo_url: https://github.com/johnjoeallen/timelord
+repo_name: johnjoeallen/timelord
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+
+# README.md is for browsing docs/ on GitHub, not a site page — it would
+# otherwise collide with index.md as the site's home page.
+exclude_docs: |
+  README.md
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.top
+    - content.code.copy
+    - content.action.edit
+
+markdown_extensions:
+  - admonition
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+extra:
+  version:
+    provider: mike

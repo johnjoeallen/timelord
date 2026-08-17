@@ -1,0 +1,43 @@
+name: Docs
+
+# Publishes docs/ (via MkDocs + Material) to GitHub Pages using mike, which
+# keeps built HTML on the gh-pages branch. Only one doc "version" exists so
+# far (0.1, aliased "latest" and set as the default) — mike's multi-version
+# support is here so a real release can get its own version later without
+# restructuring anything.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: docs-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - run: pip install mkdocs-material mike
+
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - run: mike deploy --push --update-aliases 0.1 latest
+      - run: mike set-default --push latest
