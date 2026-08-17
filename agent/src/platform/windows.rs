@@ -171,10 +171,16 @@ extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM)
             let reason = wparam.0 as u32;
             let session_id = lparam.0 as u32;
             if let Some(event) = wts_reason_to_event(reason, session_id) {
-                // Only a fresh logon can resolve a *new* username; every
-                // other transition for this session reuses the one
-                // `UsageRecorder` already cached from the logon.
-                let username = (reason == WTS_SESSION_LOGON).then(|| session_username(session_id)).flatten();
+                // Resolved on every transition, not just Logon: if this
+                // agent process started (or restarted) while the session
+                // was already logged on but disconnected/locked, there was
+                // never a Logon notification to cache a username from, and
+                // the next event to arrive — Unlock, ConsoleConnect,
+                // RemoteConnect, whatever — is the first chance to learn
+                // who it is. `UsageRecorder::handle` caches whatever comes
+                // back, so this is self-healing regardless of which event
+                // happens to be the first one observed for a session.
+                let username = session_username(session_id);
                 dispatch(event, username);
             }
             LRESULT(0)

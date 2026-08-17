@@ -147,13 +147,15 @@ impl UsageRecorder {
     /// session start/end, and — if wired to one — mirrors the raw event
     /// into the reporting queue regardless of whether it changed usage
     /// session state. `username` is the Windows account for the event's
-    /// session, if the caller was able to resolve one (typically only
-    /// available at `Logon`; later events for the same session reuse the
-    /// cached value).
+    /// session, if the caller was able to resolve one — cached whenever
+    /// present, regardless of event type, so a session first observed via
+    /// something other than `Logon` (e.g. the agent started while already
+    /// logged on but disconnected, then the user reconnects) still ends up
+    /// with a known username instead of silently staying blank.
     pub fn handle(&mut self, event: SessionEvent, username: Option<String>) -> Result<(), StoreError> {
         let now = Utc::now();
 
-        if let (SessionEvent::Logon(id), Some(name)) = (event, &username) {
+        if let (Some(id), Some(name)) = (event.session_id(), &username) {
             self.session_usernames.insert(id, name.clone());
         }
         let event_username = event.session_id().and_then(|id| self.session_usernames.get(&id).cloned());
@@ -199,8 +201,19 @@ impl UsageRecorder {
     /// Called after every event so heartbeats always reflect reality rather
     /// than the value at agent startup.
     fn refresh_snapshot(&self, event: SessionEvent) {
-        let state = if self.tracker.is_active() {
+        // Single-user-at-a-time is the common case this is designed for;
+        // with multiple concurrent sessions (fast user switching, RDP) this
+        // just reports one of them rather than modelling all of them.
+        let username = self.session_usernames.values().next().cloned();
+        let state = if self.tracker.is_active() && username.is_some() {
             "ACTIVE"
+        } else if self.tracker.is_active() {
+            // A usage session is open but no session-change event for it has
+            // ever resolved a username (should be rare now that every event
+            // type attempts resolution, not just Logon) — never claim ACTIVE
+            // without knowing who; report the same conservative state used
+            // when we merely find a pre-existing session at startup.
+            "LOCKED"
         } else {
             match event {
                 SessionEvent::Suspend => "SUSPENDED",
@@ -210,10 +223,6 @@ impl UsageRecorder {
                 _ => "NO_SESSION",
             }
         };
-        // Single-user-at-a-time is the common case this is designed for;
-        // with multiple concurrent sessions (fast user switching, RDP) this
-        // just reports one of them rather than modelling all of them.
-        let username = self.session_usernames.values().next().cloned();
         let mut snapshot = self.snapshot.lock().unwrap();
         snapshot.state = state.to_string();
         snapshot.username = username;
@@ -232,5 +241,52 @@ impl UsageRecorder {
 
     pub fn is_active(&self) -> bool {
         self.tracker.is_active()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn recorder() -> UsageRecorder {
+        UsageRecorder::from_store(store::Store::open_in_memory().unwrap()).unwrap()
+    }
+
+    #[test]
+    fn username_is_resolved_from_a_non_logon_event_when_logon_was_never_observed() {
+        // Simulates the agent starting after the user already logged on (so
+        // no Logon notification ever arrived for this process), then
+        // reconnecting via RDP/console — the first event able to resolve a
+        // username.
+        let mut recorder = recorder();
+        recorder.handle(SessionEvent::ConsoleConnect(7), Some("alice".to_string())).unwrap();
+
+        let snapshot = recorder.snapshot_handle();
+        let snapshot = snapshot.lock().unwrap();
+        assert_eq!(snapshot.state, "ACTIVE");
+        assert_eq!(snapshot.username.as_deref(), Some("alice"));
+    }
+
+    #[test]
+    fn active_session_without_a_known_username_reports_locked_not_active() {
+        let mut recorder = recorder();
+        recorder.handle(SessionEvent::ConsoleConnect(7), None).unwrap();
+
+        let snapshot = recorder.snapshot_handle();
+        let snapshot = snapshot.lock().unwrap();
+        assert_eq!(snapshot.state, "LOCKED");
+        assert_eq!(snapshot.username, None);
+    }
+
+    #[test]
+    fn logoff_clears_username_and_reports_no_session() {
+        let mut recorder = recorder();
+        recorder.handle(SessionEvent::Logon(7), Some("alice".to_string())).unwrap();
+        recorder.handle(SessionEvent::Logoff(7), None).unwrap();
+
+        let snapshot = recorder.snapshot_handle();
+        let snapshot = snapshot.lock().unwrap();
+        assert_eq!(snapshot.state, "NO_SESSION");
+        assert_eq!(snapshot.username, None);
     }
 }
