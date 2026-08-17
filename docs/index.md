@@ -9,9 +9,8 @@ for how long, and whether the machine is even reachable — and shows it on a li
     at real devices — details in [Before you deploy this](architecture.md#before-you-deploy-this):
 
     - **Monitoring only.** No schedule engine, session-limit enforcement, forced breaks, or
-      remote power control — the [`README`](https://github.com/johnjoeallen/timelord#readme)
-      tagline describes the eventual project, not what's running today. TimeLord **observes and
-      reports**; it doesn't act.
+      remote power control — the project's tagline describes the eventual product, not what's
+      running today. TimeLord **observes and reports**; it doesn't act.
     - **Every agent must reach the controller directly, on the same network(s).** Everything is
       unicast HTTP — no NAT traversal, relay, or cloud/VPN routing.
     - **Unreachable devices get put to sleep overnight.** By default, an agent that can't reach
@@ -62,9 +61,26 @@ $ cp .env.example .env        # edit TIMELORD_PUBLIC_URL to your LAN IP
 $ docker compose up --build   # postgres + controller on :9099, discovery UDP on :45821
 ```
 
-Open `http://localhost:9099` for the dashboard. See the
-[root README](https://github.com/johnjoeallen/timelord#readme) for the full quick start,
-including trying the agent's dev backend without a Windows box.
+Open `http://localhost:9099` for the dashboard, or:
+
+```console
+$ curl http://localhost:9099/api/v1/system/info
+```
+
+### Try the agent against it (from a dev machine, any OS)
+
+```console
+$ cd agent
+$ TIMELORD_CONTROLLER_URL=http://localhost:9099 cargo run -- run
+timelord-agent> logon
+timelord-agent> lock
+timelord-agent> quit
+```
+
+This registers a device, sends an `AGENT_STARTED`/`USER_LOGON`/... event trail, and a heartbeat —
+all visible on the dashboard within a few seconds. See [Agent](agent.md) for what
+`logon`/`lock`/... actually mean (the dev backend's interactive REPL stands in for real Windows
+session notifications when not running on Windows).
 
 ## Components
 
@@ -78,7 +94,5 @@ including trying the agent's dev backend without a Windows box.
 
 - [Architecture](architecture.md) — component diagram, discovery/registration sequence, event
   delivery and idempotency, security boundary, known limitations
-- [`agent/README.md`](https://github.com/johnjoeallen/timelord/blob/main/agent/README.md) —
-  agent internals, CLI, local dev workflow
-- [`controller/README.md`](https://github.com/johnjoeallen/timelord/blob/main/controller/README.md) —
-  controller internals, API, running tests
+- [Agent](agent.md) — agent internals, CLI, configuration, local dev workflow
+- [Controller](controller.md) — controller internals, API, running tests

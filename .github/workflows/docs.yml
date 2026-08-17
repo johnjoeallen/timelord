@@ -39,5 +39,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - run: mike deploy --push --update-aliases 0.1 latest
+      # --alias-type=redirect: mike's default alias mechanism is a symlink,
+      # which GitHub Pages' static file server doesn't follow (it 404s) —
+      # redirect writes real HTML stub pages under latest/ instead.
+      - run: mike deploy --push --update-aliases --alias-type=redirect 0.1 latest
       - run: mike set-default --push latest

@@ -17,6 +17,8 @@ exclude_docs: |
 nav:
   - Home: index.md
   - Architecture: architecture.md
+  - Agent: agent.md
+  - Controller: controller.md
 
 theme:
   name: material

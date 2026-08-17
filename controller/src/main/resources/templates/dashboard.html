@@ -15,10 +15,10 @@
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div class="fw-semibold" th:text="${device.deviceName}"></div>
                             <div>
-                                <span class="badge"
+                                <span th:if="${device.active}" class="badge status-badge-active">Active</span>
+                                <span th:if="${!device.active}" class="badge"
                                       th:classappend="${device.status.name() == 'ONLINE'} ? 'status-badge-online' : 'status-badge-offline'"
                                       th:text="${device.status}"></span>
-                                <span th:if="${device.active}" class="badge status-badge-active">Active</span>
                             </div>
                         </div>
                         <div class="text-muted small mb-2" th:text="${device.hostname}"></div>
