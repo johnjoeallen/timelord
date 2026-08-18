@@ -17,8 +17,8 @@ class GlobalExceptionHandlerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void missingFaviconReturns404NotAGeneric500() {
-        var response = restTemplate.getForEntity("/favicon.ico", ApiError.class);
+    void missingStaticAssetReturns404NotAGeneric500() {
+        var response = restTemplate.getForEntity("/apple-touch-icon.png", ApiError.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
