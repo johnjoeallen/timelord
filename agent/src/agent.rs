@@ -26,6 +26,9 @@ pub const AGENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const EVENT_BATCH_SIZE: usize = 100;
 const RECONNECT_BACKOFF: Duration = Duration::from_secs(15);
 const OFFLINE_FALLBACK_CHECK_INTERVAL: Duration = Duration::from_secs(300);
+/// Interval for [`hard_sleep_loop`]'s window check. Same cadence as the
+/// offline fallback check; there's no reason for it to differ.
+const HARD_SLEEP_CHECK_INTERVAL: Duration = Duration::from_secs(300);
 /// Bound on how long shutdown waits for one last delivery attempt of
 /// anything still queued (notably `AgentStopping`) before giving up and
 /// letting the process exit anyway — the SCM only grants a service a short
@@ -384,6 +387,42 @@ pub async fn offline_fallback_loop(agent: Arc<Agent>) {
     }
 }
 
+/// Hardcoded 02:00-06:00 local-time sleep window, enforced unconditionally
+/// (unlike [`offline_fallback_loop`], regardless of controller connectivity).
+/// This is a stopgap until schedules are server-side configurable — remove
+/// once that lands.
+pub async fn hard_sleep_loop(agent: Arc<Agent>) {
+    let start = NaiveTime::from_hms_opt(2, 0, 0).unwrap();
+    let end = NaiveTime::from_hms_opt(6, 0, 0).unwrap();
+    let mut interval = tokio::time::interval_at(
+        tokio::time::Instant::now() + HARD_SLEEP_CHECK_INTERVAL,
+        HARD_SLEEP_CHECK_INTERVAL,
+    );
+    let mut shutdown = agent.shutdown_signal();
+    loop {
+        tokio::select! {
+            _ = interval.tick() => {}
+            _ = shutdown.changed() => break,
+        }
+        if !is_within_window(Local::now().time(), start, end) {
+            continue;
+        }
+
+        info!("within hard sleep window (02:00-06:00); suspending device");
+        agent.enqueue(events::power_action_requested("SUSPEND", "hard sleep window")).await;
+        match tokio::task::spawn_blocking(platform::suspend).await {
+            Ok(Ok(())) => agent.enqueue(events::power_action_completed("SUSPEND")).await,
+            Ok(Err(err)) => {
+                warn!(?err, "hard sleep suspend failed");
+                agent.enqueue(events::power_action_failed("SUSPEND", &err.to_string())).await;
+            }
+            Err(err) => {
+                error!(?err, "hard sleep suspend task panicked");
+            }
+        }
+    }
+}
+
 /// Whether `now` falls in `[start, end)`, handling windows that cross
 /// midnight (e.g. 22:00-06:00) as well as same-day ones (e.g. 01:00-08:30).
 fn is_within_window(now: NaiveTime, start: NaiveTime, end: NaiveTime) -> bool {
@@ -493,7 +532,8 @@ pub fn run_blocking(dir: &std::path::Path, cli: &CliOverrides) -> anyhow::Result
             tokio::join!(
                 heartbeat_loop(agent.clone(), client.clone()),
                 delivery_loop(agent.clone(), client),
-                offline_fallback_loop(agent),
+                offline_fallback_loop(agent.clone()),
+                hard_sleep_loop(agent),
             );
         })
     };
