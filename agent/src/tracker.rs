@@ -141,6 +141,10 @@ impl UsageTracker {
         self.open_since.is_some()
     }
 
+    pub fn is_logged_on(&self, id: SessionId) -> bool {
+        self.sessions.contains_key(&id)
+    }
+
     /// Applies an event that occurred at `at` (UTC) and returns the
     /// resulting transition, if any.
     pub fn apply(&mut self, event: SessionEvent, at: DateTime<Utc>) -> Transition {

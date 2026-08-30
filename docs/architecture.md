@@ -83,6 +83,9 @@ scheduled retry.
   online with nobody logged in — including right after the agent starts —
   has no session at all; only an actual logon starts one, and logoff, agent
   shutdown, suspend, or the agent going silent for too long ends it.
+- **Activity history** — `ACTIVE` and `INACTIVE` are persisted separately from
+  session events. A real logon can therefore produce `USER_LOGON` followed by
+  `ACTIVE`; startup reconciliation does not produce a synthetic logon.
 - **Network interface inventory** — every adapter the OS reports (not just
   ones with a routable address), with name, MAC, and address(es), shown on
   the device detail page.

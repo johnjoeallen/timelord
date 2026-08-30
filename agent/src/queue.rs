@@ -262,6 +262,12 @@ impl EventQueue {
             .optional()
             .map_err(Into::into)
     }
+
+    #[cfg(test)]
+    pub(crate) fn event_types(&self) -> Result<Vec<EventType>, QueueError> {
+        self.due_batch(Utc::now() + chrono::Duration::hours(1), 100)
+            .map(|events| events.into_iter().map(|event| event.event.event_type).collect())
+    }
 }
 
 /// `attempt` is 1-indexed (the attempt count *after* the failure just

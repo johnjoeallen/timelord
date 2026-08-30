@@ -65,7 +65,7 @@ public class EventService {
     }
 
     public Page<DeviceEvent> forDevice(UUID deviceId, Pageable pageable) {
-        return eventRepository.findByDeviceId(deviceId, pageable);
+        return eventRepository.findByDeviceIdOrderByOccurredAtAsc(deviceId, pageable);
     }
 
     public String deviceNameOrUnknown(UUID deviceId, Map<UUID, Device> cache) {

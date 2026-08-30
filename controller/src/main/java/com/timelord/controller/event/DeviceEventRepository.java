@@ -13,6 +13,8 @@ public interface DeviceEventRepository extends JpaRepository<DeviceEvent, UUID>,
 
     Page<DeviceEvent> findByDeviceId(UUID deviceId, Pageable pageable);
 
+    Page<DeviceEvent> findByDeviceIdOrderByOccurredAtAsc(UUID deviceId, Pageable pageable);
+
     List<DeviceEvent> findByDeviceIdAndEventTypeInOrderByOccurredAtAsc(UUID deviceId, Collection<EventType> eventTypes);
 
     long countByEventTypeInAndOccurredAtAfter(Collection<EventType> eventTypes, Instant since);

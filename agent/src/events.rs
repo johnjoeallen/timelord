@@ -70,6 +70,20 @@ pub fn from_session_event(event: SessionEvent, username: Option<String>) -> Queu
     new_session_event(event_type, EventSeverity::Info, username, event_data)
 }
 
+/// Creates the first-class activity event corresponding to a tracker
+/// transition.  Session notifications and activity transitions deliberately
+/// remain separate events: a logon may therefore be followed by ACTIVE.
+pub fn activity_event(active: bool, occurred_at: chrono::DateTime<Utc>, username: Option<String>) -> QueuedEvent {
+    let mut event = new_session_event(
+        if active { EventType::Active } else { EventType::Inactive },
+        EventSeverity::Info,
+        username,
+        HashMap::new(),
+    );
+    event.occurred_at = occurred_at;
+    event
+}
+
 pub fn agent_started(agent_version: &str, start_reason: &str) -> QueuedEvent {
     new_event(
         EventType::AgentStarted,

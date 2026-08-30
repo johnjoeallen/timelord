@@ -106,7 +106,9 @@ a first one locks; resume alone only restarts a session if it never locked befor
 
 Every tracker notification also becomes a reported event (`src/events.rs::from_session_event`)
 — `USER_LOGON`, `USER_LOCK`, `SYSTEM_SUSPEND`, etc. — independent of whether it changed local
-usage-session state.
+usage-session state. Derived activity transitions are separate first-class `ACTIVE`/`INACTIVE`
+events, so a real logon normally appears as `USER_LOGON` followed by `ACTIVE`. Startup
+reconciliation of an already logged-in session does not invent a `USER_LOGON`.
 
 ## Layout
 

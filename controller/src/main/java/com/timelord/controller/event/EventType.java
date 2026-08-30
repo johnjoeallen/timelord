@@ -2,7 +2,7 @@ package com.timelord.controller.event;
 
 /**
  * Full Phase-1 event vocabulary (design brief section 8). Not every value is
- * emitted by the agent yet — see agent/src/events.rs for what's actually
+ * emitted by every platform yet — see agent/src/events.rs for what's actually
  * wired up — but the controller accepts and stores all of them so new agent
  * event types don't require a migration to add.
  */
@@ -22,6 +22,8 @@ public enum EventType {
     USER_LOGOFF,
     USER_LOCK,
     USER_UNLOCK,
+    ACTIVE,
+    INACTIVE,
     SESSION_CONNECTED,
     SESSION_DISCONNECTED,
     SYSTEM_BOOT,

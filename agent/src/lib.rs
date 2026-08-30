@@ -155,17 +155,34 @@ impl UsageRecorder {
     /// logged on but disconnected, then the user reconnects) still ends up
     /// with a known username instead of silently staying blank.
     pub fn handle(&mut self, event: SessionEvent, username: Option<String>) -> Result<(), StoreError> {
-        let now = Utc::now();
+        self.handle_at(event, username, Utc::now())
+    }
+
+    /// Handles a notification using the timestamp captured at the platform
+    /// boundary. Keeping this separate makes it possible for platform tests
+    /// (and future OS APIs that provide an event timestamp) to avoid replacing
+    /// event time with a later polling/delivery time.
+    pub fn handle_at(&mut self, event: SessionEvent, username: Option<String>, now: chrono::DateTime<Utc>) -> Result<(), StoreError> {
+
+        // WTS notifications can be observed more than once by a service
+        // restart/re-registration race. A repeated logon is not a second
+        // session and must not create a second historical LOGON.
+        if let SessionEvent::Logon(id) = event {
+            if self.tracker.is_logged_on(id) {
+                return Ok(());
+            }
+        }
 
         if let (Some(id), Some(name)) = (event.session_id(), &username) {
             self.session_usernames.insert(id, name.clone());
         }
         let event_username = event.session_id().and_then(|id| self.session_usernames.get(&id).cloned());
 
-        match self.tracker.apply(event, now) {
+        let transition = self.tracker.apply(event, now);
+        match &transition {
             Transition::Started { start } => {
                 info!(%start, ?event, "usage session started");
-                self.open_session_id = Some(self.store.start_session(start)?);
+                self.open_session_id = Some(self.store.start_session(*start)?);
             }
             Transition::Ended(record) => {
                 info!(start = %record.start, end = %record.end, reason = ?record.end_reason, ?event, "usage session ended");
@@ -185,14 +202,30 @@ impl UsageRecorder {
             self.session_usernames.remove(&id);
         }
         self.refresh_snapshot(event);
-
         if let Some(queue) = &self.event_queue {
-            let queued = events::from_session_event(event, event_username);
+            let queued = events::from_session_event(event, event_username.clone());
+            let activity_transition = match (&transition, event) {
+                (Transition::Started { .. }, _) => Some(true),
+                // LOGOFF is a session boundary, not an activity transition;
+                // preserve the distinct LOGOFF event without inventing an
+                // extra INACTIVE at the same instant.
+                (Transition::Ended(_), SessionEvent::Logoff(_)) => None,
+                (Transition::Ended(_), _) => Some(false),
+                (Transition::NoChange, _) => None,
+            };
             // This runs on the synchronous platform-pump thread, never on a
             // Tokio worker, so blocking on the async mutex here is safe and
             // avoids needing an async `handle`.
             if let Err(err) = queue.blocking_lock().enqueue(&queued, now) {
                 error!(?err, "failed to persist reporting event");
+            }
+            if let Some(active) = activity_transition {
+                // Enqueueing the raw session event first preserves the
+                // meaningful order LOGON -> ACTIVE (and LOCK -> INACTIVE).
+                let activity = events::activity_event(active, now, event_username.clone());
+                if let Err(err) = queue.blocking_lock().enqueue(&activity, now) {
+                    error!(?err, "failed to persist activity transition");
+                }
             }
         }
 
@@ -249,6 +282,9 @@ impl UsageRecorder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+    use chrono::TimeZone;
+    use tokio::sync::Mutex as AsyncMutex;
 
     fn recorder() -> UsageRecorder {
         UsageRecorder::from_store(store::Store::open_in_memory().unwrap()).unwrap()
@@ -290,5 +326,48 @@ mod tests {
         let snapshot = snapshot.lock().unwrap();
         assert_eq!(snapshot.state, "NO_SESSION");
         assert_eq!(snapshot.username, None);
+    }
+
+    fn recorder_with_queue() -> (UsageRecorder, Arc<AsyncMutex<EventQueue>>) {
+        let queue = Arc::new(AsyncMutex::new(EventQueue::open_in_memory().unwrap()));
+        let recorder = recorder().with_event_queue(queue.clone());
+        (recorder, queue)
+    }
+
+    #[test]
+    fn logon_persists_logon_then_active_and_updates_dashboard() {
+        let (mut recorder, queue) = recorder_with_queue();
+        let at = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        recorder.handle_at(SessionEvent::Logon(7), Some("alice".into()), at).unwrap();
+
+        assert_eq!(queue.blocking_lock().event_types().unwrap(),
+                   vec![protocol::EventType::UserLogon, protocol::EventType::Active]);
+        assert_eq!(recorder.snapshot_handle().lock().unwrap().state, "ACTIVE");
+    }
+
+    #[test]
+    fn activity_transitions_are_persisted_and_logoff_is_not_a_second_logon() {
+        let (mut recorder, queue) = recorder_with_queue();
+        let at = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
+        recorder.handle_at(SessionEvent::Logon(7), Some("alice".into()), at).unwrap();
+        recorder.handle_at(SessionEvent::Lock(7), None, at + chrono::Duration::seconds(10)).unwrap();
+        recorder.handle_at(SessionEvent::Unlock(7), None, at + chrono::Duration::seconds(20)).unwrap();
+        recorder.handle_at(SessionEvent::Logon(7), Some("alice".into()), at + chrono::Duration::seconds(21)).unwrap();
+        recorder.handle_at(SessionEvent::Logoff(7), None, at + chrono::Duration::seconds(30)).unwrap();
+
+        assert_eq!(queue.blocking_lock().event_types().unwrap(), vec![
+            protocol::EventType::UserLogon, protocol::EventType::Active,
+            protocol::EventType::UserLock, protocol::EventType::Inactive,
+            protocol::EventType::UserUnlock, protocol::EventType::Active,
+            protocol::EventType::UserLogoff,
+        ]);
+    }
+
+    #[test]
+    fn startup_reconciliation_does_not_invent_logon() {
+        let (mut recorder, queue) = recorder_with_queue();
+        recorder.seed_current_user(7, "alice".into());
+        assert!(queue.blocking_lock().event_types().unwrap().is_empty());
+        assert_eq!(recorder.snapshot_handle().lock().unwrap().state, "LOCKED");
     }
 }

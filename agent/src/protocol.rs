@@ -29,6 +29,10 @@ pub enum EventType {
     UserLogoff,
     UserLock,
     UserUnlock,
+    /// The user became active within an established session.
+    Active,
+    /// The user stopped being active within an established session.
+    Inactive,
     SessionConnected,
     SessionDisconnected,
     SystemBoot,

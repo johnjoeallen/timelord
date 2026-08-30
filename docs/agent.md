@@ -105,7 +105,10 @@ suspended**. A second session keeps the device "active" while a first one locks;
 restarts a session if it never locked before suspend.
 
 Every tracker notification also becomes a reported event (`USER_LOGON`, `USER_LOCK`,
-`SYSTEM_SUSPEND`, etc.) independent of whether it changed local usage-session state.
+`SYSTEM_SUSPEND`, etc.) independent of whether it changed local usage-session state. Derived
+activity transitions are separate first-class `ACTIVE`/`INACTIVE` events, so a real logon may
+appear as `USER_LOGON`, `ACTIVE`; startup reconciliation of an already logged-in session does
+not create a synthetic logon.
 
 ## Data
 
