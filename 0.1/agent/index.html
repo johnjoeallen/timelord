@@ -807,7 +807,10 @@ notifications:</p>
 suspended</strong>. A second session keeps the device "active" while a first one locks; resume alone only
 restarts a session if it never locked before suspend.</p>
 <p>Every tracker notification also becomes a reported event (<code>USER_LOGON</code>, <code>USER_LOCK</code>,
-<code>SYSTEM_SUSPEND</code>, etc.) independent of whether it changed local usage-session state.</p>
+<code>SYSTEM_SUSPEND</code>, etc.) independent of whether it changed local usage-session state. Derived
+activity transitions are separate first-class <code>ACTIVE</code>/<code>INACTIVE</code> events, so a real logon may
+appear as <code>USER_LOGON</code>, <code>ACTIVE</code>; startup reconciliation of an already logged-in session does
+not create a synthetic logon.</p>
 <h2 id="data">Data<a class="headerlink" href="#data" title="Permanent link">&para;</a></h2>
 <p>By default state lives under <code>C:\ProgramData\TimeLord\</code> (override with <code>TIMELORD_DATA_DIR</code>):</p>
 <div class="highlight"><pre><span></span><code>state.db     Usage sessions
