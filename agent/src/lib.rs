@@ -114,37 +114,6 @@ impl UsageRecorder {
         self.snapshot.clone()
     }
 
-    /// Records who's logged into `session_id` when the agent discovers a
-    /// session that was already active *before* it started observing
-    /// (service restart, or a reboot with an existing interactive logon —
-    /// see `platform::windows::seed_active_sessions`). Deliberately does
-    /// *not* go through [`Self::handle`]: we have no way to tell "this is a
-    /// brand-new login" apart from "the agent process simply restarted
-    /// while the same login continued", and treating it as a fresh `Logon`
-    /// would open a new usage session (and emit a `UserLogon` event) every
-    /// time the service bounces, fragmenting one continuous stretch of
-    /// usage into spurious back-to-back session rows. The next real
-    /// lock/unlock/logoff still opens/closes a usage session normally;
-    /// this only fixes up `current_user`/`session_state` for heartbeats in
-    /// the meantime.
-    ///
-    /// Reports `LOCKED`, not `ACTIVE`: the plain `WTSActive`/`WTSConnected`
-    /// connect-state this was seeded from doesn't distinguish a locked
-    /// console session from an unlocked one. Callers that can positively
-    /// confirm the session is actually unlocked (see
-    /// `platform::windows::session_locked`, which queries `WTSSessionInfoEx`)
-    /// should dispatch a real `Unlock` through [`Self::handle`] instead of
-    /// calling this — this method is the fallback for when Windows itself
-    /// doesn't know. `LOCKED` is the state that's true either way (logged
-    /// in, presence unconfirmed) instead of overclaiming active use; a
-    /// subsequent real `Unlock` corrects it to `ACTIVE`.
-    pub fn seed_current_user(&mut self, session_id: SessionId, username: String) {
-        self.session_usernames.insert(session_id, username);
-        let mut snapshot = self.snapshot.lock().unwrap();
-        snapshot.state = "LOCKED".to_string();
-        snapshot.username = self.session_usernames.values().next().cloned();
-    }
-
     /// Feeds a platform event into the tracker and persists any resulting
     /// session start/end, and — if wired to one — mirrors the raw event
     /// into the reporting queue regardless of whether it changed usage
@@ -364,10 +333,10 @@ mod tests {
     }
 
     #[test]
-    fn startup_reconciliation_does_not_invent_logon() {
+    fn startup_reconciliation_records_login_for_active_session() {
         let (mut recorder, queue) = recorder_with_queue();
-        recorder.seed_current_user(7, "alice".into());
-        assert!(queue.blocking_lock().event_types().unwrap().is_empty());
-        assert_eq!(recorder.snapshot_handle().lock().unwrap().state, "LOCKED");
+        recorder.handle_at(SessionEvent::Logon(7), Some("alice".into()), Utc::now()).unwrap();
+        assert_eq!(queue.blocking_lock().event_types().unwrap(), vec![protocol::EventType::UserLogon, protocol::EventType::Active]);
+        assert_eq!(recorder.snapshot_handle().lock().unwrap().state, "ACTIVE");
     }
 }

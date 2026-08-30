@@ -7,6 +7,7 @@
 //! [`SessionEvent`]s, and feeds them to the [`UsageRecorder`].
 
 use std::cell::RefCell;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
 use anyhow::{anyhow, Context};
@@ -48,6 +49,15 @@ thread_local! {
 /// [`request_stop`] can post it a `WM_QUIT` from the service control
 /// handler thread.
 static PUMP_THREAD_ID: OnceLock<u32> = OnceLock::new();
+static SHUTDOWN_REQUESTED: AtomicBool = AtomicBool::new(false);
+
+pub fn shutdown_requested() -> bool {
+    SHUTDOWN_REQUESTED.load(Ordering::Relaxed)
+}
+
+pub fn mark_shutdown_requested() {
+    SHUTDOWN_REQUESTED.store(true, Ordering::Relaxed);
+}
 
 /// Asks a currently-running [`run`] to stop. Safe to call from any thread;
 /// a no-op if the pump isn't running.
@@ -255,12 +265,9 @@ fn session_username(session_id: u32) -> Option<String> {
 }
 
 /// Best-effort recovery for a session that was already logged on before
-/// this process started listening for `WM_WTSSESSION_CHANGE` — the normal
-/// case after a service restart, or a reboot with an existing interactive
-/// logon. Windows only notifies about *changes*, not the state at
-/// registration time, so without this the agent would report no current
-/// user until the next lock/unlock cycle even though someone is actively
-/// using the device.
+/// this process started listening for `WM_WTSSESSION_CHANGE`. Windows only
+/// notifies about changes, not the state at registration time, so an active
+/// session found here is treated as having logged in just before startup.
 ///
 /// For a session Windows can positively report as unlocked (see
 /// `session_locked`), this dispatches a real `Unlock` through
@@ -291,12 +298,13 @@ fn seed_active_sessions() {
                 info!(session_id = entry.SessionId, %username, ?locked, "found pre-existing session at startup");
                 RECORDER.with(|cell| {
                     if let Some(recorder) = cell.borrow_mut().as_mut() {
-                        if locked == Some(false) {
-                            if let Err(err) = recorder.handle(SessionEvent::Unlock(entry.SessionId), Some(username)) {
-                                warn!(?err, "failed to persist seeded unlock event");
+                        if let Err(err) = recorder.handle(SessionEvent::Logon(entry.SessionId), Some(username)) {
+                            warn!(?err, "failed to persist seeded logon event");
+                        }
+                        if locked == Some(true) {
+                            if let Err(err) = recorder.handle(SessionEvent::Lock(entry.SessionId), None) {
+                                warn!(?err, "failed to persist seeded lock event");
                             }
-                        } else {
-                            recorder.seed_current_user(entry.SessionId, username);
                         }
                     }
                 });

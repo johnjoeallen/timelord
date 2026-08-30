@@ -22,6 +22,10 @@ pub fn suspend() -> anyhow::Result<()> {
     Ok(())
 }
 
+pub fn shutdown_requested() -> bool {
+    false
+}
+
 pub fn run(mut recorder: UsageRecorder) -> anyhow::Result<()> {
     info!("dev backend active (not Windows) — type commands, 'help' for a list, 'quit' to exit");
     print_help();

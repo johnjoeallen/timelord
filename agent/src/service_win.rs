@@ -51,7 +51,12 @@ fn run_service() -> anyhow::Result<()> {
             // without accepting and handling it too, the process is just
             // killed on shutdown and never gets to close the open usage
             // session or make a final delivery attempt for queued events.
-            ServiceControl::Stop | ServiceControl::Shutdown => {
+            ServiceControl::Shutdown => {
+                platform::mark_shutdown_requested();
+                platform::request_stop();
+                ServiceControlHandlerResult::NoError
+            }
+            ServiceControl::Stop => {
                 platform::request_stop();
                 ServiceControlHandlerResult::NoError
             }

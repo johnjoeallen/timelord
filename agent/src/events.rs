@@ -96,6 +96,10 @@ pub fn agent_stopping(agent_version: &str) -> QueuedEvent {
     new_event(EventType::AgentStopping, EventSeverity::Info, data([("agentVersion", json!(agent_version))]))
 }
 
+pub fn system_shutdown() -> QueuedEvent {
+    new_event(EventType::SystemShutdown, EventSeverity::Info, HashMap::new())
+}
+
 pub fn agent_error(message: &str) -> QueuedEvent {
     new_event(EventType::AgentError, EventSeverity::Error, data([("message", json!(message))]))
 }
@@ -205,6 +209,11 @@ mod tests {
         assert_eq!(event.event_type, EventType::AgentStarted);
         assert_eq!(event.data.get("agentVersion"), Some(&json!("0.1.0")));
         assert_eq!(event.data.get("startReason"), Some(&json!("WINDOWS_SERVICE_START")));
+    }
+
+    #[test]
+    fn system_shutdown_maps_to_system_shutdown() {
+        assert_eq!(system_shutdown().event_type, EventType::SystemShutdown);
     }
 
     #[test]

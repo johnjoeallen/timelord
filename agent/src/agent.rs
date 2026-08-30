@@ -541,6 +541,10 @@ pub fn run_blocking(dir: &std::path::Path, cli: &CliOverrides) -> anyhow::Result
     info!("agent starting");
     let result = platform::run(recorder);
 
+    if platform::shutdown_requested() {
+        rt.block_on(agent.enqueue(events::system_shutdown()));
+    }
+
     // Queue the shutdown notice, then give the networking task a short,
     // bounded window to make one immediate delivery attempt (rather than
     // just cutting it off and leaving the event to wait out a full retry
