@@ -42,7 +42,7 @@ timelord:
     id: ${TIMELORD_CONTROLLER_ID:}
     name: ${TIMELORD_CONTROLLER_NAME:TimeLord Controller}
     public-url: ${TIMELORD_PUBLIC_URL:http://localhost:8080}
-    version: 0.1.0
+    version: @revision@
   discovery:
     enabled: ${TIMELORD_DISCOVERY_ENABLED:true}
     port: ${TIMELORD_DISCOVERY_PORT:45821}

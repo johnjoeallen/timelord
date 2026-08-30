@@ -10,7 +10,8 @@ COPY pom.xml .
 RUN --mount=type=cache,target=/root/.m2 mvn -B -q dependency:go-offline
 
 COPY src ./src
-RUN --mount=type=cache,target=/root/.m2 mvn -B -q package -DskipTests
+ARG VERSION=0.1.0
+RUN --mount=type=cache,target=/root/.m2 mvn -B -q package -DskipTests -Drevision=${VERSION}
 
 # --- Runtime stage -------------------------------------------------------
 FROM eclipse-temurin:21-jre-jammy AS runtime
