@@ -42,6 +42,7 @@ public class DeviceSessionService {
             EventType.USER_LOGON, EventType.USER_LOGOFF,
             EventType.USER_LOCK, EventType.USER_UNLOCK,
             EventType.AGENT_STOPPING, EventType.SYSTEM_SUSPEND,
+            EventType.SYSTEM_SHUTDOWN,
             EventType.HEARTBEAT_SENT);
 
     private final DeviceEventRepository eventRepository;
@@ -100,7 +101,7 @@ public class DeviceSessionService {
                         sessionUsername = null;
                     }
                 }
-                case AGENT_STOPPING -> {
+                case AGENT_STOPPING, SYSTEM_SHUTDOWN -> {
                     if (sessionStart != null) {
                         sessions.add(closed(device, sessionUsername, sessionStart, event.getOccurredAt(), DeviceSession.EndReason.STOPPED));
                         sessionStart = null;

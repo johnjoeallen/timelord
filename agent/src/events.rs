@@ -92,6 +92,10 @@ pub fn agent_started(agent_version: &str, start_reason: &str) -> QueuedEvent {
     )
 }
 
+pub fn system_boot() -> QueuedEvent {
+    new_event(EventType::SystemBoot, EventSeverity::Info, HashMap::new())
+}
+
 pub fn agent_stopping(agent_version: &str) -> QueuedEvent {
     new_event(EventType::AgentStopping, EventSeverity::Info, data([("agentVersion", json!(agent_version))]))
 }
@@ -214,6 +218,11 @@ mod tests {
     #[test]
     fn system_shutdown_maps_to_system_shutdown() {
         assert_eq!(system_shutdown().event_type, EventType::SystemShutdown);
+    }
+
+    #[test]
+    fn system_boot_maps_to_system_boot() {
+        assert_eq!(system_boot().event_type, EventType::SystemBoot);
     }
 
     #[test]

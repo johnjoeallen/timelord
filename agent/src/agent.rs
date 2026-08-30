@@ -521,6 +521,7 @@ pub fn run_blocking(dir: &std::path::Path, cli: &CliOverrides) -> anyhow::Result
 
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(agent.enqueue(events::agent_started(AGENT_VERSION, "STARTUP")));
+    rt.block_on(agent.enqueue(events::system_boot()));
 
     let networking = {
         let agent = agent.clone();
