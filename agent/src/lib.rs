@@ -192,7 +192,7 @@ impl UsageRecorder {
                     // Shouldn't happen: tracker says a session closed but we
                     // never recorded its ID. Persist it as a standalone
                     // record so the data isn't lost.
-                    self.store.insert_closed_session(&record)?;
+                    self.store.insert_closed_session(record)?;
                 }
             }
             Transition::NoChange => {}
