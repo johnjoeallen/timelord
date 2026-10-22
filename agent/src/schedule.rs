@@ -56,6 +56,16 @@ impl Schedule {
     }
 }
 
+/// Whether the cached schedule may be enforced yet.
+///
+/// The cache can be stale: a calendar edit or an extension may have happened while the device was
+/// off or asleep. So enforcement waits until a controller response has confirmed the schedule
+/// since startup (or since resuming from sleep). If the controller stays unreachable for
+/// `grace`, the cache is enforced anyway, so an offline device is still governed.
+pub fn enforcement_ready(synced: bool, unsynced_for: std::time::Duration, grace: std::time::Duration) -> bool {
+    synced || unsynced_for >= grace
+}
+
 pub fn load(path: &Path) -> Option<Schedule> {
     let text = std::fs::read_to_string(path).ok()?;
     match serde_json::from_str(&text) {
@@ -112,6 +122,16 @@ mod tests {
         let s = schedule();
         assert_eq!(s.next_off_at(at(12, 0)), Some(at(22, 30)));
         assert_eq!(s.next_off_at(at(22, 30)), None);
+    }
+
+    #[test]
+    fn enforcement_waits_for_a_sync_then_falls_back_to_the_cache() {
+        use std::time::Duration;
+        let grace = Duration::from_secs(90);
+        assert!(!enforcement_ready(false, Duration::from_secs(5), grace), "just started: wait for the controller");
+        assert!(!enforcement_ready(false, Duration::from_secs(89), grace));
+        assert!(enforcement_ready(false, Duration::from_secs(90), grace), "controller unreachable: enforce the cache");
+        assert!(enforcement_ready(true, Duration::ZERO, grace), "confirmed by the controller");
     }
 
     #[test]

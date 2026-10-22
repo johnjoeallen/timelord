@@ -20,7 +20,10 @@ Windows service (Rust) that tracks device usage and reports it to a TimeLord Con
 5. Receives its calendar (`../docs/scheduling.md`) as concrete off windows — in heartbeat
    responses and via a long poll that delivers changes within moments — caches it in
    `schedule.json`, and puts the device to sleep or shuts it down inside an off window, also
-   while the controller is unreachable (`schedule.rs`, `agent.rs::enforcement_loop`).
+   while the controller is unreachable (`schedule.rs`, `agent.rs::enforcement_loop`). At startup
+   and after a sleep it first waits for the controller to confirm the cached schedule (up to 90
+   seconds, then it enforces the cache anyway), since a calendar edit or extension may have
+   happened while the device was off — see `schedule::enforcement_ready`.
 6. Long-polls for administrator messages, caches them in `messages.json`, and serves pending
    power actions and messages to the per-user notifier (`../notifier/`, `../docs/notifier.md`)
    over a read-only named pipe, `\\.\pipe\timelord-notify` (`notify_pipe.rs`).

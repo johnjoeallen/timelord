@@ -156,7 +156,7 @@ mod server {
                 let (reader, mut writer) = tokio::io::split(client);
                 let mut lines = BufReader::new(reader).lines();
                 while let Ok(Some(line)) = lines.next_line().await {
-                    let Some(mut out) = handle_line(&line, agent.schedule().as_ref(), &agent.live_messages(), Utc::now()).map(String::into_bytes)
+                    let Some(mut out) = handle_line(&line, agent.schedule_for_notices().as_ref(), &agent.live_messages(), Utc::now()).map(String::into_bytes)
                     else {
                         continue;
                     };

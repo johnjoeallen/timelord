@@ -31,6 +31,12 @@ const OFFLINE_FALLBACK_CHECK_INTERVAL: Duration = Duration::from_secs(300);
 /// Interval for [`hard_sleep_loop`]'s window check. Same cadence as the
 /// offline fallback check; there's no reason for it to differ.
 const HARD_SLEEP_CHECK_INTERVAL: Duration = Duration::from_secs(300);
+/// After startup, or after resuming from sleep, how long enforcement waits for the controller to
+/// confirm the cached schedule before enforcing the cache regardless (see `schedule::enforcement_ready`).
+const SCHEDULE_SYNC_GRACE: Duration = Duration::from_secs(90);
+/// A wake-up this much later than planned means the machine slept (or the clock jumped), so the
+/// cached schedule can no longer be trusted until the controller confirms it.
+const SLEEP_DETECT_SLACK: Duration = Duration::from_secs(30);
 /// How long the controller may hold a schedule long-poll open before answering "no change".
 const SCHEDULE_POLL_WAIT: Duration = Duration::from_secs(30);
 /// Upper bound between enforcement checks, so a device woken mid-window is put back to sleep promptly.
@@ -59,6 +65,13 @@ pub struct Agent {
     schedule_changed: Notify,
     messages: StdMutex<MessageStore>,
     messages_path: PathBuf,
+    schedule_sync: StdMutex<ScheduleSync>,
+}
+
+/// Whether the cached schedule has been confirmed by the controller since startup / last resume.
+struct ScheduleSync {
+    confirmed: bool,
+    since: std::time::Instant,
 }
 
 impl Agent {
@@ -86,6 +99,7 @@ impl Agent {
             schedule_changed: Notify::new(),
             messages,
             messages_path,
+            schedule_sync: StdMutex::new(ScheduleSync { confirmed: false, since: std::time::Instant::now() }),
         }
     }
 
@@ -96,6 +110,45 @@ impl Agent {
 
     fn schedule_revision(&self) -> Option<String> {
         self.schedule.lock().unwrap().as_ref().map(|s| s.revision.clone())
+    }
+
+    /// Records that the controller has just confirmed the schedule (including "no calendar"), so the
+    /// cache is now safe to enforce. Wakes the enforcement loop if it was holding back.
+    fn mark_schedule_synced(&self) {
+        let mut sync = self.schedule_sync.lock().unwrap();
+        if !sync.confirmed {
+            sync.confirmed = true;
+            self.schedule_changed.notify_one();
+        }
+    }
+
+    /// The cache may be stale again (the machine slept, or we just put it to sleep): hold off
+    /// enforcing it until the controller confirms it, or the grace period runs out.
+    fn invalidate_schedule_sync(&self, reason: &str) {
+        info!(reason, "cached schedule needs re-confirming with the controller before it is enforced");
+        let mut sync = self.schedule_sync.lock().unwrap();
+        sync.confirmed = false;
+        sync.since = std::time::Instant::now();
+    }
+
+    /// The schedule to enforce right now (`None` while waiting for the controller to confirm the
+    /// cache), plus how much longer that hold lasts, so the enforcement loop knows when to look again.
+    fn enforcement_view(&self, grace: Duration) -> (Option<Schedule>, Option<Duration>) {
+        let (confirmed, unsynced_for) = {
+            let sync = self.schedule_sync.lock().unwrap();
+            (sync.confirmed, sync.since.elapsed())
+        };
+        if schedule::enforcement_ready(confirmed, unsynced_for, grace) {
+            (self.schedule(), None)
+        } else {
+            (None, Some(grace.saturating_sub(unsynced_for)))
+        }
+    }
+
+    /// The schedule to *announce* to the notifier: the same gate as enforcement, so a stale cache
+    /// doesn't produce a warning that disappears the moment the controller confirms otherwise.
+    pub fn schedule_for_notices(&self) -> Option<Schedule> {
+        self.enforcement_view(SCHEDULE_SYNC_GRACE).0
     }
 
     /// Adopts a schedule from the controller (`None` = calendar removed), persists it, and wakes the
@@ -236,6 +289,7 @@ impl Agent {
                     self.enqueue(events::registration_succeeded(response.device_id)).await;
                     self.connected.store(true, Ordering::Relaxed);
                     self.apply_schedule(response.schedule.clone());
+                    self.mark_schedule_synced();
                     self.request_flush();
                     return response.device_id;
                 }
@@ -306,6 +360,7 @@ pub async fn heartbeat_loop(agent: Arc<Agent>, client: Arc<Mutex<(ControllerClie
             Ok(response) => {
                 agent.note_connected(&client_ref).await;
                 agent.apply_schedule(response.schedule);
+                agent.mark_schedule_synced();
                 agent.enqueue(events::heartbeat_sent()).await;
             }
             Err(err) if err.is_device_not_found() => {
@@ -509,7 +564,10 @@ pub async fn schedule_poll_loop(agent: Arc<Agent>, client: Arc<Mutex<(Controller
             _ = shutdown.changed() => break,
         };
         match result {
-            Ok(schedule) => agent.apply_schedule(schedule),
+            Ok(schedule) => {
+                agent.apply_schedule(schedule);
+                agent.mark_schedule_synced();
+            }
             Err(err) => {
                 // Not-found is the heartbeat loop's job to fix (re-register); either way, back off.
                 if !err.is_device_not_found() {
@@ -562,17 +620,34 @@ pub async fn enforcement_loop(agent: Arc<Agent>) {
     loop {
         let now = Utc::now();
         let mut wait = ENFORCEMENT_MAX_WAIT;
-        if let Some(schedule) = agent.schedule() {
+        // At startup (and after any sleep) the cache may predate a calendar edit or an extension, so
+        // it is only enforced once the controller has confirmed it, or the controller stays silent.
+        let (schedule, held_for) = agent.enforcement_view(SCHEDULE_SYNC_GRACE);
+        if let Some(hold) = held_for {
+            wait = wait.min(hold);
+        }
+        if let Some(schedule) = schedule {
             if schedule.active_window(now).is_some() {
                 enforce(&agent, &schedule, &mut last_shutdown_request).await;
+                if schedule.action == schedule::PowerAction::Sleep {
+                    // We just slept and have resumed: whatever changed meanwhile must be fetched first.
+                    agent.invalidate_schedule_sync("resumed after calendar sleep");
+                }
             } else if let Some(next) = schedule.next_off_at(now) {
                 wait = wait.min((next - now).to_std().unwrap_or(Duration::ZERO));
             }
         }
+        let planned_wake = Utc::now() + chrono::Duration::from_std(wait).unwrap_or_default();
         tokio::select! {
             _ = tokio::time::sleep(wait) => {}
             _ = agent.schedule_changed.notified() => {}
             _ = shutdown.changed() => break,
+        }
+        // Woke much later than planned: the machine slept (e.g. the lid was closed), so the cache
+        // may now be stale even though we didn't cause it.
+        let overslept = Utc::now() - planned_wake;
+        if overslept.to_std().is_ok_and(|late| late > SLEEP_DETECT_SLACK) {
+            agent.invalidate_schedule_sync("system appears to have slept");
         }
     }
 }
@@ -787,5 +862,88 @@ mod tests {
         assert!(is_within_window(t(22, 0), start, end), "inclusive start");
         assert!(!is_within_window(t(6, 0), start, end), "exclusive end");
         assert!(!is_within_window(t(12, 0), start, end), "outside window");
+    }
+
+    fn agent_with_cached_schedule(dir: &std::path::Path, windows: Vec<schedule::OffWindow>) -> Agent {
+        let cached = Schedule {
+            revision: "cached".into(),
+            action: schedule::PowerAction::Sleep,
+            timezone: "UTC".into(),
+            windows,
+        };
+        schedule::save(&dir.join("schedule.json"), Some(&cached)).unwrap();
+        let toml = dir.join("agent.toml");
+        let config = config::load(&toml, &CliOverrides::default()).unwrap();
+        Agent::new(
+            config,
+            toml,
+            Arc::new(Mutex::new(EventQueue::open_in_memory().unwrap())),
+            Arc::new(StdMutex::new(SessionSnapshot::default())),
+        )
+    }
+
+    fn open_window() -> schedule::OffWindow {
+        schedule::OffWindow { off_at: Utc::now() - chrono::Duration::hours(1), on_at: Utc::now() + chrono::Duration::hours(1) }
+    }
+
+    #[test]
+    fn startup_does_not_enforce_the_cached_schedule_until_the_controller_confirms_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let agent = agent_with_cached_schedule(dir.path(), vec![open_window()]);
+        assert!(agent.schedule().is_some(), "the cache is loaded");
+
+        let (enforceable, held_for) = agent.enforcement_view(Duration::from_secs(90));
+        assert!(enforceable.is_none(), "but not enforced yet: it may predate a calendar edit or extension");
+        assert!(held_for.is_some());
+
+        // The controller answers with a newer schedule that has no window now (extension granted).
+        agent.apply_schedule(Some(Schedule {
+            revision: "fresh".into(),
+            action: schedule::PowerAction::Sleep,
+            timezone: "UTC".into(),
+            windows: vec![],
+        }));
+        agent.mark_schedule_synced();
+
+        let (enforceable, held_for) = agent.enforcement_view(Duration::from_secs(90));
+        assert_eq!(enforceable.unwrap().revision, "fresh");
+        assert!(held_for.is_none());
+    }
+
+    #[test]
+    fn an_unreachable_controller_falls_back_to_the_cache_after_the_grace_period() {
+        let dir = tempfile::tempdir().unwrap();
+        let agent = agent_with_cached_schedule(dir.path(), vec![open_window()]);
+
+        let (enforceable, _) = agent.enforcement_view(Duration::ZERO);
+
+        assert_eq!(enforceable.unwrap().revision, "cached");
+    }
+
+    #[test]
+    fn resuming_from_sleep_makes_the_schedule_need_confirming_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let agent = agent_with_cached_schedule(dir.path(), vec![open_window()]);
+        agent.mark_schedule_synced();
+        assert!(agent.enforcement_view(Duration::from_secs(90)).0.is_some());
+
+        agent.invalidate_schedule_sync("test resume");
+
+        let (enforceable, held_for) = agent.enforcement_view(Duration::from_secs(90));
+        assert!(enforceable.is_none() && held_for.is_some());
+        agent.mark_schedule_synced();
+        assert!(agent.enforcement_view(Duration::from_secs(90)).0.is_some());
+    }
+
+    #[test]
+    fn a_controller_saying_no_calendar_also_counts_as_confirmation_and_clears_the_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let agent = agent_with_cached_schedule(dir.path(), vec![open_window()]);
+
+        agent.apply_schedule(None);
+        agent.mark_schedule_synced();
+
+        assert!(agent.enforcement_view(Duration::from_secs(90)).0.is_none());
+        assert!(schedule::load(&dir.path().join("schedule.json")).is_none(), "cache cleared on disk");
     }
 }
