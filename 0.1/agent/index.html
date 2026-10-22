@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="TimeLord — a Windows device monitoring and scheduling platform: usage tracking, a live dashboard, calendar-based sleep/shutdown, and on-screen warnings and messages.">
+        <meta name="description" content="TimeLord — a Windows device monitoring and scheduling platform: usage tracking, a live dashboard, schedule-based sleep/shutdown, and on-screen warnings and messages.">
       
       
       
@@ -311,7 +311,7 @@
   
     
   
-  Calendars
+  Schedules
 
       </a>
     </li>
@@ -634,7 +634,7 @@
   <span class="md-ellipsis">
     
   
-    Calendars
+    Schedules
   
 
     
@@ -813,9 +813,9 @@
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Unauthenticated plain HTTP to the controller. There is no session-limit or break enforcement
-yet. The agent does enforce a <a href="../scheduling/">calendar</a>
+yet. The agent does enforce a <a href="../scheduling/">schedule</a>
 assigned by the controller (sleep or shutdown at off times), and — for devices with no
-calendar — a hard-wired overnight sleep and an offline fallback (below). See
+schedule — a hard-wired overnight sleep and an offline fallback (below). See
 <a href="../architecture/#security-boundary">Security boundary</a>.</p>
 </div>
 <h2 id="what-it-does">What it does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
@@ -827,11 +827,11 @@ calendar — a hard-wired overnight sleep and an offline fallback (below). See
    <code>USER_LOCK</code>, ... — the full list is in <code>protocol.rs::EventType</code>).</li>
 <li>Queues events locally (SQLite) so a controller outage never loses one — see
    <a href="../architecture/#event-delivery-and-idempotency">Event delivery and idempotency</a>.</li>
-<li>Receives its <a href="../scheduling/">calendar</a> as concrete off windows (in heartbeat responses and via
+<li>Receives its <a href="../scheduling/">schedule</a> as concrete off windows (in heartbeat responses and via
    a long poll that delivers changes within moments), caches it in <code>schedule.json</code>, and puts the
    device to sleep or shuts it down inside an off window — also while the controller is
    unreachable. At startup and after a sleep it first waits for the controller to confirm the
-   cached schedule (up to 90 seconds), since a calendar edit or extension may have happened
+   cached schedule (up to 90 seconds), since a schedule edit or extension may have happened
    meanwhile; see <a href="../scheduling/#how-the-device-enforces-it">Startup and resume</a>.</li>
 <li>Long-polls for administrator messages, caches them in <code>messages.json</code>, and serves pending
    power actions and messages to the per-user <a href="../notifier/">notifier</a> over a local named pipe
@@ -869,12 +869,12 @@ timelord-agent test-event             Queue + attempt to deliver one synthetic e
 <h3 id="overnight-sleep-and-offline-fallback">Overnight sleep and offline fallback<a class="headerlink" href="#overnight-sleep-and-offline-fallback" title="Permanent link">&para;</a></h3>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Both of these apply <strong>only to a device with no calendar</strong>. As soon as the agent has a cached
-calendar schedule they are skipped and the <a href="../scheduling/">calendar</a> governs.</p>
+<p>Both of these apply <strong>only to a device with no schedule</strong>. As soon as the agent has a cached
+schedule they are skipped and the <a href="../scheduling/">schedule</a> governs.</p>
 </div>
 <p><strong>Hard-wired overnight sleep.</strong> Between <strong>02:00 and 06:00</strong> local time the agent puts the device
 to sleep (checked every 5 minutes), whether or not the controller is reachable. The window is
-compiled in — a stopgap until calendars cover every device — and cannot be changed from
+compiled in — a stopgap until schedules cover every device — and cannot be changed from
 <code>agent.toml</code> or the controller.</p>
 <p><strong>Offline fallback.</strong> If the agent can't reach the controller at all (registration, heartbeats, and event delivery are
 all failing), it falls back to a local safety schedule: every 5 minutes, if still disconnected and
@@ -927,7 +927,7 @@ not create a synthetic logon.</p>
 <div class="highlight"><pre><span></span><code>state.db        Usage sessions
 events.db       Local event queue pending controller delivery
 agent.toml      Configuration
-schedule.json   Cached calendar schedule (resolved off windows); absent if no calendar
+schedule.json   Cached schedule (resolved off windows); absent if no schedule
 messages.json   Cached administrator messages and the polling cursor
 logs/           Daily-rolling structured logs
 </code></pre></div>

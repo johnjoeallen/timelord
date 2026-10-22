@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="TimeLord — a Windows device monitoring and scheduling platform: usage tracking, a live dashboard, calendar-based sleep/shutdown, and on-screen warnings and messages.">
+        <meta name="description" content="TimeLord — a Windows device monitoring and scheduling platform: usage tracking, a live dashboard, schedule-based sleep/shutdown, and on-screen warnings and messages.">
       
       
       
@@ -311,7 +311,7 @@
   
     
   
-  Calendars
+  Schedules
 
       </a>
     </li>
@@ -606,7 +606,7 @@
   <span class="md-ellipsis">
     
   
-    Calendars
+    Schedules
   
 
     
@@ -755,7 +755,7 @@
 <h1 id="controller">Controller<a class="headerlink" href="#controller" title="Permanent link">&para;</a></h1>
 <p>Central controller service (Java 21 / Spring Boot / PostgreSQL). Accepts agent registration,
 heartbeats, and events over plain HTTP (unauthenticated — see
-<a href="../architecture/#security-boundary">Security boundary</a>), resolves calendars into off windows,
+<a href="../architecture/#security-boundary">Security boundary</a>), resolves schedules into off windows,
 queues messages, and serves a Thymeleaf admin dashboard.</p>
 <h2 id="running">Running<a class="headerlink" href="#running" title="Permanent link">&para;</a></h2>
 <p>The normal path is <code>docker compose up --build</code> from the repo root — see
@@ -802,19 +802,19 @@ TIMELORD_HEARTBEAT_RETENTION_DAYS
 <code>DELETE /api/v1/devices/{id}</code> (also removes its events, heartbeats and messages),
 <code>/api/v1/devices/{id}/events</code>, <code>/api/v1/events</code>, <code>/api/v1/events/{id}</code>, plus
 <code>/api/v1/calendars/**</code>, <code>PUT /api/v1/devices/{id}/calendar</code>, <code>POST /api/v1/devices/{id}/extend</code>
-and <code>/api/v1/devices/{id}/messages</code>, <code>POST /api/v1/messages</code> (see <a href="../scheduling/#admin-api">Calendars</a>
+and <code>/api/v1/devices/{id}/messages</code>, <code>POST /api/v1/messages</code> (see <a href="../scheduling/#admin-api">Schedules</a>
 and <a href="../notifier/#sending-a-message">Notifier</a>) · agent: <code>/api/v1/agents/register</code>,
 <code>/api/v1/agents/{id}/heartbeat</code>, <code>/api/v1/agents/{id}/events</code>, and the long polls
 <code>GET /api/v1/agents/{id}/schedule</code> and <code>GET /api/v1/agents/{id}/messages</code>.</p>
 <p>Heartbeat and registration responses also carry the device's resolved schedule (<code>schedule</code>, <code>null</code>
-without a calendar).</p>
+without a schedule).</p>
 <p>Errors are a consistent JSON shape (<code>timestamp/status/code/message/details/correlationId</code>);
 device/event lookups return <code>404</code> with code <code>DEVICE_NOT_FOUND</code> / <code>EVENT_NOT_FOUND</code>.</p>
 <h2 id="web-ui">Web UI<a class="headerlink" href="#web-ui" title="Permanent link">&para;</a></h2>
 <p><code>/</code> (dashboard, with a "message all devices" form), <code>/devices</code> (filterable list),
-<code>/devices/{id}</code> (detail, login session history, calendar assignment and "allow longer" buttons,
+<code>/devices/{id}</code> (detail, login session history, schedule assignment and "allow longer" buttons,
 send-a-message with history, delete device), <code>/calendars</code> and <code>/calendars/{id}</code> (create and edit
-calendars, weekly rules, overrides, 14-day preview), <code>/events</code> (filterable, paginated). Bootstrap
+schedules, weekly rules, overrides, 14-day preview), <code>/events</code> (filterable, paginated). Bootstrap
 is bundled via WebJars — no external CDN.</p>
 <h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>mvn<span class="w"> </span><span class="nb">test</span>

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="TimeLord — a Windows device monitoring and scheduling platform: usage tracking, a live dashboard, calendar-based sleep/shutdown, and on-screen warnings and messages.">
+        <meta name="description" content="TimeLord — a Windows device monitoring and scheduling platform: usage tracking, a live dashboard, schedule-based sleep/shutdown, and on-screen warnings and messages.">
       
       
       
@@ -27,7 +27,7 @@
     
     
       
-        <title>Calendars - TimeLord</title>
+        <title>Schedules - TimeLord</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#calendars-and-scheduling" class="md-skip">
+        <a href="#schedules" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Calendars
+              Schedules
             
           </span>
         </div>
@@ -311,7 +311,7 @@
   
     
   
-  Calendars
+  Schedules
 
       </a>
     </li>
@@ -513,7 +513,7 @@
   <span class="md-ellipsis">
     
   
-    Calendars
+    Schedules
   
 
     
@@ -531,7 +531,7 @@
   <span class="md-ellipsis">
     
   
-    Calendars
+    Schedules
   
 
     
@@ -557,15 +557,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#how-a-calendar-works" class="md-nav__link">
+  <a href="#how-a-schedule-works" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How a calendar works
+        How a schedule works
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="How a calendar works">
+    <nav class="md-nav" aria-label="How a schedule works">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -619,10 +619,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#devices-without-a-calendar" class="md-nav__link">
+  <a href="#devices-without-a-schedule" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Devices without a calendar
+        Devices without a schedule
       
     </span>
   </a>
@@ -718,15 +718,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#how-a-calendar-works" class="md-nav__link">
+  <a href="#how-a-schedule-works" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How a calendar works
+        How a schedule works
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="How a calendar works">
+    <nav class="md-nav" aria-label="How a schedule works">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -780,10 +780,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#devices-without-a-calendar" class="md-nav__link">
+  <a href="#devices-without-a-schedule" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Devices without a calendar
+        Devices without a schedule
       
     </span>
   </a>
@@ -842,15 +842,15 @@
   
 
 
-<h1 id="calendars-and-scheduling">Calendars and scheduling<a class="headerlink" href="#calendars-and-scheduling" title="Permanent link">&para;</a></h1>
-<p>A <strong>calendar</strong> tells a device when it may be <strong>on</strong>. You create named calendars in the dashboard,
+<h1 id="schedules">Schedules<a class="headerlink" href="#schedules" title="Permanent link">&para;</a></h1>
+<p>A <strong>schedule</strong> tells a device when it may be <strong>on</strong>. You create named schedules in the dashboard,
 assign each device to one, and the agent puts the device to sleep (or shuts it down) whenever the
-calendar says it should be off — that is, outside every on-window. Nothing wakes a sleeping device:
+schedule says it should be off — that is, outside every on-window. Nothing wakes a sleeping device:
 "on" only means <em>allowed to be on</em>.</p>
 <figure>
-<p><img alt="The Calendars page listing two calendars and a form to create another" src="../images/calendars.png" />
+<p><img alt="The Schedules page listing two schedules and a form to create another" src="../images/calendars.png" />
   </p>
-<figcaption>The Calendars page: each calendar's action, timezone and how many weekly rows and overrides it has.</figcaption>
+<figcaption>The Schedules page: each schedule's action, timezone and how many weekly rows and overrides it has.</figcaption>
 </figure>
 <div class="admonition note">
 <p class="admonition-title">Developer preview</p>
@@ -859,12 +859,12 @@ beyond compile checks and unit tests — try it on a spare machine first (see
 <a href="#trying-it-safely">Trying it safely</a>).</p>
 </div>
 <figure>
-<p><img alt="A calendar's page with weekly rows, holiday overrides and the resulting on-windows" src="../images/calendar-detail.png" />
+<p><img alt="A schedule's page with weekly rows, holiday overrides and the resulting on-windows" src="../images/calendar-detail.png" />
   </p>
-<figcaption>The calendar editor: weekly rows (several on the same day), overrides that add time, and the resolved on-windows for the next 14 days.</figcaption>
+<figcaption>The schedule editor: weekly rows (several on the same day), overrides that add time, and the resolved on-windows for the next 14 days.</figcaption>
 </figure>
-<h2 id="how-a-calendar-works">How a calendar works<a class="headerlink" href="#how-a-calendar-works" title="Permanent link">&para;</a></h2>
-<p>A calendar has a <strong>name</strong>, a <strong>timezone</strong>, and an <strong>action</strong> taken at off time:</p>
+<h2 id="how-a-schedule-works">How a schedule works<a class="headerlink" href="#how-a-schedule-works" title="Permanent link">&para;</a></h2>
+<p>A schedule has a <strong>name</strong>, a <strong>timezone</strong>, and an <strong>action</strong> taken at off time:</p>
 <table>
 <thead>
 <tr>
@@ -875,7 +875,7 @@ beyond compile checks and unit tests — try it on a spare machine first (see
 <tbody>
 <tr>
 <td><code>SLEEP</code></td>
-<td>Suspends the device (<code>SetSuspendState</code>, never hibernate) and keeps re-suspending it for as long as the calendar says off, if someone wakes it.</td>
+<td>Suspends the device (<code>SetSuspendState</code>, never hibernate) and keeps re-suspending it for as long as the schedule says off, if someone wakes it.</td>
 </tr>
 <tr>
 <td><code>SHUTDOWN</code></td>
@@ -942,18 +942,18 @@ windows are combined; the device is on inside them and off everywhere else.</p>
   <em>Fri, on from 18:00, no off</em> and <em>Sat, no on from, off at 01:00</em> give one continuous window from
   Friday 18:00 to Saturday 01:00.</li>
 <li><strong>Off for a while inside a day</strong> is a gap between two rows (the Thursday example above).</li>
-<li><strong>A day with no row is off all day</strong> — but a calendar with <strong>no rows at all</strong> restricts nothing,
-  so a newly created, still-empty calendar doesn't keep a device asleep.</li>
+<li><strong>A day with no row is off all day</strong> — but a schedule with <strong>no rows at all</strong> restricts nothing,
+  so a newly created, still-empty schedule doesn't keep a device asleep.</li>
 </ul>
-<p>Each row on the calendar page shows its next window (for example <em>Next: Thu 22 Oct 18:30 → Thu 22
+<p>Each row on the schedule page shows its next window (for example <em>Next: Thu 22 Oct 18:30 → Thu 22
 Oct 23:30</em>), and the page lists the combined on-windows for the next 14 days, so you can check what a
-calendar does before relying on it.</p>
+schedule does before relying on it.</p>
 <div class="admonition note">
 <p class="admonition-title">Earlier versions</p>
-<p>Earlier versions described a calendar as <em>off</em> times (one rule per day, an off and an on time,
-with an inferred "after midnight"). On upgrade the controller converts existing calendars to
+<p>Earlier versions described a schedule as <em>off</em> times (one rule per day, an off and an on time,
+with an inferred "after midnight"). On upgrade the controller converts existing schedules to
 on-windows automatically: weekly rules become the equivalent rows exactly. Overrides are
-converted too, but they can no longer <em>narrow</em> a day (see below). A calendar whose old rules left
+converted too, but they can no longer <em>narrow</em> a day (see below). A schedule whose old rules left
 no on-time at all ends up with no rows, which restricts nothing.</p>
 </div>
 <h3 id="overrides-holidays-and-one-offs">Overrides (holidays and one-offs)<a class="headerlink" href="#overrides-holidays-and-one-offs" title="Permanent link">&para;</a></h3>
@@ -974,9 +974,9 @@ To let a holiday run late you add the early-hours piece as an override for the n
 </div>
 <h3 id="allowing-a-device-longer">Allowing a device longer<a class="headerlink" href="#allowing-a-device-longer" title="Permanent link">&para;</a></h3>
 <figure>
-<p><img alt="Device page cards for assigning a calendar and granting more time" src="../images/device-calendar.png" />
+<p><img alt="Device page cards for assigning a schedule and granting more time" src="../images/device-calendar.png" />
   </p>
-<figcaption>The device page: calendar assignment, upcoming off times and the extension buttons.</figcaption>
+<figcaption>The device page: schedule assignment, upcoming off times and the extension buttons.</figcaption>
 </figure>
 <p>On a device's page, <strong>+15 min / +30 min / +1 hour</strong> grant a temporary <strong>extension</strong>:</p>
 <ul>
@@ -985,17 +985,17 @@ To let a holiday run late you add the early-hours piece as an override for the n
 <li>Each request may grant 1–240 minutes; the page shows "Extended until HH:MM" with a <strong>Clear</strong>
   button.</li>
 </ul>
-<p>An extension never edits the calendar. It is cleared if you assign the device a different
-calendar.</p>
+<p>An extension never edits the schedule. It is cleared if you assign the device a different
+schedule.</p>
 <h2 id="how-the-device-enforces-it">How the device enforces it<a class="headerlink" href="#how-the-device-enforces-it" title="Permanent link">&para;</a></h2>
-<p>The controller resolves the calendar (rows, overrides and any extension) into <strong>concrete off
-windows</strong> — the gaps between the on-windows, as absolute start and end times for the next 7 days — and
+<p>The controller resolves the schedule (rows, overrides and any extension) into <strong>concrete off
+windows</strong> — the gaps between the on-windows, as absolute start and end times for the next 28 days — and
 sends them to the agent with a <strong>revision</strong> that changes whenever they do. The agent therefore never
 has to understand rows or overrides; it only asks whether the time now falls inside an off window.</p>
 <ul>
 <li><strong>Cached locally.</strong> The latest schedule is saved as <code>schedule.json</code> next to <code>agent.toml</code>, so
   enforcement continues across restarts and while the controller is unreachable.</li>
-<li><strong>Startup and resume.</strong> The cached schedule can be stale: the calendar may have been edited, or
+<li><strong>Startup and resume.</strong> The cached schedule can be stale: the schedule may have been edited, or
   the device granted more time, while it was off or asleep. So the agent does <strong>not</strong> enforce the
   cache the moment it starts. It waits until the controller has confirmed the schedule (in the
   registration or heartbeat response, or a long poll). If the controller stays unreachable for
@@ -1004,10 +1004,10 @@ has to understand rows or overrides; it only asks whether the time now falls ins
   notices (a wake-up much later than planned, such as a closed lid). The notifier is not told about
   upcoming actions from an unconfirmed cache either. In practice a device that boots inside a
   cached off window stays on for a few seconds while it checks in, then either goes back to sleep
-  (nothing changed) or stays on (the calendar or an extension now says it may).</li>
+  (nothing changed) or stays on (the schedule or an extension now says it may).</li>
 <li><strong>Changes arrive immediately.</strong> Besides every heartbeat, the agent holds a long poll open to
   <code>GET /api/v1/agents/{id}/schedule?revision=…</code>. The controller answers the moment an extension,
-  assignment or calendar edit changes the revision, so "+30 minutes" takes effect within moments,
+  assignment or schedule edit changes the revision, so "+30 minutes" takes effect within moments,
   not at the next heartbeat. With no change the request simply returns after about 30 seconds and
   the agent asks again.</li>
 <li><strong>Enforcement loop.</strong> The agent acts when the current time is inside an off window, and
@@ -1015,15 +1015,15 @@ has to understand rows or overrides; it only asks whether the time now falls ins
   device woken mid-window is put back to sleep within about a minute. Each action is reported as
   <code>POWER_ACTION_REQUESTED</code> / <code>_COMPLETED</code> / <code>_FAILED</code> events.</li>
 </ul>
-<h3 id="devices-without-a-calendar">Devices without a calendar<a class="headerlink" href="#devices-without-a-calendar" title="Permanent link">&para;</a></h3>
-<p>A device with no calendar assigned keeps the older hard-wired behaviour, which is <strong>not
+<h3 id="devices-without-a-schedule">Devices without a schedule<a class="headerlink" href="#devices-without-a-schedule" title="Permanent link">&para;</a></h3>
+<p>A device with no schedule assigned keeps the older hard-wired behaviour, which is <strong>not
 configurable from the controller</strong>:</p>
 <ul>
 <li>an unconditional sleep between <strong>02:00 and 06:00</strong> local time, checked every 5 minutes; and</li>
 <li>the <a href="../agent/#overnight-sleep-and-offline-fallback">offline fallback</a> (sleep between 01:00 and 08:30 while the
   controller is unreachable).</li>
 </ul>
-<p>Both stop applying as soon as the agent has a cached calendar schedule.</p>
+<p>Both stop applying as soon as the agent has a cached schedule.</p>
 <h2 id="admin-api">Admin API<a class="headerlink" href="#admin-api" title="Permanent link">&para;</a></h2>
 <p>All of these are unauthenticated in this preview — see the <a href="../architecture/#security-boundary">security boundary</a>.</p>
 <table>
@@ -1036,7 +1036,7 @@ configurable from the controller</strong>:</p>
 <tbody>
 <tr>
 <td><code>GET /api/v1/calendars</code> · <code>GET /api/v1/calendars/{id}</code></td>
-<td>List / read calendars (with rows and overrides)</td>
+<td>List / read schedules (with rows and overrides)</td>
 </tr>
 <tr>
 <td><code>POST /api/v1/calendars</code></td>
@@ -1076,11 +1076,11 @@ configurable from the controller</strong>:</p>
 </tr>
 <tr>
 <td><code>GET /api/v1/agents/{id}/schedule</code></td>
-<td>Agent long poll for schedule changes (<code>204</code> = no calendar)</td>
+<td>Agent long poll for schedule changes (<code>204</code> = no schedule)</td>
 </tr>
 </tbody>
 </table>
-<p>=== "Create a calendar"</p>
+<p>=== "Create a schedule"</p>
 <div class="highlight"><pre><span></span><code>The JSON field for a row is still called `rules`; `startTime` / `endTime` may be left out
 (start or end of the day), and `00:00` as an end means midnight.
 
@@ -1124,7 +1124,7 @@ before the start date), <code>CALENDAR_NAME_TAKEN</code> (<code>409</code>), and
 extending a device that has nothing to extend.</p>
 <h2 id="trying-it-safely">Trying it safely<a class="headerlink" href="#trying-it-safely" title="Permanent link">&para;</a></h2>
 <ol>
-<li>Create a calendar with a window that ends about 20 minutes from now (say, <em>on from</em> blank, <em>off
+<li>Create a schedule with a window that ends about 20 minutes from now (say, <em>on from</em> blank, <em>off
    at</em> 20 minutes ahead, for today's weekday) and the <strong>Sleep</strong> action, and assign it to a spare
    device. Remember the rest of that day, and every other day without a row, is then off.</li>
 <li>Watch the device sleep at the end of the window; wake it and confirm it is put back to sleep.</li>
