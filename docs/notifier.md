@@ -29,6 +29,12 @@ so a restart or a later logon does not repeat them.
 
 ## Sending a message
 
+<figure markdown>
+  ![The Send a message card on a device page, with message history](images/device-messages.png)
+  <figcaption>Sending a message to one device, with the history showing one waiting and one
+  delivered message. The dashboard has the same form for all devices.</figcaption>
+</figure>
+
 From a device's page use **Send a message**, or from the dashboard use **Message all devices**.
 
 | Field | Notes |

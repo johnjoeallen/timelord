@@ -5,10 +5,20 @@ assign each device to one, and the agent puts the device to sleep (or shuts it d
 calendar's off times. "On" simply means *allowed to be on again* — nothing wakes a sleeping
 device.
 
+<figure markdown>
+  ![The Calendars page listing two calendars and a form to create another](images/calendars.png)
+  <figcaption>The Calendars page: each calendar's action, timezone and how many rules and overrides it has.</figcaption>
+</figure>
+
 !!! note "Developer preview"
     Scheduling is new. The agent-side sleep and shutdown have not been exercised on real hardware
     beyond compile checks and unit tests — try it on a spare machine first (see
     [Trying it safely](#trying-it-safely)).
+
+<figure markdown>
+  ![A calendar's page with weekly rules, holiday overrides and a 14-day preview](images/calendar-detail.png)
+  <figcaption>The calendar editor: weekly rules, overrides, and the resolved next 14 days.</figcaption>
+</figure>
 
 ## How a calendar works
 
@@ -52,6 +62,11 @@ see exactly what a calendar resolves to before relying on it.
 
 ### Allowing a device longer
 
+<figure markdown>
+  ![Device page cards for assigning a calendar and granting more time](images/device-calendar.png)
+  <figcaption>The device page: calendar assignment, upcoming off times and the extension buttons.</figcaption>
+</figure>
+
 On a device's page, **+15 min / +30 min / +1 hour** grant a temporary **extension**:
 
 - If the device is already inside an off window, it is allowed back on for that long from now.
@@ -71,6 +86,16 @@ overrides.
 
 - **Cached locally.** The latest schedule is saved as `schedule.json` next to `agent.toml`, so
   enforcement continues across restarts and while the controller is unreachable.
+- **Startup and resume.** The cached schedule can be stale: the calendar may have been edited, or
+  the device granted more time, while it was off or asleep. So the agent does **not** enforce the
+  cache the moment it starts. It waits until the controller has confirmed the schedule (in the
+  registration or heartbeat response, or a long poll). If the controller stays unreachable for
+  90 seconds it enforces the cache anyway, so an offline device is still governed. The same
+  re-confirmation happens after the agent resumes from a sleep it caused, and after any wake it
+  notices (a wake-up much later than planned, such as a closed lid). The notifier is not told about
+  upcoming actions from an unconfirmed cache either. In practice a device that boots inside a
+  cached off window stays on for a few seconds while it checks in, then either goes back to sleep
+  (nothing changed) or stays on (the calendar or an extension now says it may).
 - **Changes arrive immediately.** Besides every heartbeat, the agent holds a long poll open to
   `GET /api/v1/agents/{id}/schedule?revision=…`. The controller answers the moment an extension,
   assignment or calendar edit changes the revision, so "+30 minutes" takes effect within moments,

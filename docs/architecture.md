@@ -233,7 +233,10 @@ changes take effect quickly:
   and otherwise returns after the timeout so the agent asks again.
 
 The agent caches both (`schedule.json`, `messages.json`) and keeps enforcing
-from the cache while the controller is unreachable. The notifier then reads
+from the cache while the controller is unreachable. Because that cache can be
+stale after the device has been off or asleep, the agent re-confirms it with
+the controller on startup and after a sleep before enforcing it (falling back
+to the cache after 90 seconds without an answer). The notifier then reads
 that cache through the agent's local pipe; see [Notifier](notifier.md#how-it-works).
 
 ## Event delivery and idempotency

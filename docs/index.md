@@ -55,9 +55,9 @@ keyboard first.
 ## Screenshots
 
 <figure markdown>
-  ![Dashboard showing three devices: Offline, Active, and Inactive](images/dashboard.png)
-  <figcaption>The dashboard shows exactly one status badge per device: Offline, Active (online with
-  someone logged in), or Inactive (online with nobody logged in).</figcaption>
+  ![Dashboard with a message-all-devices form and three devices: Offline, Active, and Locked](images/dashboard.png)
+  <figcaption>The dashboard shows exactly one status badge per device — here Offline, Active
+  (online with someone logged in) and Locked — and a form to send a message to every device.</figcaption>
 </figure>
 
 <figure markdown>
@@ -76,6 +76,19 @@ keyboard first.
   ![Device detail page, Service tab, showing agent service state and registration times](images/device-detail-service.png)
   <figcaption>Device detail — Service tab: the agent service's own state — registration and
   heartbeat timestamps, independent of whether anyone's logged in.</figcaption>
+</figure>
+
+<figure markdown>
+  ![A calendar's page with weekly rules, holiday overrides and a 14-day preview](images/calendar-detail.png)
+  <figcaption>A calendar: weekly off/on rules, dated overrides (half-term, a one-night sleepover,
+  the Christmas holidays) that never change the base schedule, and a preview of exactly what it
+  resolves to over the next 14 days.</figcaption>
+</figure>
+
+<figure markdown>
+  ![Device page cards for assigning a calendar, granting more time and sending messages](images/device-calendar.png)
+  <figcaption>On a device: the assigned calendar, its upcoming off times, and one-click +15 / +30 /
+  +60 minute extensions (here, 30 minutes already granted).</figcaption>
 </figure>
 
 ## Get started
