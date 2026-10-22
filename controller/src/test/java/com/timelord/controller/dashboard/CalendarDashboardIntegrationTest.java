@@ -80,6 +80,39 @@ class CalendarDashboardIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void rowsCanBeDisabledAndAreKeptButIgnored() {
+        String name = "Toggle " + UUID.randomUUID();
+        UUID id = idFromRedirect(post("/calendars", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));
+
+        post("/calendars/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
+                "rules[0].enabled", "true", "rules[0].days", "MONDAY", "rules[0].startTime", "08:00", "rules[0].endTime", "10:00",
+                "rules[1].enabled", "false", "rules[1].days", "MONDAY", "rules[1].startTime", "18:00", "rules[1].endTime", "20:00",
+                "rules[2].enabled", "true", "rules[2].startTime", "", "rules[2].endTime", ""));
+
+        CalendarDto calendar = restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class);
+        assertThat(calendar.rules()).hasSize(2);
+        assertThat(calendar.rules()).extracting(CalendarDto.Rule::enabled).containsExactlyInAnyOrder(true, false);
+
+        String page = restTemplate.getForObject("/calendars/" + id, String.class);
+        assertThat(page).contains("rule-disabled");
+        // Exactly one entry row, always at the bottom.
+        assertThat(page.split("class=\"rule-row rule-blank", -1)).hasSize(2);
+        // The disabled 18:00 row gives no window.
+        assertThat(restTemplate.getForObject("/api/v1/calendars/" + id + "/allowed?days=14", String.class)).doesNotContain("18:00");
+    }
+
+    @Test
+    void aRowWithTimesButNoDaysIsRefusedNotDropped() {
+        String name = "NoDays " + UUID.randomUUID();
+        UUID id = idFromRedirect(post("/calendars", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));
+
+        post("/calendars/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
+                "rules[0].startTime", "08:00", "rules[0].endTime", "10:00"));
+
+        assertThat(restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class).rules()).isEmpty();
+    }
+
+    @Test
     void assignAndExtendFromDevicePage() {
         UUID deviceId = UUID.randomUUID();
         restTemplate.postForEntity("/api/v1/agents/register", new RegisterRequest(deviceId, "Kid PC", "kid-pc", "0.1.0",

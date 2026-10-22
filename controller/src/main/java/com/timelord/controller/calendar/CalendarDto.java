@@ -22,11 +22,21 @@ public record CalendarDto(
      * Allowed from {@code startTime} to {@code endTime} on each of {@code days}, within the day. A missing
      * {@code startTime} means the start of the day and a missing {@code endTime} means midnight at the end
      * of it (stored as 00:00), so 00:00 to 00:00, or both left out, is the whole day. Responses always
-     * carry both.
+     * carry both. {@code enabled} may be left out (it means true); a disabled row is kept but ignored.
      */
-    public record Rule(List<DayOfWeek> days, LocalTime startTime, LocalTime endTime) {
+    public record Rule(List<DayOfWeek> days, LocalTime startTime, LocalTime endTime, Boolean enabled) {
+        public Rule {
+            if (enabled == null) {
+                enabled = true;
+            }
+        }
+
+        public Rule(List<DayOfWeek> days, LocalTime startTime, LocalTime endTime) {
+            this(days, startTime, endTime, true);
+        }
+
         static Rule from(CalendarRule r) {
-            return new Rule(r.getDays(), r.getStartTime(), r.getEndTime());
+            return new Rule(r.getDays(), r.getStartTime(), r.getEndTime(), r.isEnabled());
         }
     }
 

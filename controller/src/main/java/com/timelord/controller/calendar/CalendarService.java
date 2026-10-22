@@ -180,7 +180,8 @@ public class CalendarService {
         calendars.save(calendar);
         for (Rule rule : request.rules()) {
             rules.save(new CalendarRule(UUID.randomUUID(), calendar.getId(), rule.days(),
-                    CalendarResolver.startOrMidnight(rule.startTime()), CalendarResolver.endOrMidnight(rule.endTime())));
+                    CalendarResolver.startOrMidnight(rule.startTime()), CalendarResolver.endOrMidnight(rule.endTime()),
+                    rule.enabled()));
         }
     }
 

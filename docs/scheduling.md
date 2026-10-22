@@ -59,6 +59,16 @@ Rules for the times:
 - **A day with no row is off all day** — but a schedule with **no rows at all** restricts nothing,
   so a newly created, still-empty schedule doesn't keep a device asleep.
 
+Rows are managed with the **+** and **−** buttons on the schedule page:
+
+- The bottom row is always blank. Fill it in and press **+** to keep it and get a new blank row; with
+  nothing filled in, **+** does nothing.
+- **−** *disables* a row: it is dimmed, kept, and ignored (it gives no window, exactly as if it were
+  deleted), so you can switch a row off and bring it back later. Pressing **−** on a disabled row
+  *deletes* it.
+- Nothing is stored until you press **Save schedule**. A schedule whose rows are all disabled
+  restricts nothing, like one with no rows.
+
 Each row on the schedule page shows its next window (for example *Next: Thu 22 Oct 18:30 → Thu 22
 Oct 23:30*), and the page lists the combined on-windows for the next 14 days, so you can check what a
 schedule does before relying on it.
@@ -160,7 +170,8 @@ All of these are unauthenticated in this preview — see the [security boundary]
 === "Create a schedule"
 
     The JSON field for a row is still called `rules`; `startTime` / `endTime` may be left out
-    (start or end of the day), and `00:00` as an end means midnight.
+    (start or end of the day), and `00:00` as an end means midnight. `"enabled": false` keeps a row
+    but ignores it (default `true`).
 
     ```console
     $ curl -X POST http://localhost:9099/api/v1/calendars \

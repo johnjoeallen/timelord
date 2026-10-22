@@ -290,4 +290,24 @@ class CalendarResolverTest {
         assertThat(off).contains(new OffWindow(Instant.parse("2026-10-22T16:55:00Z"), Instant.parse("2026-10-22T17:35:00Z")));
         assertThat(off).doesNotContain(new OffWindow(Instant.parse("2026-10-22T15:55:00Z"), Instant.parse("2026-10-22T22:00:00Z")));
     }
+
+    // ---- disabled rows
+
+    @Test
+    void aDisabledRowGivesNoWindow() {
+        CalendarRule off = new CalendarRule(UUID.randomUUID(), CAL, List.of(DayOfWeek.MONDAY), LocalTime.of(18, 30),
+                LocalTime.of(23, 30), false);
+
+        List<AllowedWindow> w = allowed(List.of(row("08:30", "10:30", DayOfWeek.MONDAY), off), List.of(), "2026-10-26 00:00", "2026-10-26 23:59");
+
+        assertThat(w).containsExactly(on("2026-10-26", "08:30", "2026-10-26", "10:30"));
+    }
+
+    @Test
+    void aCalendarWhoseRowsAreAllDisabledRestrictsNothing() {
+        CalendarRule off = new CalendarRule(UUID.randomUUID(), CAL, List.of(EVERY_DAY), LocalTime.of(8, 0),
+                LocalTime.of(9, 0), false);
+
+        assertThat(CalendarResolver.offWindows(ZONE, List.of(off), List.of(), at("2026-10-26", "00:00"), at("2026-10-28", "00:00"))).isEmpty();
+    }
 }

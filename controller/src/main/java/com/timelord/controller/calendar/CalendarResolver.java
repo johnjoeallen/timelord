@@ -33,6 +33,7 @@ public final class CalendarResolver {
     /** The allowed windows that overlap [from, to), earliest first, with touching or overlapping ones merged. */
     public static List<AllowedWindow> allowedWindows(ZoneId zone, List<CalendarRule> rules,
                                                      List<CalendarOverride> overrides, Instant from, Instant to) {
+        rules = rules.stream().filter(CalendarRule::isEnabled).toList();
         List<AllowedWindow> windows = new ArrayList<>();
         // Windows stay inside their day, so one day back is enough to catch one still running at `from`.
         LocalDate first = from.atZone(zone).toLocalDate().minusDays(1);
@@ -60,7 +61,8 @@ public final class CalendarResolver {
      */
     public static List<OffWindow> offWindows(ZoneId zone, List<CalendarRule> rules, List<CalendarOverride> overrides,
                                              Instant from, Instant to) {
-        if (rules.isEmpty()) {
+        // Disabled rows count for nothing, so a calendar whose rows are all disabled restricts nothing.
+        if (rules.stream().noneMatch(CalendarRule::isEnabled)) {
             return List.of();
         }
         Instant rangeStart = from.atZone(zone).toLocalDate().minusDays(1).atStartOfDay(zone).toInstant();

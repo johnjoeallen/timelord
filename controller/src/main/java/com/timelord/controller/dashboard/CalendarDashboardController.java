@@ -42,8 +42,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @Controller
 public class CalendarDashboardController {
 
-    /** Blank rows offered below the existing rules so new ones can be added without extra clicks. */
-    private static final int SPARE_RULE_ROWS = 3;
+    /** The entry row kept below the existing rows; the page's + button commits it and adds a fresh one. */
+    private static final int SPARE_RULE_ROWS = 1;
     private static final int PREVIEW_DAYS = 14;
 
     private final CalendarService calendarService;
@@ -69,9 +69,11 @@ public class CalendarDashboardController {
         return zoneResolver.resolve(request);
     }
 
-    /** One editable weekly-schedule row; a row with no days ticked is ignored on save. */
+    /** One editable weekly-schedule row; a row with nothing filled in is ignored on save. */
     public static class RuleForm {
         private List<DayOfWeek> days = new ArrayList<>();
+        /** False for a row that is switched off but not yet deleted (the - button). */
+        private boolean enabled = true;
         @DateTimeFormat(pattern = "HH:mm")
         private LocalTime startTime;
         @DateTimeFormat(pattern = "HH:mm")
@@ -101,6 +103,18 @@ public class CalendarDashboardController {
 
         public void setEndTime(LocalTime endTime) {
             this.endTime = endTime;
+        }
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        boolean isBlank() {
+            return (days == null || days.isEmpty()) && startTime == null && endTime == null;
         }
 
         public String getPreview() {
@@ -153,10 +167,12 @@ public class CalendarDashboardController {
         CalendarRequest toRequest() {
             List<CalendarDto.Rule> out = new ArrayList<>();
             for (RuleForm r : rules) {
-                if (r.days == null || r.days.isEmpty()) {
+                if (r.isBlank()) {
                     continue;
                 }
-                out.add(new CalendarDto.Rule(new ArrayList<>(new TreeSet<>(r.days)), r.startTime, r.endTime));
+                // A row with times but no days is passed on so the save is refused, not silently dropped.
+                List<DayOfWeek> days = r.days == null ? new ArrayList<>() : new ArrayList<>(new TreeSet<>(r.days));
+                out.add(new CalendarDto.Rule(days, r.startTime, r.endTime, r.enabled));
             }
             return new CalendarRequest(name == null ? "" : name.strip(), timezone == null ? "" : timezone.strip(), action, out);
         }
@@ -195,7 +211,8 @@ public class CalendarDashboardController {
             row.setDays(new ArrayList<>(r.days()));
             row.setStartTime(r.startTime());
             row.setEndTime(r.endTime());
-            row.setPreview(previewOf(r, calendarZone));
+            row.setEnabled(r.enabled());
+            row.setPreview(r.enabled() ? previewOf(r, calendarZone) : null);
             rows.add(row);
         }
         for (int i = 0; i < SPARE_RULE_ROWS; i++) {
@@ -204,6 +221,7 @@ public class CalendarDashboardController {
 
         model.addAttribute("calendar", calendar);
         model.addAttribute("ruleRows", rows);
+        model.addAttribute("hasActiveRows", calendar.rules().stream().anyMatch(CalendarDto.Rule::enabled));
         model.addAttribute("days", DayOfWeek.values());
         model.addAttribute("actions", CalendarAction.values());
         model.addAttribute("timezones", timezones());

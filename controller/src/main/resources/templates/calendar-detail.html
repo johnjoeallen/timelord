@@ -22,7 +22,10 @@
                 night is two rows: Fri on from 18:00 (no off), Sat off at 01:00 (no on from).
                 To be off for a while inside a day, leave a gap: 00:00&ndash;16:15 and 16:30&ndash;00:00 is off from 16:15
                 to 16:30. A day with no row is off all day, but a schedule with no rows at all restricts nothing. The line
-                under each row shows its next window. Clear a row's days to remove it.
+                under each row shows its next window.
+                Fill in the bottom row and press <strong>+</strong> to keep it and get a new blank one (nothing happens if it is
+                empty). <strong>&minus;</strong> disables a row, which keeps it but ignores it; <strong>&minus;</strong> on a disabled
+                row deletes it. Nothing changes until you press Save schedule.
             </p>
             <form method="post" th:action="@{/calendars/{id}(id=${calendar.id})}">
                 <div class="row g-3 mb-3">
@@ -45,12 +48,14 @@
                 </div>
 
                 <div class="table-responsive">
-                    <table class="table align-middle">
-                        <thead><tr><th>Days</th><th>On from</th><th>Off at</th></tr></thead>
-                        <tbody>
-                        <th:block th:each="row, i : ${ruleRows}">
+                    <table class="table align-middle" id="rule-table">
+                        <thead><tr><th>Days</th><th>On from</th><th>Off at</th><th></th></tr></thead>
+                        <tbody th:each="row, i : ${ruleRows}" class="rule-row"
+                               th:classappend="${(row.enabled ? '' : 'rule-disabled ') + (i.last ? 'rule-blank' : '')}">
                         <tr>
-                            <td>
+                            <td class="rule-fields">
+                                <input type="hidden" class="rule-enabled" th:name="${'rules[' + i.index + '].enabled'}"
+                                       th:value="${row.enabled}"/>
                                 <div class="form-check form-check-inline" th:each="d : ${days}">
                                     <input class="form-check-input" type="checkbox"
                                            th:id="${'r' + i.index + d}" th:name="${'rules[' + i.index + '].days'}"
@@ -59,20 +64,92 @@
                                            th:text="${#strings.capitalize(#strings.toLowerCase(d.name()).substring(0, 3))}"></label>
                                 </div>
                             </td>
-                            <td><input class="form-control" type="time" th:name="${'rules[' + i.index + '].startTime'}"
+                            <td class="rule-fields"><input class="form-control" type="time" th:name="${'rules[' + i.index + '].startTime'}"
                                        th:value="${row.startTime} ? ${#temporals.format(row.startTime, 'HH:mm')}"/></td>
-                            <td><input class="form-control" type="time" th:name="${'rules[' + i.index + '].endTime'}"
+                            <td class="rule-fields"><input class="form-control" type="time" th:name="${'rules[' + i.index + '].endTime'}"
                                        th:value="${row.endTime} ? ${#temporals.format(row.endTime, 'HH:mm')}"/></td>
+                            <td class="text-nowrap">
+                                <button type="button" class="btn btn-outline-secondary btn-sm rule-add" title="Add this row and start a new one">+</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm rule-remove"
+                                        title="Disable this row; press again to delete it">&minus;</button>
+                            </td>
                         </tr>
-                        <tr th:if="${row.preview}" class="table-borderless">
-                            <td colspan="3" class="small text-muted pt-0" th:text="${row.preview}"></td>
+                        <tr class="rule-preview" th:if="${row.preview}">
+                            <td colspan="4" class="small text-muted pt-0" th:text="${row.preview}"></td>
                         </tr>
-                        </th:block>
                         </tbody>
                     </table>
                 </div>
                 <button class="btn btn-primary" type="submit">Save schedule</button>
             </form>
+            <style>
+                .rule-disabled .rule-fields { opacity: .45; }
+                .rule-blank .rule-remove, .rule-row:not(.rule-blank) .rule-add { display: none; }
+                .rule-disabled .rule-preview { display: none; }
+            </style>
+            <script>
+            (function () {
+                var table = document.getElementById('rule-table');
+                if (!table) { return; }
+                function rows() { return Array.prototype.slice.call(table.querySelectorAll('tbody.rule-row')); }
+                function hasValues(row) {
+                    return !!row.querySelector('input[type=checkbox]:checked')
+                        || Array.prototype.some.call(row.querySelectorAll('input[type=time]'), function (t) { return t.value; });
+                }
+                // Names carry the row's position, so renumber after rows come and go.
+                function renumber() {
+                    rows().forEach(function (row, i) {
+                        row.querySelectorAll('[name]').forEach(function (el) {
+                            el.name = el.name.replace(/^rules\[\d+\]/, 'rules[' + i + ']');
+                        });
+                        row.querySelectorAll('input[type=checkbox]').forEach(function (el) {
+                            el.id = 'r' + i + el.value;
+                            el.nextElementSibling.htmlFor = el.id;
+                        });
+                    });
+                }
+                function setDisabled(row, off) {
+                    row.classList.toggle('rule-disabled', off);
+                    row.querySelector('.rule-enabled').value = off ? 'false' : 'true';
+                    row.querySelectorAll('.rule-fields').forEach(function (c) { if (off) { c.setAttribute('inert', ''); } else { c.removeAttribute('inert'); } });
+                }
+                function freshBlank(from) {
+                    var blank = from.cloneNode(true);
+                    blank.classList.add('rule-blank');
+                    blank.classList.remove('rule-disabled');
+                    var preview = blank.querySelector('.rule-preview');
+                    if (preview) { preview.remove(); }
+                    blank.querySelectorAll('input[type=checkbox]').forEach(function (c) { c.checked = false; });
+                    blank.querySelectorAll('input[type=time]').forEach(function (t) { t.value = ''; });
+                    blank.querySelector('.rule-enabled').value = 'true';
+                    blank.querySelectorAll('[inert]').forEach(function (c) { c.removeAttribute('inert'); });
+                    return blank;
+                }
+                table.addEventListener('click', function (e) {
+                    var row = e.target.closest('tbody.rule-row');
+                    if (!row) { return; }
+                    if (e.target.closest('.rule-add')) {
+                        // Nothing filled in: nothing to add. Otherwise this row is kept and a new blank one follows.
+                        if (!hasValues(row)) { return; }
+                        var next = freshBlank(row);
+                        row.classList.remove('rule-blank');
+                        row.after(next);
+                        renumber();
+                    } else if (e.target.closest('.rule-remove')) {
+                        // First press disables the row, a second press on a disabled row deletes it.
+                        if (row.classList.contains('rule-disabled')) {
+                            row.remove();
+                            renumber();
+                        } else {
+                            setDisabled(row, true);
+                        }
+                    }
+                });
+                // A row is only ever disabled by the button, so restore the dimming for rows saved that way.
+                rows().forEach(function (row) { if (row.classList.contains('rule-disabled')) { setDisabled(row, true); } });
+                table.closest('form').addEventListener('submit', renumber);
+            })();
+            </script>
         </div>
     </div>
 
@@ -131,10 +208,10 @@
                     <td th:text="${@timeFormat.format(w.onAt, calendarZone, 'EEE d MMM HH:mm')}"></td>
                     <td th:text="${@timeFormat.format(w.offAt, calendarZone, 'EEE d MMM HH:mm')}"></td>
                 </tr>
-                <tr th:if="${#lists.isEmpty(allowedWindows) and #lists.isEmpty(calendar.rules)}">
+                <tr th:if="${#lists.isEmpty(allowedWindows) and not hasActiveRows}">
                     <td colspan="2" class="text-muted text-center py-3">No rows yet: this schedule doesn't restrict anything, devices are always allowed on.</td>
                 </tr>
-                <tr th:if="${#lists.isEmpty(allowedWindows) and not #lists.isEmpty(calendar.rules)}">
+                <tr th:if="${#lists.isEmpty(allowedWindows) and hasActiveRows}">
                     <td colspan="2" class="text-muted text-center py-3">Nothing is allowed in this period, so devices are off throughout.</td>
                 </tr>
                 </tbody>
