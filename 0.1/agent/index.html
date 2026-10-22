@@ -967,7 +967,20 @@ queued in <code>events.db</code> — nothing is lost.</p>
 <span class="go">&gt; timelord-agent.exe uninstall</span>
 </code></pre></div>
 <p><code>install</code>/<code>uninstall</code> use the Service Control Manager API directly, not <code>sc.exe</code>. A packaged zip
-with a PowerShell installer is attached to every tagged release on GitHub; it contains both
+with a PowerShell installer is attached to every tagged release on GitHub. To install from it,
+extract the zip and run, from PowerShell <strong>as Administrator</strong> in that folder:</p>
+<div class="highlight"><pre><span></span><code><span class="nb">Set-ExecutionPolicy</span> <span class="n">-Scope</span> <span class="k">Process</span> <span class="n">-ExecutionPolicy</span> <span class="n">Bypass</span>
+<span class="p">.\</span><span class="n">install</span><span class="p">.</span><span class="n">ps1</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Why the first line</p>
+<p>Windows blocks PowerShell scripts that came from a download by default. <code>-Scope Process</code> lifts
+that for the current PowerShell window only; nothing is changed permanently, and it reverts when
+you close the window. Alternatively run <code>Unblock-File .\install.ps1, .\uninstall.ps1</code> (or untick
+<em>Unblock</em> in the zip's Properties before extracting). Re-running <code>install.ps1</code> with a newer
+<code>timelord-agent.exe</code> upgrades an existing install.</p>
+</div>
+<p>The zip contains both
 <code>timelord-agent.exe</code> and <code>timelord-notifier.exe</code>, and <code>install.ps1</code> also registers a
 <strong>TimeLord Notifier</strong> scheduled task that starts the <a href="../notifier/">notifier</a> at each user's logon
 (<code>-SkipNotifier</code> to skip it).</p>
