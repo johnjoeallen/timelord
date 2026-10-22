@@ -31,7 +31,10 @@ pub fn upcoming_actions(schedule: Option<&Schedule>, now: DateTime<Utc>) -> Vec<
         .iter()
         .filter(|w| w.off_at > now && w.off_at <= horizon)
         .map(|w| PendingAction {
-            id: Uuid::new_v5(&ID_NAMESPACE, format!("{action:?}@{}", w.off_at.to_rfc3339()).as_bytes()),
+            id: Uuid::new_v5(
+                &ID_NAMESPACE,
+                format!("{action:?}@{}", w.off_at.to_rfc3339()).as_bytes(),
+            ),
             action,
             at_utc: w.off_at,
             reason: Reason::Schedule,
@@ -41,9 +44,17 @@ pub fn upcoming_actions(schedule: Option<&Schedule>, now: DateTime<Utc>) -> Vec<
 
 /// Answers one request line, or `None` for input that isn't a valid request
 /// (ignored, like an unknown message type from a newer notifier).
-pub fn handle_line(line: &str, schedule: Option<&Schedule>, messages: &[AgentMessage], now: DateTime<Utc>) -> Option<String> {
+pub fn handle_line(
+    line: &str,
+    schedule: Option<&Schedule>,
+    messages: &[AgentMessage],
+    now: DateTime<Utc>,
+) -> Option<String> {
     let response = match serde_json::from_str::<Request>(line).ok()? {
-        Request::GetPending => Response::Pending { server_utc: now, actions: upcoming_actions(schedule, now) },
+        Request::GetPending => Response::Pending {
+            server_utc: now,
+            actions: upcoming_actions(schedule, now),
+        },
         Request::GetMessages => Response::Messages {
             server_utc: now,
             messages: messages
@@ -104,8 +115,15 @@ mod server {
         let mut descriptor = PSECURITY_DESCRIPTOR::default();
         // SAFETY: SDDL is a valid NUL-terminated string; on success the OS
         // allocates `descriptor`, which is freed below after the pipe copies it.
-        unsafe { ConvertStringSecurityDescriptorToSecurityDescriptorW(SDDL, SDDL_REVISION_1, &mut descriptor, None) }
-            .map_err(|e| io::Error::other(e.to_string()))?;
+        unsafe {
+            ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                SDDL,
+                SDDL_REVISION_1,
+                &mut descriptor,
+                None,
+            )
+        }
+        .map_err(|e| io::Error::other(e.to_string()))?;
         let mut attributes = SECURITY_ATTRIBUTES {
             nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
             lpSecurityDescriptor: descriptor.0,
@@ -116,7 +134,10 @@ mod server {
             ServerOptions::new()
                 .first_pipe_instance(first)
                 .reject_remote_clients(true)
-                .create_with_security_attributes_raw(PIPE_NAME, &mut attributes as *mut _ as *mut c_void)
+                .create_with_security_attributes_raw(
+                    PIPE_NAME,
+                    &mut attributes as *mut _ as *mut c_void,
+                )
         };
         // SAFETY: allocated by the conversion call above and not used again.
         unsafe {
@@ -132,7 +153,10 @@ mod server {
         let mut server = match create(true) {
             Ok(server) => server,
             Err(err) => {
-                error!(?err, "could not create notifier pipe; notifications unavailable");
+                error!(
+                    ?err,
+                    "could not create notifier pipe; notifications unavailable"
+                );
                 return;
             }
         };
@@ -146,7 +170,10 @@ mod server {
             server = match create(false) {
                 Ok(next) => next,
                 Err(err) => {
-                    error!(?err, "could not create next notifier pipe instance; notifications unavailable");
+                    error!(
+                        ?err,
+                        "could not create next notifier pipe instance; notifications unavailable"
+                    );
                     return;
                 }
             };
@@ -156,8 +183,13 @@ mod server {
                 let (reader, mut writer) = tokio::io::split(client);
                 let mut lines = BufReader::new(reader).lines();
                 while let Ok(Some(line)) = lines.next_line().await {
-                    let Some(mut out) = handle_line(&line, agent.schedule_for_notices().as_ref(), &agent.live_messages(), Utc::now()).map(String::into_bytes)
-                    else {
+                    let Some(mut out) = handle_line(
+                        &line,
+                        agent.schedule_for_notices().as_ref(),
+                        &agent.live_messages(),
+                        Utc::now(),
+                    )
+                    .map(String::into_bytes) else {
                         continue;
                     };
                     out.push(b'\n');
@@ -181,16 +213,27 @@ mod tests {
     }
 
     fn schedule(action: PowerAction, windows: Vec<OffWindow>) -> Schedule {
-        Schedule { revision: "r".into(), action, timezone: "UTC".into(), windows }
+        Schedule {
+            revision: "r".into(),
+            action,
+            timezone: "UTC".into(),
+            windows,
+        }
     }
 
     fn window(off: DateTime<Utc>) -> OffWindow {
-        OffWindow { off_at: off, on_at: off + Duration::hours(8) }
+        OffWindow {
+            off_at: off,
+            on_at: off + Duration::hours(8),
+        }
     }
 
     #[test]
     fn only_actions_inside_the_horizon_are_pending() {
-        let s = schedule(PowerAction::Sleep, vec![window(at(22, 30)), window(at(23, 45))]);
+        let s = schedule(
+            PowerAction::Sleep,
+            vec![window(at(22, 30)), window(at(23, 45))],
+        );
 
         let pending = upcoming_actions(Some(&s), at(22, 10));
 
@@ -214,9 +257,18 @@ mod tests {
 
     #[test]
     fn id_is_stable_per_time_and_changes_when_extended() {
-        let a = upcoming_actions(Some(&schedule(PowerAction::Sleep, vec![window(at(22, 30))])), at(22, 0));
-        let again = upcoming_actions(Some(&schedule(PowerAction::Sleep, vec![window(at(22, 30))])), at(22, 5));
-        let extended = upcoming_actions(Some(&schedule(PowerAction::Sleep, vec![window(at(22, 34))])), at(22, 5));
+        let a = upcoming_actions(
+            Some(&schedule(PowerAction::Sleep, vec![window(at(22, 30))])),
+            at(22, 0),
+        );
+        let again = upcoming_actions(
+            Some(&schedule(PowerAction::Sleep, vec![window(at(22, 30))])),
+            at(22, 5),
+        );
+        let extended = upcoming_actions(
+            Some(&schedule(PowerAction::Sleep, vec![window(at(22, 34))])),
+            at(22, 5),
+        );
 
         assert_eq!(a[0].id, again[0].id);
         assert_ne!(a[0].id, extended[0].id);
@@ -227,7 +279,13 @@ mod tests {
         let s = schedule(PowerAction::Sleep, vec![window(at(22, 30))]);
 
         let reply = handle_line(r#"{"type":"GetPending"}"#, Some(&s), &[], at(22, 20)).unwrap();
-        let Response::Pending { server_utc, actions } = serde_json::from_str(&reply).unwrap() else { panic!() };
+        let Response::Pending {
+            server_utc,
+            actions,
+        } = serde_json::from_str(&reply).unwrap()
+        else {
+            panic!()
+        };
         assert_eq!(server_utc, at(22, 20));
         assert_eq!(actions.len(), 1);
 
@@ -245,11 +303,24 @@ mod tests {
             created_at: at(22, 0),
             expires_at: at(23, 0),
         };
-        let stale = AgentMessage { seq: 2, id: Uuid::from_u128(2), expires_at: at(21, 0), ..live.clone() };
+        let stale = AgentMessage {
+            seq: 2,
+            id: Uuid::from_u128(2),
+            expires_at: at(21, 0),
+            ..live.clone()
+        };
 
-        let reply = handle_line(r#"{"type":"GetMessages"}"#, None, &[live, stale], at(22, 20)).unwrap();
+        let reply = handle_line(
+            r#"{"type":"GetMessages"}"#,
+            None,
+            &[live, stale],
+            at(22, 20),
+        )
+        .unwrap();
 
-        let Response::Messages { messages, .. } = serde_json::from_str(&reply).unwrap() else { panic!() };
+        let Response::Messages { messages, .. } = serde_json::from_str(&reply).unwrap() else {
+            panic!()
+        };
         assert_eq!(messages.len(), 1);
         assert_eq!(messages[0].body, "Dinner");
         assert_eq!(messages[0].title.as_deref(), Some("Hi"));

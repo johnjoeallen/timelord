@@ -40,7 +40,10 @@ pub struct SessionSnapshot {
 
 impl Default for SessionSnapshot {
     fn default() -> Self {
-        Self { username: None, state: "NO_SESSION".to_string() }
+        Self {
+            username: None,
+            state: "NO_SESSION".to_string(),
+        }
     }
 }
 
@@ -126,7 +129,11 @@ impl UsageRecorder {
     /// something other than `Logon` (e.g. the agent started while already
     /// logged on but disconnected, then the user reconnects) still ends up
     /// with a known username instead of silently staying blank.
-    pub fn handle(&mut self, event: SessionEvent, username: Option<String>) -> Result<(), StoreError> {
+    pub fn handle(
+        &mut self,
+        event: SessionEvent,
+        username: Option<String>,
+    ) -> Result<(), StoreError> {
         self.handle_at(event, username, Utc::now())
     }
 
@@ -134,8 +141,12 @@ impl UsageRecorder {
     /// boundary. Keeping this separate makes it possible for platform tests
     /// (and future OS APIs that provide an event timestamp) to avoid replacing
     /// event time with a later polling/delivery time.
-    pub fn handle_at(&mut self, event: SessionEvent, username: Option<String>, now: chrono::DateTime<Utc>) -> Result<(), StoreError> {
-
+    pub fn handle_at(
+        &mut self,
+        event: SessionEvent,
+        username: Option<String>,
+        now: chrono::DateTime<Utc>,
+    ) -> Result<(), StoreError> {
         // WTS notifications can be observed more than once by a service
         // restart/re-registration race. A repeated logon is not a second
         // session and must not create a second historical LOGON.
@@ -148,7 +159,9 @@ impl UsageRecorder {
         if let (Some(id), Some(name)) = (event.session_id(), &username) {
             self.session_usernames.insert(id, name.clone());
         }
-        let event_username = event.session_id().and_then(|id| self.session_usernames.get(&id).cloned());
+        let event_username = event
+            .session_id()
+            .and_then(|id| self.session_usernames.get(&id).cloned());
 
         let transition = self.tracker.apply(event, now);
         match &transition {
@@ -226,7 +239,9 @@ impl UsageRecorder {
                 SessionEvent::Suspend => "SUSPENDED",
                 SessionEvent::Logoff(_) => "NO_SESSION",
                 SessionEvent::Lock(_) => "LOCKED",
-                SessionEvent::ConsoleDisconnect(_) | SessionEvent::RemoteDisconnect(_) => "DISCONNECTED",
+                SessionEvent::ConsoleDisconnect(_) | SessionEvent::RemoteDisconnect(_) => {
+                    "DISCONNECTED"
+                }
                 _ => "NO_SESSION",
             }
         };
@@ -239,8 +254,10 @@ impl UsageRecorder {
     /// dangling in the store (it would otherwise be recovered and closed
     /// with `AgentRestart` next launch, which is accurate but coarser).
     pub fn shutdown(&mut self) -> Result<(), StoreError> {
-        if let (Some(record), Some(id)) = (self.tracker.close(Utc::now(), EndReason::AgentShutdown), self.open_session_id.take())
-        {
+        if let (Some(record), Some(id)) = (
+            self.tracker.close(Utc::now(), EndReason::AgentShutdown),
+            self.open_session_id.take(),
+        ) {
             self.store.end_session(id, record.end, record.end_reason)?;
         }
         Ok(())
@@ -254,8 +271,8 @@ impl UsageRecorder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
     use chrono::TimeZone;
+    use std::sync::Arc;
     use tokio::sync::Mutex as AsyncMutex;
 
     fn recorder() -> UsageRecorder {
@@ -269,7 +286,9 @@ mod tests {
         // reconnecting via RDP/console — the first event able to resolve a
         // username.
         let mut recorder = recorder();
-        recorder.handle(SessionEvent::ConsoleConnect(7), Some("alice".to_string())).unwrap();
+        recorder
+            .handle(SessionEvent::ConsoleConnect(7), Some("alice".to_string()))
+            .unwrap();
 
         let snapshot = recorder.snapshot_handle();
         let snapshot = snapshot.lock().unwrap();
@@ -280,7 +299,9 @@ mod tests {
     #[test]
     fn active_session_without_a_known_username_reports_locked_not_active() {
         let mut recorder = recorder();
-        recorder.handle(SessionEvent::ConsoleConnect(7), None).unwrap();
+        recorder
+            .handle(SessionEvent::ConsoleConnect(7), None)
+            .unwrap();
 
         let snapshot = recorder.snapshot_handle();
         let snapshot = snapshot.lock().unwrap();
@@ -291,7 +312,9 @@ mod tests {
     #[test]
     fn logoff_clears_username_and_reports_no_session() {
         let mut recorder = recorder();
-        recorder.handle(SessionEvent::Logon(7), Some("alice".to_string())).unwrap();
+        recorder
+            .handle(SessionEvent::Logon(7), Some("alice".to_string()))
+            .unwrap();
         recorder.handle(SessionEvent::Logoff(7), None).unwrap();
 
         let snapshot = recorder.snapshot_handle();
@@ -310,10 +333,14 @@ mod tests {
     fn logon_persists_logon_then_active_and_updates_dashboard() {
         let (mut recorder, queue) = recorder_with_queue();
         let at = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
-        recorder.handle_at(SessionEvent::Logon(7), Some("alice".into()), at).unwrap();
+        recorder
+            .handle_at(SessionEvent::Logon(7), Some("alice".into()), at)
+            .unwrap();
 
-        assert_eq!(queue.blocking_lock().event_types().unwrap(),
-                   vec![protocol::EventType::UserLogon, protocol::EventType::Active]);
+        assert_eq!(
+            queue.blocking_lock().event_types().unwrap(),
+            vec![protocol::EventType::UserLogon, protocol::EventType::Active]
+        );
         assert_eq!(recorder.snapshot_handle().lock().unwrap().state, "ACTIVE");
     }
 
@@ -321,25 +348,62 @@ mod tests {
     fn activity_transitions_are_persisted_and_logoff_is_not_a_second_logon() {
         let (mut recorder, queue) = recorder_with_queue();
         let at = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
-        recorder.handle_at(SessionEvent::Logon(7), Some("alice".into()), at).unwrap();
-        recorder.handle_at(SessionEvent::Lock(7), None, at + chrono::Duration::seconds(10)).unwrap();
-        recorder.handle_at(SessionEvent::Unlock(7), None, at + chrono::Duration::seconds(20)).unwrap();
-        recorder.handle_at(SessionEvent::Logon(7), Some("alice".into()), at + chrono::Duration::seconds(21)).unwrap();
-        recorder.handle_at(SessionEvent::Logoff(7), None, at + chrono::Duration::seconds(30)).unwrap();
+        recorder
+            .handle_at(SessionEvent::Logon(7), Some("alice".into()), at)
+            .unwrap();
+        recorder
+            .handle_at(
+                SessionEvent::Lock(7),
+                None,
+                at + chrono::Duration::seconds(10),
+            )
+            .unwrap();
+        recorder
+            .handle_at(
+                SessionEvent::Unlock(7),
+                None,
+                at + chrono::Duration::seconds(20),
+            )
+            .unwrap();
+        recorder
+            .handle_at(
+                SessionEvent::Logon(7),
+                Some("alice".into()),
+                at + chrono::Duration::seconds(21),
+            )
+            .unwrap();
+        recorder
+            .handle_at(
+                SessionEvent::Logoff(7),
+                None,
+                at + chrono::Duration::seconds(30),
+            )
+            .unwrap();
 
-        assert_eq!(queue.blocking_lock().event_types().unwrap(), vec![
-            protocol::EventType::UserLogon, protocol::EventType::Active,
-            protocol::EventType::UserLock, protocol::EventType::Inactive,
-            protocol::EventType::UserUnlock, protocol::EventType::Active,
-            protocol::EventType::UserLogoff,
-        ]);
+        assert_eq!(
+            queue.blocking_lock().event_types().unwrap(),
+            vec![
+                protocol::EventType::UserLogon,
+                protocol::EventType::Active,
+                protocol::EventType::UserLock,
+                protocol::EventType::Inactive,
+                protocol::EventType::UserUnlock,
+                protocol::EventType::Active,
+                protocol::EventType::UserLogoff,
+            ]
+        );
     }
 
     #[test]
     fn startup_reconciliation_records_login_for_active_session() {
         let (mut recorder, queue) = recorder_with_queue();
-        recorder.handle_at(SessionEvent::Logon(7), Some("alice".into()), Utc::now()).unwrap();
-        assert_eq!(queue.blocking_lock().event_types().unwrap(), vec![protocol::EventType::UserLogon, protocol::EventType::Active]);
+        recorder
+            .handle_at(SessionEvent::Logon(7), Some("alice".into()), Utc::now())
+            .unwrap();
+        assert_eq!(
+            queue.blocking_lock().event_types().unwrap(),
+            vec![protocol::EventType::UserLogon, protocol::EventType::Active]
+        );
         assert_eq!(recorder.snapshot_handle().lock().unwrap().state, "ACTIVE");
     }
 }

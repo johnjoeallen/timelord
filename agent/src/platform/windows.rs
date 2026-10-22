@@ -17,20 +17,20 @@ use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Power::{RegisterSuspendResumeNotification, SetSuspendState};
 use windows::Win32::System::RemoteDesktop::{
-    WTSConnected, WTSEnumerateSessionsW, WTSFreeMemory, WTSQuerySessionInformationW,
-    WTSRegisterSessionNotification, WTSUnRegisterSessionNotification, WTSActive,
-    WTSSessionInfoEx, WTS_CURRENT_SERVER_HANDLE, WTS_SESSIONSTATE_LOCK, WTS_SESSIONSTATE_UNLOCK,
-    WTS_SESSION_INFOW, WTSINFOEXW, WTSUserName, NOTIFY_FOR_ALL_SESSIONS,
+    WTSActive, WTSConnected, WTSEnumerateSessionsW, WTSFreeMemory, WTSQuerySessionInformationW,
+    WTSRegisterSessionNotification, WTSSessionInfoEx, WTSUnRegisterSessionNotification,
+    WTSUserName, NOTIFY_FOR_ALL_SESSIONS, WTSINFOEXW, WTS_CURRENT_SERVER_HANDLE,
+    WTS_SESSIONSTATE_LOCK, WTS_SESSIONSTATE_UNLOCK, WTS_SESSION_INFOW,
 };
 use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, PostQuitMessage,
     PostThreadMessageW, RegisterClassExW, TranslateMessage, CW_USEDEFAULT,
-    DEVICE_NOTIFY_WINDOW_HANDLE, HWND_MESSAGE, MSG, PBT_APMRESUMEAUTOMATIC,
-    PBT_APMRESUMESUSPEND, PBT_APMSUSPEND, WM_DESTROY, WM_POWERBROADCAST, WM_QUIT,
-    WM_WTSSESSION_CHANGE, WNDCLASSEXW, WNDCLASS_STYLES, WS_OVERLAPPED, WTS_CONSOLE_CONNECT,
-    WTS_CONSOLE_DISCONNECT, WTS_REMOTE_CONNECT, WTS_REMOTE_DISCONNECT, WTS_SESSION_LOCK,
-    WTS_SESSION_LOGOFF, WTS_SESSION_LOGON, WTS_SESSION_UNLOCK,
+    DEVICE_NOTIFY_WINDOW_HANDLE, HWND_MESSAGE, MSG, PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND,
+    PBT_APMSUSPEND, WM_DESTROY, WM_POWERBROADCAST, WM_QUIT, WM_WTSSESSION_CHANGE, WNDCLASSEXW,
+    WNDCLASS_STYLES, WS_OVERLAPPED, WTS_CONSOLE_CONNECT, WTS_CONSOLE_DISCONNECT,
+    WTS_REMOTE_CONNECT, WTS_REMOTE_DISCONNECT, WTS_SESSION_LOCK, WTS_SESSION_LOGOFF,
+    WTS_SESSION_LOGON, WTS_SESSION_UNLOCK,
 };
 
 use crate::tracker::SessionEvent;
@@ -83,7 +83,10 @@ pub fn suspend() -> anyhow::Result<()> {
     if result.0 != 0 {
         Ok(())
     } else {
-        Err(anyhow!("SetSuspendState failed: {:?}", windows::core::Error::from_win32()))
+        Err(anyhow!(
+            "SetSuspendState failed: {:?}",
+            windows::core::Error::from_win32()
+        ))
     }
 }
 
@@ -98,7 +101,10 @@ pub fn shutdown() -> anyhow::Result<()> {
     if output.status.success() {
         Ok(())
     } else {
-        Err(anyhow!("shutdown.exe failed: {}", String::from_utf8_lossy(&output.stderr).trim()))
+        Err(anyhow!(
+            "shutdown.exe failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ))
     }
 }
 
@@ -113,14 +119,16 @@ pub fn run(recorder: UsageRecorder) -> anyhow::Result<()> {
     // the lifetime of the notification registrations below.
     let wts_result = unsafe { WTSRegisterSessionNotification(hwnd, NOTIFY_FOR_ALL_SESSIONS) };
     if wts_result.is_err() {
-        return Err(anyhow!("WTSRegisterSessionNotification failed: {:?}", wts_result));
+        return Err(anyhow!(
+            "WTSRegisterSessionNotification failed: {:?}",
+            wts_result
+        ));
     }
 
     // SAFETY: hwnd is valid for the duration of this registration.
-    let power_notify = unsafe {
-        RegisterSuspendResumeNotification(hwnd, DEVICE_NOTIFY_WINDOW_HANDLE)
-    }
-    .context("RegisterSuspendResumeNotification failed")?;
+    let power_notify =
+        unsafe { RegisterSuspendResumeNotification(hwnd, DEVICE_NOTIFY_WINDOW_HANDLE) }
+            .context("RegisterSuspendResumeNotification failed")?;
 
     seed_active_sessions();
 
@@ -267,7 +275,13 @@ fn session_username(session_id: u32) -> Option<String> {
     // local server"; `buffer`/`bytes_returned` are valid out-params, and the
     // buffer WTS allocates on success is freed via WTSFreeMemory below.
     let result = unsafe {
-        WTSQuerySessionInformationW(WTS_CURRENT_SERVER_HANDLE, session_id, WTSUserName, &mut buffer, &mut bytes_returned)
+        WTSQuerySessionInformationW(
+            WTS_CURRENT_SERVER_HANDLE,
+            session_id,
+            WTSUserName,
+            &mut buffer,
+            &mut bytes_returned,
+        )
     };
     if result.is_err() || buffer.is_null() {
         return None;
@@ -299,7 +313,9 @@ fn seed_active_sessions() {
     let mut count: u32 = 0;
     // SAFETY: standard WTSEnumerateSessionsW usage; the buffer WTS
     // allocates on success is freed via WTSFreeMemory below.
-    let result = unsafe { WTSEnumerateSessionsW(WTS_CURRENT_SERVER_HANDLE, 0, 1, &mut sessions, &mut count) };
+    let result = unsafe {
+        WTSEnumerateSessionsW(WTS_CURRENT_SERVER_HANDLE, 0, 1, &mut sessions, &mut count)
+    };
     if result.is_err() || sessions.is_null() {
         return;
     }
@@ -313,11 +329,15 @@ fn seed_active_sessions() {
                 info!(session_id = entry.SessionId, %username, ?locked, "found pre-existing session at startup");
                 RECORDER.with(|cell| {
                     if let Some(recorder) = cell.borrow_mut().as_mut() {
-                        if let Err(err) = recorder.handle(SessionEvent::Logon(entry.SessionId), Some(username)) {
+                        if let Err(err) =
+                            recorder.handle(SessionEvent::Logon(entry.SessionId), Some(username))
+                        {
                             warn!(?err, "failed to persist seeded logon event");
                         }
                         if locked == Some(true) {
-                            if let Err(err) = recorder.handle(SessionEvent::Lock(entry.SessionId), None) {
+                            if let Err(err) =
+                                recorder.handle(SessionEvent::Lock(entry.SessionId), None)
+                            {
                                 warn!(?err, "failed to persist seeded lock event");
                             }
                         }
@@ -345,7 +365,13 @@ fn session_locked(session_id: u32) -> Option<bool> {
     // local server"; `buffer`/`bytes_returned` are valid out-params, and the
     // buffer WTS allocates on success is freed via WTSFreeMemory below.
     let result = unsafe {
-        WTSQuerySessionInformationW(WTS_CURRENT_SERVER_HANDLE, session_id, WTSSessionInfoEx, &mut buffer, &mut bytes_returned)
+        WTSQuerySessionInformationW(
+            WTS_CURRENT_SERVER_HANDLE,
+            session_id,
+            WTSSessionInfoEx,
+            &mut buffer,
+            &mut bytes_returned,
+        )
     };
     if result.is_err() || buffer.is_null() {
         return None;

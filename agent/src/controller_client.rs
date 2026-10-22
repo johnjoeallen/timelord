@@ -8,8 +8,8 @@ use std::time::Duration;
 use uuid::Uuid;
 
 use crate::protocol::{
-    AgentMessage, EventSubmissionRequest, EventSubmissionResponse, HeartbeatRequest, HeartbeatResponse, RegisterRequest,
-    RegisterResponse, SystemInfoResponse,
+    AgentMessage, EventSubmissionRequest, EventSubmissionResponse, HeartbeatRequest,
+    HeartbeatResponse, RegisterRequest, RegisterResponse, SystemInfoResponse,
 };
 use crate::schedule::Schedule;
 
@@ -65,8 +65,15 @@ impl ControllerClient {
     }
 
     pub fn with_signer(base_url: impl Into<String>, signer: Box<dyn RequestSigner>) -> Self {
-        let http = reqwest::Client::builder().timeout(REQUEST_TIMEOUT).build().expect("reqwest client builds");
-        Self { http, base_url: base_url.into().trim_end_matches('/').to_string(), signer }
+        let http = reqwest::Client::builder()
+            .timeout(REQUEST_TIMEOUT)
+            .build()
+            .expect("reqwest client builds");
+        Self {
+            http,
+            base_url: base_url.into().trim_end_matches('/').to_string(),
+            signer,
+        }
     }
 
     pub fn base_url(&self) -> &str {
@@ -74,19 +81,38 @@ impl ControllerClient {
     }
 
     pub async fn system_info(&self) -> Result<SystemInfoResponse, ClientError> {
-        let response = self.http.get(format!("{}/api/v1/system/info", self.base_url)).send().await?;
-        Self::parse(response).await
-    }
-
-    pub async fn register(&self, request: &RegisterRequest) -> Result<RegisterResponse, ClientError> {
-        let response = self.http.post(format!("{}/api/v1/agents/register", self.base_url)).json(request).send().await?;
-        Self::parse(response).await
-    }
-
-    pub async fn heartbeat(&self, device_id: Uuid, request: &HeartbeatRequest) -> Result<HeartbeatResponse, ClientError> {
         let response = self
             .http
-            .post(format!("{}/api/v1/agents/{device_id}/heartbeat", self.base_url))
+            .get(format!("{}/api/v1/system/info", self.base_url))
+            .send()
+            .await?;
+        Self::parse(response).await
+    }
+
+    pub async fn register(
+        &self,
+        request: &RegisterRequest,
+    ) -> Result<RegisterResponse, ClientError> {
+        let response = self
+            .http
+            .post(format!("{}/api/v1/agents/register", self.base_url))
+            .json(request)
+            .send()
+            .await?;
+        Self::parse(response).await
+    }
+
+    pub async fn heartbeat(
+        &self,
+        device_id: Uuid,
+        request: &HeartbeatRequest,
+    ) -> Result<HeartbeatResponse, ClientError> {
+        let response = self
+            .http
+            .post(format!(
+                "{}/api/v1/agents/{device_id}/heartbeat",
+                self.base_url
+            ))
             .json(request)
             .send()
             .await?;
@@ -103,7 +129,10 @@ impl ControllerClient {
     ) -> Result<Option<Schedule>, ClientError> {
         let mut request = self
             .http
-            .get(format!("{}/api/v1/agents/{device_id}/schedule", self.base_url))
+            .get(format!(
+                "{}/api/v1/agents/{device_id}/schedule",
+                self.base_url
+            ))
             .query(&[("waitSeconds", wait.as_secs().to_string())])
             .timeout(wait + REQUEST_TIMEOUT);
         if let Some(revision) = revision {
@@ -117,11 +146,22 @@ impl ControllerClient {
     }
 
     /// Long-polls for administrator messages with `seq` greater than `after`.
-    pub async fn poll_messages(&self, device_id: Uuid, after: i64, wait: Duration) -> Result<Vec<AgentMessage>, ClientError> {
+    pub async fn poll_messages(
+        &self,
+        device_id: Uuid,
+        after: i64,
+        wait: Duration,
+    ) -> Result<Vec<AgentMessage>, ClientError> {
         let response = self
             .http
-            .get(format!("{}/api/v1/agents/{device_id}/messages", self.base_url))
-            .query(&[("after", after.to_string()), ("waitSeconds", wait.as_secs().to_string())])
+            .get(format!(
+                "{}/api/v1/agents/{device_id}/messages",
+                self.base_url
+            ))
+            .query(&[
+                ("after", after.to_string()),
+                ("waitSeconds", wait.as_secs().to_string()),
+            ])
             .timeout(wait + REQUEST_TIMEOUT)
             .send()
             .await?;
@@ -133,18 +173,30 @@ impl ControllerClient {
         device_id: Uuid,
         request: &EventSubmissionRequest,
     ) -> Result<EventSubmissionResponse, ClientError> {
-        let response =
-            self.http.post(format!("{}/api/v1/agents/{device_id}/events", self.base_url)).json(request).send().await?;
+        let response = self
+            .http
+            .post(format!(
+                "{}/api/v1/agents/{device_id}/events",
+                self.base_url
+            ))
+            .json(request)
+            .send()
+            .await?;
         Self::parse(response).await
     }
 
-    async fn parse<T: serde::de::DeserializeOwned>(response: reqwest::Response) -> Result<T, ClientError> {
+    async fn parse<T: serde::de::DeserializeOwned>(
+        response: reqwest::Response,
+    ) -> Result<T, ClientError> {
         let status = response.status();
         if status.is_success() {
             Ok(response.json::<T>().await?)
         } else {
             let body = response.text().await.unwrap_or_default();
-            Err(ClientError::ApiError { status: status.as_u16(), body })
+            Err(ClientError::ApiError {
+                status: status.as_u16(),
+                body,
+            })
         }
     }
 }
@@ -155,10 +207,16 @@ mod tests {
 
     #[test]
     fn device_not_found_detection() {
-        let not_found = ClientError::ApiError { status: 404, body: String::new() };
+        let not_found = ClientError::ApiError {
+            status: 404,
+            body: String::new(),
+        };
         assert!(not_found.is_device_not_found());
 
-        let other = ClientError::ApiError { status: 500, body: String::new() };
+        let other = ClientError::ApiError {
+            status: 500,
+            body: String::new(),
+        };
         assert!(!other.is_device_not_found());
     }
 

@@ -18,8 +18,8 @@ use crate::config::{self, AgentConfig, CliOverrides};
 use crate::controller_client::ControllerClient;
 use crate::discovery;
 use crate::events;
-use crate::protocol::{EventSubmissionRequest, HeartbeatRequest, RegisterRequest};
 use crate::messages::{self, MessageStore};
+use crate::protocol::{EventSubmissionRequest, HeartbeatRequest, RegisterRequest};
 use crate::queue::EventQueue;
 use crate::schedule::{self, Schedule};
 use crate::{platform, SessionSnapshot, UsageRecorder};
@@ -99,7 +99,10 @@ impl Agent {
             schedule_changed: Notify::new(),
             messages,
             messages_path,
-            schedule_sync: StdMutex::new(ScheduleSync { confirmed: false, since: std::time::Instant::now() }),
+            schedule_sync: StdMutex::new(ScheduleSync {
+                confirmed: false,
+                since: std::time::Instant::now(),
+            }),
         }
     }
 
@@ -109,7 +112,11 @@ impl Agent {
     }
 
     fn schedule_revision(&self) -> Option<String> {
-        self.schedule.lock().unwrap().as_ref().map(|s| s.revision.clone())
+        self.schedule
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|s| s.revision.clone())
     }
 
     /// Records that the controller has just confirmed the schedule (including "no calendar"), so the
@@ -125,7 +132,10 @@ impl Agent {
     /// The cache may be stale again (the machine slept, or we just put it to sleep): hold off
     /// enforcing it until the controller confirms it, or the grace period runs out.
     fn invalidate_schedule_sync(&self, reason: &str) {
-        info!(reason, "cached schedule needs re-confirming with the controller before it is enforced");
+        info!(
+            reason,
+            "cached schedule needs re-confirming with the controller before it is enforced"
+        );
         let mut sync = self.schedule_sync.lock().unwrap();
         sync.confirmed = false;
         sync.since = std::time::Instant::now();
@@ -161,7 +171,20 @@ impl Agent {
             }
             *current = incoming.clone();
         }
-        info!(revision = incoming.as_ref().map(|s| s.revision.as_str()), "schedule updated");
+        match incoming.as_ref() {
+            Some(s) => {
+                let now = Utc::now();
+                info!(
+                    revision = s.revision.as_str(),
+                    windows = s.windows.len(),
+                    in_window = ?s.active_window(now).map(|w| (w.off_at, w.on_at)),
+                    next_off_utc = ?s.next_off_at(now),
+                    horizon_ends_utc = ?s.windows.last().map(|w| w.on_at),
+                    "schedule updated"
+                );
+            }
+            None => info!("schedule updated: no calendar assigned"),
+        }
         if let Err(err) = schedule::save(&self.schedule_path, incoming.as_ref()) {
             warn!(?err, "failed to cache schedule locally");
         }
@@ -230,7 +253,10 @@ impl Agent {
 
         loop {
             self.enqueue(events::controller_discovery_started()).await;
-            info!(port = self.config.discovery_port, "starting controller discovery");
+            info!(
+                port = self.config.discovery_port,
+                "starting controller discovery"
+            );
             let candidates = discovery::discover(
                 self.config.device_id,
                 AGENT_VERSION,
@@ -244,20 +270,30 @@ impl Agent {
                 Ok(found) if !found.is_empty() => {
                     let best = discovery::select_best(&found).expect("non-empty").clone();
                     info!(controller_id = %best.controller_id, url = %best.controller_url, "discovered controller");
-                    self.enqueue(events::controller_discovered(best.controller_id, &best.controller_name, &best.controller_url))
-                        .await;
-                    if let Err(err) = config::persist_controller_url(&self.agent_toml_path, &best.controller_url) {
+                    self.enqueue(events::controller_discovered(
+                        best.controller_id,
+                        &best.controller_name,
+                        &best.controller_url,
+                    ))
+                    .await;
+                    if let Err(err) =
+                        config::persist_controller_url(&self.agent_toml_path, &best.controller_url)
+                    {
                         warn!(?err, "failed to persist discovered controller URL");
                     }
                     return best.controller_url;
                 }
                 Ok(_) => {
                     warn!("no controller responded to discovery");
-                    self.enqueue(events::controller_discovery_failed("no controller responded")).await;
+                    self.enqueue(events::controller_discovery_failed(
+                        "no controller responded",
+                    ))
+                    .await;
                 }
                 Err(err) => {
                     warn!(?err, "controller discovery failed");
-                    self.enqueue(events::controller_discovery_failed(&err.to_string())).await;
+                    self.enqueue(events::controller_discovery_failed(&err.to_string()))
+                        .await;
                 }
             }
             tokio::time::sleep(RECONNECT_BACKOFF).await;
@@ -286,7 +322,8 @@ impl Agent {
             match client.register(&self.register_request()).await {
                 Ok(response) => {
                     info!(device_id = %response.device_id, controller_id = %response.controller_id, "registered");
-                    self.enqueue(events::registration_succeeded(response.device_id)).await;
+                    self.enqueue(events::registration_succeeded(response.device_id))
+                        .await;
                     self.connected.store(true, Ordering::Relaxed);
                     self.apply_schedule(response.schedule.clone());
                     self.mark_schedule_synced();
@@ -295,7 +332,8 @@ impl Agent {
                 }
                 Err(err) => {
                     warn!(?err, "registration failed, retrying");
-                    self.enqueue(events::registration_failed(&err.to_string())).await;
+                    self.enqueue(events::registration_failed(&err.to_string()))
+                        .await;
                     tokio::time::sleep(RECONNECT_BACKOFF).await;
                 }
             }
@@ -315,7 +353,8 @@ impl Agent {
     /// offline) goes out right away instead of waiting for the next tick.
     async fn note_connected(&self, controller_url: &str) {
         if !self.connected.swap(true, Ordering::Relaxed) {
-            self.enqueue(events::controller_connected(controller_url)).await;
+            self.enqueue(events::controller_connected(controller_url))
+                .await;
             self.request_flush();
         }
     }
@@ -365,7 +404,9 @@ pub async fn heartbeat_loop(agent: Arc<Agent>, client: Arc<Mutex<(ControllerClie
             }
             Err(err) if err.is_device_not_found() => {
                 warn!("controller no longer recognises this device; re-registering");
-                agent.note_disconnected("device not found; re-registering").await;
+                agent
+                    .note_disconnected("device not found; re-registering")
+                    .await;
                 let mut guard = client.lock().await;
                 let new_id = agent.register(&guard.0).await;
                 guard.1 = new_id;
@@ -421,10 +462,15 @@ async fn deliver_due_batch(agent: &Arc<Agent>, client: &Arc<Mutex<(ControllerCli
         return;
     }
 
-    let request = EventSubmissionRequest { events: pending.iter().map(|p| p.event.to_event_item()).collect() };
+    let request = EventSubmissionRequest {
+        events: pending.iter().map(|p| p.event.to_event_item()).collect(),
+    };
     let (submit_result, base_url) = {
         let guard = client.lock().await;
-        (guard.0.submit_events(guard.1, &request).await, guard.0.base_url().to_string())
+        (
+            guard.0.submit_events(guard.1, &request).await,
+            guard.0.base_url().to_string(),
+        )
     };
 
     match submit_result {
@@ -441,7 +487,9 @@ async fn deliver_due_batch(agent: &Arc<Agent>, client: &Arc<Mutex<(ControllerCli
                     }
                     EventResultStatus::Rejected => {
                         warn!(event_id = %delivery.event.event_id, reason = ?result.reason, "controller rejected event");
-                        if let Err(err) = queue.mark_failed(delivery.row_id, delivery.attempt_count, Utc::now()) {
+                        if let Err(err) =
+                            queue.mark_failed(delivery.row_id, delivery.attempt_count, Utc::now())
+                        {
                             error!(?err, "failed to mark event failed");
                         }
                     }
@@ -449,11 +497,17 @@ async fn deliver_due_batch(agent: &Arc<Agent>, client: &Arc<Mutex<(ControllerCli
             }
         }
         Err(err) => {
-            warn!(?err, batch_size = pending.len(), "event submission failed; will retry");
+            warn!(
+                ?err,
+                batch_size = pending.len(),
+                "event submission failed; will retry"
+            );
             agent.note_disconnected(&err.to_string()).await;
             let queue = agent.queue.lock().await;
             for delivery in &pending {
-                if let Err(err) = queue.mark_failed(delivery.row_id, delivery.attempt_count, Utc::now()) {
+                if let Err(err) =
+                    queue.mark_failed(delivery.row_id, delivery.attempt_count, Utc::now())
+                {
                     error!(?err, "failed to mark event failed");
                 }
             }
@@ -489,19 +543,34 @@ pub async fn offline_fallback_loop(agent: Arc<Agent>) {
         if agent.is_connected() || agent.schedule().is_some() {
             continue;
         }
-        if !is_within_window(Local::now().time(), agent.config.offline_fallback_start, agent.config.offline_fallback_end) {
+        if !is_within_window(
+            Local::now().time(),
+            agent.config.offline_fallback_start,
+            agent.config.offline_fallback_end,
+        ) {
             continue;
         }
 
         info!("offline and within fallback window; suspending device");
-        agent.enqueue(events::power_action_requested("SUSPEND", "offline fallback window")).await;
+        agent
+            .enqueue(events::power_action_requested(
+                "SUSPEND",
+                "offline fallback window",
+            ))
+            .await;
         // SetSuspendState blocks until resume, so it must not run on a
         // Tokio worker thread directly.
         match tokio::task::spawn_blocking(platform::suspend).await {
-            Ok(Ok(())) => agent.enqueue(events::power_action_completed("SUSPEND")).await,
+            Ok(Ok(())) => {
+                agent
+                    .enqueue(events::power_action_completed("SUSPEND"))
+                    .await
+            }
             Ok(Err(err)) => {
                 warn!(?err, "offline fallback suspend failed");
-                agent.enqueue(events::power_action_failed("SUSPEND", &err.to_string())).await;
+                agent
+                    .enqueue(events::power_action_failed("SUSPEND", &err.to_string()))
+                    .await;
             }
             Err(err) => {
                 error!(?err, "offline fallback suspend task panicked");
@@ -533,12 +602,23 @@ pub async fn hard_sleep_loop(agent: Arc<Agent>) {
         }
 
         info!("within hard sleep window (02:00-06:00); suspending device");
-        agent.enqueue(events::power_action_requested("SUSPEND", "hard sleep window")).await;
+        agent
+            .enqueue(events::power_action_requested(
+                "SUSPEND",
+                "hard sleep window",
+            ))
+            .await;
         match tokio::task::spawn_blocking(platform::suspend).await {
-            Ok(Ok(())) => agent.enqueue(events::power_action_completed("SUSPEND")).await,
+            Ok(Ok(())) => {
+                agent
+                    .enqueue(events::power_action_completed("SUSPEND"))
+                    .await
+            }
             Ok(Err(err)) => {
                 warn!(?err, "hard sleep suspend failed");
-                agent.enqueue(events::power_action_failed("SUSPEND", &err.to_string())).await;
+                agent
+                    .enqueue(events::power_action_failed("SUSPEND", &err.to_string()))
+                    .await;
             }
             Err(err) => {
                 error!(?err, "hard sleep suspend task panicked");
@@ -627,7 +707,8 @@ pub async fn enforcement_loop(agent: Arc<Agent>) {
             wait = wait.min(hold);
         }
         if let Some(schedule) = schedule {
-            if schedule.active_window(now).is_some() {
+            if let Some(window) = schedule.active_window(now) {
+                info!(revision = schedule.revision.as_str(), off_at = %window.off_at, on_at = %window.on_at, "inside an off window");
                 enforce(&agent, &schedule, &mut last_shutdown_request).await;
                 if schedule.action == schedule::PowerAction::Sleep {
                     // We just slept and have resumed: whatever changed meanwhile must be fetched first.
@@ -646,24 +727,38 @@ pub async fn enforcement_loop(agent: Arc<Agent>) {
         // Woke much later than planned: the machine slept (e.g. the lid was closed), so the cache
         // may now be stale even though we didn't cause it.
         let overslept = Utc::now() - planned_wake;
-        if overslept.to_std().is_ok_and(|late| late > SLEEP_DETECT_SLACK) {
+        if overslept
+            .to_std()
+            .is_ok_and(|late| late > SLEEP_DETECT_SLACK)
+        {
             agent.invalidate_schedule_sync("system appears to have slept");
         }
     }
 }
 
-async fn enforce(agent: &Agent, schedule: &Schedule, last_shutdown_request: &mut Option<tokio::time::Instant>) {
+async fn enforce(
+    agent: &Agent,
+    schedule: &Schedule,
+    last_shutdown_request: &mut Option<tokio::time::Instant>,
+) {
     let action = schedule.action.event_name();
     match schedule.action {
         schedule::PowerAction::Sleep => {
             info!("within calendar off window; suspending device");
-            agent.enqueue(events::power_action_requested(action, "calendar off window")).await;
+            agent
+                .enqueue(events::power_action_requested(
+                    action,
+                    "calendar off window",
+                ))
+                .await;
             // SetSuspendState blocks until resume, so it must not run on a Tokio worker thread.
             match tokio::task::spawn_blocking(platform::suspend).await {
                 Ok(Ok(())) => agent.enqueue(events::power_action_completed(action)).await,
                 Ok(Err(err)) => {
                     warn!(?err, "calendar suspend failed");
-                    agent.enqueue(events::power_action_failed(action, &err.to_string())).await;
+                    agent
+                        .enqueue(events::power_action_failed(action, &err.to_string()))
+                        .await;
                 }
                 Err(err) => error!(?err, "calendar suspend task panicked"),
             }
@@ -673,13 +768,20 @@ async fn enforce(agent: &Agent, schedule: &Schedule, last_shutdown_request: &mut
                 return;
             }
             info!("within calendar off window; shutting device down");
-            agent.enqueue(events::power_action_requested(action, "calendar off window")).await;
+            agent
+                .enqueue(events::power_action_requested(
+                    action,
+                    "calendar off window",
+                ))
+                .await;
             *last_shutdown_request = Some(tokio::time::Instant::now());
             match tokio::task::spawn_blocking(platform::shutdown).await {
                 Ok(Ok(())) => agent.enqueue(events::power_action_completed(action)).await,
                 Ok(Err(err)) => {
                     warn!(?err, "calendar shutdown failed");
-                    agent.enqueue(events::power_action_failed(action, &err.to_string())).await;
+                    agent
+                        .enqueue(events::power_action_failed(action, &err.to_string()))
+                        .await;
                 }
                 Err(err) => error!(?err, "calendar shutdown task panicked"),
             }
@@ -759,7 +861,11 @@ fn network_interfaces() -> Vec<crate::protocol::NetworkInterfaceInfo> {
                 .map(|iface| crate::protocol::NetworkInterfaceInfo {
                     name: iface.name,
                     mac_address: iface.mac_addr,
-                    addresses: iface.addr.into_iter().map(|addr| addr.ip().to_string()).collect(),
+                    addresses: iface
+                        .addr
+                        .into_iter()
+                        .map(|addr| addr.ip().to_string())
+                        .collect(),
                 })
                 .collect()
         }
@@ -783,7 +889,12 @@ pub fn run_blocking(dir: &std::path::Path, cli: &CliOverrides) -> anyhow::Result
     let queue = Arc::new(Mutex::new(EventQueue::open(&dir.join("events.db"))?));
     let recorder = UsageRecorder::open(&dir.join("state.db"))?.with_event_queue(queue.clone());
     let session_snapshot = recorder.snapshot_handle();
-    let agent = Arc::new(Agent::new(config, agent_toml_path, queue.clone(), session_snapshot));
+    let agent = Arc::new(Agent::new(
+        config,
+        agent_toml_path,
+        queue.clone(),
+        session_snapshot,
+    ));
 
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(agent.enqueue(events::agent_started(AGENT_VERSION, "STARTUP")));
@@ -826,7 +937,10 @@ pub fn run_blocking(dir: &std::path::Path, cli: &CliOverrides) -> anyhow::Result
     // the *next* delivery tick instead of going out immediately.
     rt.block_on(agent.enqueue(events::agent_stopping(AGENT_VERSION)));
     agent.begin_shutdown();
-    if rt.block_on(tokio::time::timeout(SHUTDOWN_FLUSH_TIMEOUT, networking)).is_err() {
+    if rt
+        .block_on(tokio::time::timeout(SHUTDOWN_FLUSH_TIMEOUT, networking))
+        .is_err()
+    {
         warn!("networking task did not finish flushing within the shutdown grace period");
     }
     rt.shutdown_timeout(Duration::from_secs(2));
@@ -849,7 +963,10 @@ mod tests {
         assert!(is_within_window(t(1, 0), start, end), "inclusive start");
         assert!(is_within_window(t(4, 0), start, end), "middle of window");
         assert!(!is_within_window(t(8, 30), start, end), "exclusive end");
-        assert!(!is_within_window(t(0, 59), start, end), "just before window");
+        assert!(
+            !is_within_window(t(0, 59), start, end),
+            "just before window"
+        );
         assert!(!is_within_window(t(12, 0), start, end), "outside window");
     }
 
@@ -864,7 +981,10 @@ mod tests {
         assert!(!is_within_window(t(12, 0), start, end), "outside window");
     }
 
-    fn agent_with_cached_schedule(dir: &std::path::Path, windows: Vec<schedule::OffWindow>) -> Agent {
+    fn agent_with_cached_schedule(
+        dir: &std::path::Path,
+        windows: Vec<schedule::OffWindow>,
+    ) -> Agent {
         let cached = Schedule {
             revision: "cached".into(),
             action: schedule::PowerAction::Sleep,
@@ -883,7 +1003,10 @@ mod tests {
     }
 
     fn open_window() -> schedule::OffWindow {
-        schedule::OffWindow { off_at: Utc::now() - chrono::Duration::hours(1), on_at: Utc::now() + chrono::Duration::hours(1) }
+        schedule::OffWindow {
+            off_at: Utc::now() - chrono::Duration::hours(1),
+            on_at: Utc::now() + chrono::Duration::hours(1),
+        }
     }
 
     #[test]
@@ -893,7 +1016,10 @@ mod tests {
         assert!(agent.schedule().is_some(), "the cache is loaded");
 
         let (enforceable, held_for) = agent.enforcement_view(Duration::from_secs(90));
-        assert!(enforceable.is_none(), "but not enforced yet: it may predate a calendar edit or extension");
+        assert!(
+            enforceable.is_none(),
+            "but not enforced yet: it may predate a calendar edit or extension"
+        );
         assert!(held_for.is_some());
 
         // The controller answers with a newer schedule that has no window now (extension granted).
@@ -944,6 +1070,9 @@ mod tests {
         agent.mark_schedule_synced();
 
         assert!(agent.enforcement_view(Duration::from_secs(90)).0.is_none());
-        assert!(schedule::load(&dir.path().join("schedule.json")).is_none(), "cache cleared on disk");
+        assert!(
+            schedule::load(&dir.path().join("schedule.json")).is_none(),
+            "cache cleared on disk"
+        );
     }
 }

@@ -54,7 +54,10 @@ pub fn run(mut recorder: UsageRecorder) -> anyhow::Result<()> {
                 continue;
             }
             "quit" | "exit" => break,
-            "logon" => (SessionEvent::Logon(SESSION_ID), Some(parts.next().unwrap_or("dev-user").to_string())),
+            "logon" => (
+                SessionEvent::Logon(SESSION_ID),
+                Some(parts.next().unwrap_or("dev-user").to_string()),
+            ),
             "logoff" => (SessionEvent::Logoff(SESSION_ID), None),
             "lock" => (SessionEvent::Lock(SESSION_ID), None),
             "unlock" => (SessionEvent::Unlock(SESSION_ID), None),

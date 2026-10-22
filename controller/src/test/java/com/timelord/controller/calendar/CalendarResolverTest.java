@@ -279,4 +279,15 @@ class CalendarResolverTest {
         assertThat(w).hasSize(1);
         assertThat(w.get(0).offAt()).isAfter(w.get(0).onAt());
     }
+
+    @Test
+    void thursdayWithTwoRowsSleepsOnlyInTheGapBetweenThem() {
+        // Thu 22 Oct 2026 (UTC+1): on 16:55-17:55 and 18:35-23:00 local; asleep 17:55-18:35 and outside both.
+        List<CalendarRule> rules = List.of(row("16:55", "17:55", DayOfWeek.THURSDAY), row("18:35", "23:00", DayOfWeek.THURSDAY));
+
+        List<OffWindow> off = CalendarResolver.offWindows(ZONE, rules, List.of(), at("2026-10-22", "12:00"), at("2026-10-22", "23:30"));
+
+        assertThat(off).contains(new OffWindow(Instant.parse("2026-10-22T16:55:00Z"), Instant.parse("2026-10-22T17:35:00Z")));
+        assertThat(off).doesNotContain(new OffWindow(Instant.parse("2026-10-22T15:55:00Z"), Instant.parse("2026-10-22T22:00:00Z")));
+    }
 }

@@ -149,8 +149,10 @@ impl UsageTracker {
     /// resulting transition, if any.
     pub fn apply(&mut self, event: SessionEvent, at: DateTime<Utc>) -> Transition {
         match event {
-            SessionEvent::Logon(id) | SessionEvent::Unlock(id)
-            | SessionEvent::ConsoleConnect(id) | SessionEvent::RemoteConnect(id) => {
+            SessionEvent::Logon(id)
+            | SessionEvent::Unlock(id)
+            | SessionEvent::ConsoleConnect(id)
+            | SessionEvent::RemoteConnect(id) => {
                 self.sessions.insert(id, SessionPresence { visible: true });
                 self.recompute(at, None)
             }
@@ -202,7 +204,11 @@ impl UsageTracker {
         !self.suspended && self.sessions.values().any(|p| p.visible)
     }
 
-    fn recompute(&mut self, at: DateTime<Utc>, end_reason_if_closing: Option<EndReason>) -> Transition {
+    fn recompute(
+        &mut self,
+        at: DateTime<Utc>,
+        end_reason_if_closing: Option<EndReason>,
+    ) -> Transition {
         let should_be_active = self.any_visible();
         match (self.open_since, should_be_active) {
             (None, true) => {
@@ -237,7 +243,10 @@ mod tests {
     #[test]
     fn logon_starts_a_usage_session() {
         let mut tr = UsageTracker::new();
-        assert_eq!(tr.apply(SessionEvent::Logon(S1), t(0)), Transition::Started { start: t(0) });
+        assert_eq!(
+            tr.apply(SessionEvent::Logon(S1), t(0)),
+            Transition::Started { start: t(0) }
+        );
         assert!(tr.is_active());
     }
 
@@ -248,7 +257,11 @@ mod tests {
         let outcome = tr.apply(SessionEvent::Lock(S1), t(100));
         assert_eq!(
             outcome,
-            Transition::Ended(UsageSessionRecord { start: t(0), end: t(100), end_reason: EndReason::Lock })
+            Transition::Ended(UsageSessionRecord {
+                start: t(0),
+                end: t(100),
+                end_reason: EndReason::Lock
+            })
         );
         assert!(!tr.is_active());
     }
@@ -269,7 +282,11 @@ mod tests {
         let outcome = tr.apply(SessionEvent::Logoff(S1), t(50));
         assert_eq!(
             outcome,
-            Transition::Ended(UsageSessionRecord { start: t(0), end: t(50), end_reason: EndReason::Logoff })
+            Transition::Ended(UsageSessionRecord {
+                start: t(0),
+                end: t(50),
+                end_reason: EndReason::Logoff
+            })
         );
     }
 
@@ -280,7 +297,11 @@ mod tests {
         let suspended = tr.apply(SessionEvent::Suspend, t(60));
         assert_eq!(
             suspended,
-            Transition::Ended(UsageSessionRecord { start: t(0), end: t(60), end_reason: EndReason::Suspend })
+            Transition::Ended(UsageSessionRecord {
+                start: t(0),
+                end: t(60),
+                end_reason: EndReason::Suspend
+            })
         );
         // Session S1 never locked, so as soon as the device is no longer
         // suspended it counts as in-use again. In practice Windows almost
@@ -308,7 +329,11 @@ mod tests {
         tr.apply(SessionEvent::Logon(S1), t(0));
         tr.apply(SessionEvent::Logon(S2), t(1));
         let outcome = tr.apply(SessionEvent::Lock(S1), t(10));
-        assert_eq!(outcome, Transition::NoChange, "S2 still visible, device still in use");
+        assert_eq!(
+            outcome,
+            Transition::NoChange,
+            "S2 still visible, device still in use"
+        );
         assert!(tr.is_active());
     }
 
@@ -319,7 +344,11 @@ mod tests {
         let paused = tr.apply(SessionEvent::RemoteDisconnect(S1), t(30));
         assert_eq!(
             paused,
-            Transition::Ended(UsageSessionRecord { start: t(0), end: t(30), end_reason: EndReason::RemoteDisconnect })
+            Transition::Ended(UsageSessionRecord {
+                start: t(0),
+                end: t(30),
+                end_reason: EndReason::RemoteDisconnect
+            })
         );
         let resumed = tr.apply(SessionEvent::RemoteConnect(S1), t(90));
         assert_eq!(resumed, Transition::Started { start: t(90) });
@@ -328,8 +357,14 @@ mod tests {
     #[test]
     fn redundant_events_do_not_double_start_or_double_end() {
         let mut tr = UsageTracker::new();
-        assert_eq!(tr.apply(SessionEvent::Logon(S1), t(0)), Transition::Started { start: t(0) });
-        assert_eq!(tr.apply(SessionEvent::Unlock(S1), t(1)), Transition::NoChange);
+        assert_eq!(
+            tr.apply(SessionEvent::Logon(S1), t(0)),
+            Transition::Started { start: t(0) }
+        );
+        assert_eq!(
+            tr.apply(SessionEvent::Unlock(S1), t(1)),
+            Transition::NoChange
+        );
         assert!(tr.apply(SessionEvent::Lock(S1), t(2)).is_ended());
         assert_eq!(tr.apply(SessionEvent::Lock(S1), t(3)), Transition::NoChange);
     }
@@ -341,7 +376,11 @@ mod tests {
         let closed = tr.close(t(5), EndReason::AgentRestart);
         assert_eq!(
             closed,
-            Some(UsageSessionRecord { start: t(0), end: t(5), end_reason: EndReason::AgentRestart })
+            Some(UsageSessionRecord {
+                start: t(0),
+                end: t(5),
+                end_reason: EndReason::AgentRestart
+            })
         );
         assert!(!tr.is_active());
     }

@@ -12,8 +12,8 @@ use std::time::Duration;
 
 use tracing::error;
 use windows_service::service::{
-    ServiceAccess, ServiceControl, ServiceControlAccept, ServiceErrorControl, ServiceExitCode, ServiceInfo,
-    ServiceStartType, ServiceState, ServiceStatus, ServiceType,
+    ServiceAccess, ServiceControl, ServiceControlAccept, ServiceErrorControl, ServiceExitCode,
+    ServiceInfo, ServiceStartType, ServiceState, ServiceStatus, ServiceType,
 };
 use windows_service::service_control_handler::{self, ServiceControlHandlerResult};
 use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
@@ -66,15 +66,27 @@ fn run_service() -> anyhow::Result<()> {
     };
 
     let status_handle = service_control_handler::register(SERVICE_NAME, event_handler)?;
-    set_status(&status_handle, ServiceState::StartPending, ServiceControlAccept::empty())?;
-    set_status(&status_handle, ServiceState::Running, ServiceControlAccept::STOP | ServiceControlAccept::SHUTDOWN)?;
+    set_status(
+        &status_handle,
+        ServiceState::StartPending,
+        ServiceControlAccept::empty(),
+    )?;
+    set_status(
+        &status_handle,
+        ServiceState::Running,
+        ServiceControlAccept::STOP | ServiceControlAccept::SHUTDOWN,
+    )?;
 
     // Blocks until `platform::request_stop()` is called from the control
     // handler above, closing any open usage session and delivering queued
     // events one last time on the way out.
     let result = agent::run_blocking(&data_dir()?, &CliOverrides::default());
 
-    set_status(&status_handle, ServiceState::Stopped, ServiceControlAccept::empty())?;
+    set_status(
+        &status_handle,
+        ServiceState::Stopped,
+        ServiceControlAccept::empty(),
+    )?;
     result
 }
 
@@ -103,7 +115,8 @@ pub fn install() -> anyhow::Result<()> {
         uninstall()?;
     }
 
-    let manager = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CREATE_SERVICE)?;
+    let manager =
+        ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CREATE_SERVICE)?;
     let exe_path = std::env::current_exe()?;
 
     let service_info = ServiceInfo {
@@ -119,7 +132,10 @@ pub fn install() -> anyhow::Result<()> {
         account_password: None,
     };
 
-    let service = manager.create_service(&service_info, ServiceAccess::CHANGE_CONFIG | ServiceAccess::START)?;
+    let service = manager.create_service(
+        &service_info,
+        ServiceAccess::CHANGE_CONFIG | ServiceAccess::START,
+    )?;
     service.set_description(SERVICE_DESCRIPTION)?;
     service.start(&[] as &[OsString])?;
 

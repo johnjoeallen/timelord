@@ -66,7 +66,12 @@ impl Store {
         Ok(id)
     }
 
-    pub fn end_session(&self, id: Uuid, end: DateTime<Utc>, reason: EndReason) -> Result<(), StoreError> {
+    pub fn end_session(
+        &self,
+        id: Uuid,
+        end: DateTime<Utc>,
+        reason: EndReason,
+    ) -> Result<(), StoreError> {
         self.conn.execute(
             "UPDATE usage_session SET end_utc = ?2, end_reason = ?3 WHERE id = ?1",
             params![id.to_string(), end.to_rfc3339(), reason_to_str(reason)],
@@ -131,8 +136,14 @@ impl Store {
             .map(|(id, start, end)| {
                 (
                     Uuid::parse_str(&id).unwrap(),
-                    DateTime::parse_from_rfc3339(&start).unwrap().with_timezone(&Utc),
-                    end.map(|e| DateTime::parse_from_rfc3339(&e).unwrap().with_timezone(&Utc)),
+                    DateTime::parse_from_rfc3339(&start)
+                        .unwrap()
+                        .with_timezone(&Utc),
+                    end.map(|e| {
+                        DateTime::parse_from_rfc3339(&e)
+                            .unwrap()
+                            .with_timezone(&Utc)
+                    }),
                 )
             })
             .collect())
@@ -181,14 +192,20 @@ mod tests {
         let dangling = store.find_dangling_session().unwrap();
         assert_eq!(dangling, Some((id, t(0))));
 
-        store.end_session(id, t(10), EndReason::AgentRestart).unwrap();
+        store
+            .end_session(id, t(10), EndReason::AgentRestart)
+            .unwrap();
         assert_eq!(store.find_dangling_session().unwrap(), None);
     }
 
     #[test]
     fn insert_closed_session_writes_both_ends_at_once() {
         let store = Store::open_in_memory().unwrap();
-        let record = UsageSessionRecord { start: t(0), end: t(5), end_reason: EndReason::Suspend };
+        let record = UsageSessionRecord {
+            start: t(0),
+            end: t(5),
+            end_reason: EndReason::Suspend,
+        };
         store.insert_closed_session(&record).unwrap();
 
         let sessions = store.all_sessions().unwrap();

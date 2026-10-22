@@ -17,7 +17,11 @@ use crate::protocol::{EventSeverity, EventSource, EventType};
 use crate::queue::QueuedEvent;
 use crate::tracker::SessionEvent;
 
-fn new_event(event_type: EventType, severity: EventSeverity, data: HashMap<String, serde_json::Value>) -> QueuedEvent {
+fn new_event(
+    event_type: EventType,
+    severity: EventSeverity,
+    data: HashMap<String, serde_json::Value>,
+) -> QueuedEvent {
     QueuedEvent {
         event_id: Uuid::new_v4(),
         event_type,
@@ -36,10 +40,15 @@ fn new_session_event(
     username: Option<String>,
     data: HashMap<String, serde_json::Value>,
 ) -> QueuedEvent {
-    QueuedEvent { username, ..new_event(event_type, severity, data) }
+    QueuedEvent {
+        username,
+        ..new_event(event_type, severity, data)
+    }
 }
 
-fn data(pairs: impl IntoIterator<Item = (&'static str, serde_json::Value)>) -> HashMap<String, serde_json::Value> {
+fn data(
+    pairs: impl IntoIterator<Item = (&'static str, serde_json::Value)>,
+) -> HashMap<String, serde_json::Value> {
     pairs.into_iter().map(|(k, v)| (k.to_string(), v)).collect()
 }
 
@@ -73,9 +82,17 @@ pub fn from_session_event(event: SessionEvent, username: Option<String>) -> Queu
 /// Creates the first-class activity event corresponding to a tracker
 /// transition.  Session notifications and activity transitions deliberately
 /// remain separate events: a logon may therefore be followed by ACTIVE.
-pub fn activity_event(active: bool, occurred_at: chrono::DateTime<Utc>, username: Option<String>) -> QueuedEvent {
+pub fn activity_event(
+    active: bool,
+    occurred_at: chrono::DateTime<Utc>,
+    username: Option<String>,
+) -> QueuedEvent {
     let mut event = new_session_event(
-        if active { EventType::Active } else { EventType::Inactive },
+        if active {
+            EventType::Active
+        } else {
+            EventType::Inactive
+        },
         EventSeverity::Info,
         username,
         HashMap::new(),
@@ -88,7 +105,10 @@ pub fn agent_started(agent_version: &str, start_reason: &str) -> QueuedEvent {
     new_event(
         EventType::AgentStarted,
         EventSeverity::Info,
-        data([("agentVersion", json!(agent_version)), ("startReason", json!(start_reason))]),
+        data([
+            ("agentVersion", json!(agent_version)),
+            ("startReason", json!(start_reason)),
+        ]),
     )
 }
 
@@ -97,22 +117,42 @@ pub fn system_boot() -> QueuedEvent {
 }
 
 pub fn agent_stopping(agent_version: &str) -> QueuedEvent {
-    new_event(EventType::AgentStopping, EventSeverity::Info, data([("agentVersion", json!(agent_version))]))
+    new_event(
+        EventType::AgentStopping,
+        EventSeverity::Info,
+        data([("agentVersion", json!(agent_version))]),
+    )
 }
 
 pub fn system_shutdown() -> QueuedEvent {
-    new_event(EventType::SystemShutdown, EventSeverity::Info, HashMap::new())
+    new_event(
+        EventType::SystemShutdown,
+        EventSeverity::Info,
+        HashMap::new(),
+    )
 }
 
 pub fn agent_error(message: &str) -> QueuedEvent {
-    new_event(EventType::AgentError, EventSeverity::Error, data([("message", json!(message))]))
+    new_event(
+        EventType::AgentError,
+        EventSeverity::Error,
+        data([("message", json!(message))]),
+    )
 }
 
 pub fn controller_discovery_started() -> QueuedEvent {
-    new_event(EventType::ControllerDiscoveryStarted, EventSeverity::Info, HashMap::new())
+    new_event(
+        EventType::ControllerDiscoveryStarted,
+        EventSeverity::Info,
+        HashMap::new(),
+    )
 }
 
-pub fn controller_discovered(controller_id: Uuid, controller_name: &str, controller_url: &str) -> QueuedEvent {
+pub fn controller_discovered(
+    controller_id: Uuid,
+    controller_name: &str,
+    controller_url: &str,
+) -> QueuedEvent {
     new_event(
         EventType::ControllerDiscovered,
         EventSeverity::Info,
@@ -125,27 +165,51 @@ pub fn controller_discovered(controller_id: Uuid, controller_name: &str, control
 }
 
 pub fn controller_discovery_failed(reason: &str) -> QueuedEvent {
-    new_event(EventType::ControllerDiscoveryFailed, EventSeverity::Warning, data([("reason", json!(reason))]))
+    new_event(
+        EventType::ControllerDiscoveryFailed,
+        EventSeverity::Warning,
+        data([("reason", json!(reason))]),
+    )
 }
 
 pub fn controller_connected(controller_url: &str) -> QueuedEvent {
-    new_event(EventType::ControllerConnected, EventSeverity::Info, data([("controllerUrl", json!(controller_url))]))
+    new_event(
+        EventType::ControllerConnected,
+        EventSeverity::Info,
+        data([("controllerUrl", json!(controller_url))]),
+    )
 }
 
 pub fn controller_disconnected(reason: &str) -> QueuedEvent {
-    new_event(EventType::ControllerDisconnected, EventSeverity::Warning, data([("reason", json!(reason))]))
+    new_event(
+        EventType::ControllerDisconnected,
+        EventSeverity::Warning,
+        data([("reason", json!(reason))]),
+    )
 }
 
 pub fn registration_succeeded(device_id: Uuid) -> QueuedEvent {
-    new_event(EventType::RegistrationSucceeded, EventSeverity::Info, data([("deviceId", json!(device_id))]))
+    new_event(
+        EventType::RegistrationSucceeded,
+        EventSeverity::Info,
+        data([("deviceId", json!(device_id))]),
+    )
 }
 
 pub fn registration_failed(reason: &str) -> QueuedEvent {
-    new_event(EventType::RegistrationFailed, EventSeverity::Error, data([("reason", json!(reason))]))
+    new_event(
+        EventType::RegistrationFailed,
+        EventSeverity::Error,
+        data([("reason", json!(reason))]),
+    )
 }
 
 pub fn heartbeat_sent() -> QueuedEvent {
-    new_event(EventType::HeartbeatSent, EventSeverity::Info, HashMap::new())
+    new_event(
+        EventType::HeartbeatSent,
+        EventSeverity::Info,
+        HashMap::new(),
+    )
 }
 
 pub fn power_action_requested(action: &str, reason: &str) -> QueuedEvent {
@@ -157,7 +221,11 @@ pub fn power_action_requested(action: &str, reason: &str) -> QueuedEvent {
 }
 
 pub fn power_action_completed(action: &str) -> QueuedEvent {
-    new_event(EventType::PowerActionCompleted, EventSeverity::Info, data([("action", json!(action))]))
+    new_event(
+        EventType::PowerActionCompleted,
+        EventSeverity::Info,
+        data([("action", json!(action))]),
+    )
 }
 
 pub fn power_action_failed(action: &str, reason: &str) -> QueuedEvent {
@@ -177,7 +245,10 @@ mod tests {
         let event = from_session_event(SessionEvent::Logon(1), None);
         assert_eq!(event.event_type, EventType::UserLogon);
         assert_eq!(event.data.get("windowsSessionId"), Some(&json!(1)));
-        assert_eq!(event.session_id, None, "Phase 1 has no device_session concept yet");
+        assert_eq!(
+            event.session_id, None,
+            "Phase 1 has no device_session concept yet"
+        );
     }
 
     #[test]
@@ -188,7 +259,10 @@ mod tests {
 
     #[test]
     fn lock_maps_to_user_lock() {
-        assert_eq!(from_session_event(SessionEvent::Lock(1), None).event_type, EventType::UserLock);
+        assert_eq!(
+            from_session_event(SessionEvent::Lock(1), None).event_type,
+            EventType::UserLock
+        );
     }
 
     #[test]
@@ -203,8 +277,14 @@ mod tests {
 
     #[test]
     fn remote_and_console_connect_both_map_to_session_connected() {
-        assert_eq!(from_session_event(SessionEvent::ConsoleConnect(1), None).event_type, EventType::SessionConnected);
-        assert_eq!(from_session_event(SessionEvent::RemoteConnect(1), None).event_type, EventType::SessionConnected);
+        assert_eq!(
+            from_session_event(SessionEvent::ConsoleConnect(1), None).event_type,
+            EventType::SessionConnected
+        );
+        assert_eq!(
+            from_session_event(SessionEvent::RemoteConnect(1), None).event_type,
+            EventType::SessionConnected
+        );
     }
 
     #[test]
@@ -212,7 +292,10 @@ mod tests {
         let event = agent_started("0.1.0", "WINDOWS_SERVICE_START");
         assert_eq!(event.event_type, EventType::AgentStarted);
         assert_eq!(event.data.get("agentVersion"), Some(&json!("0.1.0")));
-        assert_eq!(event.data.get("startReason"), Some(&json!("WINDOWS_SERVICE_START")));
+        assert_eq!(
+            event.data.get("startReason"),
+            Some(&json!("WINDOWS_SERVICE_START"))
+        );
     }
 
     #[test]
@@ -236,7 +319,10 @@ mod tests {
         let event = power_action_requested("SUSPEND", "offline fallback window");
         assert_eq!(event.event_type, EventType::PowerActionRequested);
         assert_eq!(event.data.get("action"), Some(&json!("SUSPEND")));
-        assert_eq!(event.data.get("reason"), Some(&json!("offline fallback window")));
+        assert_eq!(
+            event.data.get("reason"),
+            Some(&json!("offline fallback window"))
+        );
     }
 
     #[test]

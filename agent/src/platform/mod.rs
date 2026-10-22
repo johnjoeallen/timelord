@@ -9,7 +9,9 @@
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
-pub use self::windows::{mark_shutdown_requested, request_stop, run, shutdown_requested, shutdown, suspend};
+pub use self::windows::{
+    mark_shutdown_requested, request_stop, run, shutdown, shutdown_requested, suspend,
+};
 
 #[cfg(not(windows))]
 mod dev;

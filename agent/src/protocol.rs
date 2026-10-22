@@ -203,8 +203,14 @@ mod tests {
 
     #[test]
     fn event_type_serializes_as_screaming_snake_case() {
-        assert_eq!(serde_json::to_string(&EventType::AgentStarted).unwrap(), "\"AGENT_STARTED\"");
-        assert_eq!(serde_json::to_string(&EventType::UserLogon).unwrap(), "\"USER_LOGON\"");
+        assert_eq!(
+            serde_json::to_string(&EventType::AgentStarted).unwrap(),
+            "\"AGENT_STARTED\""
+        );
+        assert_eq!(
+            serde_json::to_string(&EventType::UserLogon).unwrap(),
+            "\"USER_LOGON\""
+        );
         assert_eq!(
             serde_json::to_string(&EventType::ControllerDiscoveryFailed).unwrap(),
             "\"CONTROLLER_DISCOVERY_FAILED\""
@@ -232,7 +238,10 @@ mod tests {
         assert!(json.get("deviceId").is_some());
         assert!(json.get("operatingSystemVersion").is_some());
         assert!(json.get("localIpAddresses").is_some());
-        assert_eq!(json["networkInterfaces"][0]["macAddress"], "aa:bb:cc:dd:ee:ff");
+        assert_eq!(
+            json["networkInterfaces"][0]["macAddress"],
+            "aa:bb:cc:dd:ee:ff"
+        );
     }
 
     #[test]

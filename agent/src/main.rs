@@ -93,7 +93,9 @@ fn run_service() -> anyhow::Result<()> {
 
 #[cfg(not(windows))]
 fn run_service() -> anyhow::Result<()> {
-    anyhow::bail!("`service` mode requires the Windows Service Control Manager and only runs on Windows")
+    anyhow::bail!(
+        "`service` mode requires the Windows Service Control Manager and only runs on Windows"
+    )
 }
 
 #[cfg(windows)]
@@ -124,9 +126,18 @@ fn status(dir: &Path) -> anyhow::Result<()> {
     println!("Data directory:       {}", dir.display());
     println!("Device ID:            {}", config.device_id);
     println!("Device name:          {}", config.device_name);
-    println!("Controller URL:       {}", config.controller_url.as_deref().unwrap_or("(not configured)"));
+    println!(
+        "Controller URL:       {}",
+        config
+            .controller_url
+            .as_deref()
+            .unwrap_or("(not configured)")
+    );
     println!("Discovery enabled:    {}", config.discovery_enabled);
-    println!("Heartbeat interval:   {}s", config.heartbeat_interval.as_secs());
+    println!(
+        "Heartbeat interval:   {}s",
+        config.heartbeat_interval.as_secs()
+    );
     println!(
         "Offline fallback:     {}",
         if config.offline_fallback_enabled {
@@ -143,7 +154,11 @@ fn status(dir: &Path) -> anyhow::Result<()> {
 
     #[cfg(windows)]
     {
-        println!("Service state:        {}", timelord_agent::service_win::query_status().unwrap_or_else(|e| format!("unknown ({e})")));
+        println!(
+            "Service state:        {}",
+            timelord_agent::service_win::query_status()
+                .unwrap_or_else(|e| format!("unknown ({e})"))
+        );
     }
 
     Ok(())
@@ -163,7 +178,10 @@ fn discover(dir: &Path, args: DiscoverArgs) -> anyhow::Result<()> {
     ))?;
 
     if found.is_empty() {
-        println!("No controller responded within {:?}.", config.discovery_timeout);
+        println!(
+            "No controller responded within {:?}.",
+            config.discovery_timeout
+        );
         return Ok(());
     }
 
@@ -171,12 +189,19 @@ fn discover(dir: &Path, args: DiscoverArgs) -> anyhow::Result<()> {
     for candidate in &found {
         println!(
             "  - {} ({})  priority={}  url={}  response_time={:?}",
-            candidate.controller_name, candidate.controller_id, candidate.priority, candidate.controller_url, candidate.response_time
+            candidate.controller_name,
+            candidate.controller_id,
+            candidate.priority,
+            candidate.controller_url,
+            candidate.response_time
         );
     }
 
     let best = timelord_agent::discovery::select_best(&found).expect("non-empty");
-    println!("\nSelected: {} ({})", best.controller_name, best.controller_url);
+    println!(
+        "\nSelected: {} ({})",
+        best.controller_name, best.controller_url
+    );
 
     if args.force {
         config::persist_controller_url(&agent_toml_path, &best.controller_url)?;
@@ -213,7 +238,9 @@ fn test_event(dir: &Path) -> anyhow::Result<()> {
                 return anyhow::Ok(());
             }
         };
-        let request = timelord_agent::protocol::EventSubmissionRequest { events: vec![event.to_event_item()] };
+        let request = timelord_agent::protocol::EventSubmissionRequest {
+            events: vec![event.to_event_item()],
+        };
         match client.submit_events(device_id, &request).await {
             Ok(response) => {
                 println!(
@@ -221,7 +248,10 @@ fn test_event(dir: &Path) -> anyhow::Result<()> {
                     response.accepted, response.duplicates, response.rejected
                 );
                 if let Some(result) = response.results.first() {
-                    if !matches!(result.status, timelord_agent::protocol::EventResultStatus::Rejected) {
+                    if !matches!(
+                        result.status,
+                        timelord_agent::protocol::EventResultStatus::Rejected
+                    ) {
                         queue.mark_delivered_by_event_id(event_id)?;
                     }
                 }
@@ -234,7 +264,9 @@ fn test_event(dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn build_register_request(config: &timelord_agent::config::AgentConfig) -> timelord_agent::protocol::RegisterRequest {
+fn build_register_request(
+    config: &timelord_agent::config::AgentConfig,
+) -> timelord_agent::protocol::RegisterRequest {
     timelord_agent::protocol::RegisterRequest {
         device_id: config.device_id,
         device_name: config.device_name.clone(),

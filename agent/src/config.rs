@@ -66,7 +66,9 @@ impl EnvOverrides {
             controller_url: non_empty(std::env::var("TIMELORD_CONTROLLER_URL").ok()),
             device_id: non_empty(std::env::var("TIMELORD_DEVICE_ID").ok()),
             device_name: non_empty(std::env::var("TIMELORD_DEVICE_NAME").ok()),
-            discovery_enabled: std::env::var("TIMELORD_DISCOVERY_ENABLED").ok().and_then(|v| parse_bool(&v)),
+            discovery_enabled: std::env::var("TIMELORD_DISCOVERY_ENABLED")
+                .ok()
+                .and_then(|v| parse_bool(&v)),
         }
     }
 }
@@ -111,11 +113,16 @@ pub fn resolve(
     cli: &CliOverrides,
     default_hostname: impl FnOnce() -> String,
 ) -> AgentConfig {
-    let device_id_str = cli.device_id.clone().or_else(|| env.device_id.clone()).or_else(|| non_empty(Some(file.agent.device_id.clone())));
-    let (device_id, device_id_generated) = match device_id_str.and_then(|s| Uuid::parse_str(&s).ok()) {
-        Some(id) => (id, false),
-        None => (Uuid::new_v4(), true),
-    };
+    let device_id_str = cli
+        .device_id
+        .clone()
+        .or_else(|| env.device_id.clone())
+        .or_else(|| non_empty(Some(file.agent.device_id.clone())));
+    let (device_id, device_id_generated) =
+        match device_id_str.and_then(|s| Uuid::parse_str(&s).ok()) {
+            Some(id) => (id, false),
+            None => (Uuid::new_v4(), true),
+        };
 
     let device_name = cli
         .device_name
@@ -141,20 +148,38 @@ pub fn resolve(
         device_id_generated,
         device_name,
         heartbeat_interval: Duration::from_secs(
-            file.agent.heartbeat_interval_seconds.unwrap_or(DEFAULT_HEARTBEAT_INTERVAL_SECONDS),
+            file.agent
+                .heartbeat_interval_seconds
+                .unwrap_or(DEFAULT_HEARTBEAT_INTERVAL_SECONDS),
         ),
         event_retry_interval: Duration::from_secs(
-            file.agent.event_retry_interval_seconds.unwrap_or(DEFAULT_EVENT_RETRY_INTERVAL_SECONDS),
+            file.agent
+                .event_retry_interval_seconds
+                .unwrap_or(DEFAULT_EVENT_RETRY_INTERVAL_SECONDS),
         ),
         controller_url,
         discovery_enabled,
-        discovery_port: file.controller.discovery_port.unwrap_or(DEFAULT_DISCOVERY_PORT),
+        discovery_port: file
+            .controller
+            .discovery_port
+            .unwrap_or(DEFAULT_DISCOVERY_PORT),
         discovery_timeout: Duration::from_secs(
-            file.controller.discovery_timeout_seconds.unwrap_or(DEFAULT_DISCOVERY_TIMEOUT_SECONDS),
+            file.controller
+                .discovery_timeout_seconds
+                .unwrap_or(DEFAULT_DISCOVERY_TIMEOUT_SECONDS),
         ),
-        offline_fallback_enabled: file.agent.offline_fallback_enabled.unwrap_or(DEFAULT_OFFLINE_FALLBACK_ENABLED),
-        offline_fallback_start: parse_time_or_default(file.agent.offline_fallback_start.as_deref(), DEFAULT_OFFLINE_FALLBACK_START),
-        offline_fallback_end: parse_time_or_default(file.agent.offline_fallback_end.as_deref(), DEFAULT_OFFLINE_FALLBACK_END),
+        offline_fallback_enabled: file
+            .agent
+            .offline_fallback_enabled
+            .unwrap_or(DEFAULT_OFFLINE_FALLBACK_ENABLED),
+        offline_fallback_start: parse_time_or_default(
+            file.agent.offline_fallback_start.as_deref(),
+            DEFAULT_OFFLINE_FALLBACK_START,
+        ),
+        offline_fallback_end: parse_time_or_default(
+            file.agent.offline_fallback_end.as_deref(),
+            DEFAULT_OFFLINE_FALLBACK_END,
+        ),
     }
 }
 
@@ -162,9 +187,16 @@ pub fn resolve(
 /// (itself always a valid `"HH:MM"` literal) if `value` is missing, blank,
 /// or unparseable.
 fn parse_time_or_default(value: Option<&str>, default: &str) -> NaiveTime {
-    let raw = value.map(str::trim).filter(|s| !s.is_empty()).unwrap_or(default);
+    let raw = value
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(default);
     NaiveTime::parse_from_str(raw, "%H:%M").unwrap_or_else(|err| {
-        tracing::warn!(value = raw, ?err, "invalid offline fallback time in agent.toml, using default");
+        tracing::warn!(
+            value = raw,
+            ?err,
+            "invalid offline fallback time in agent.toml, using default"
+        );
         NaiveTime::parse_from_str(default, "%H:%M").expect("default offline fallback time is valid")
     })
 }
@@ -229,7 +261,12 @@ pub fn persist_controller_url(path: &Path, url: &str) -> anyhow::Result<()> {
 pub fn load(path: &Path, cli: &CliOverrides) -> anyhow::Result<AgentConfig> {
     let file = load_file(path)?;
     let env = EnvOverrides::from_process_env();
-    let hostname = || hostname::get().ok().and_then(|h| h.into_string().ok()).unwrap_or_else(|| "unknown-host".to_string());
+    let hostname = || {
+        hostname::get()
+            .ok()
+            .and_then(|h| h.into_string().ok())
+            .unwrap_or_else(|| "unknown-host".to_string())
+    };
     let resolved = resolve(&file, &env, cli, hostname);
 
     if resolved.device_id_generated {
@@ -250,7 +287,12 @@ mod tests {
 
     #[test]
     fn missing_device_id_is_generated() {
-        let cfg = resolve(&empty_file(), &EnvOverrides::default(), &CliOverrides::default(), || "host".into());
+        let cfg = resolve(
+            &empty_file(),
+            &EnvOverrides::default(),
+            &CliOverrides::default(),
+            || "host".into(),
+        );
         assert!(cfg.device_id_generated);
     }
 
@@ -258,14 +300,27 @@ mod tests {
     fn configured_device_id_is_parsed_and_not_regenerated() {
         let mut file = empty_file();
         file.agent.device_id = "764f814d-f71c-41d4-b89f-d4f914653036".into();
-        let cfg = resolve(&file, &EnvOverrides::default(), &CliOverrides::default(), || "host".into());
+        let cfg = resolve(
+            &file,
+            &EnvOverrides::default(),
+            &CliOverrides::default(),
+            || "host".into(),
+        );
         assert!(!cfg.device_id_generated);
-        assert_eq!(cfg.device_id.to_string(), "764f814d-f71c-41d4-b89f-d4f914653036");
+        assert_eq!(
+            cfg.device_id.to_string(),
+            "764f814d-f71c-41d4-b89f-d4f914653036"
+        );
     }
 
     #[test]
     fn missing_device_name_defaults_to_hostname() {
-        let cfg = resolve(&empty_file(), &EnvOverrides::default(), &CliOverrides::default(), || "gaming-pc".into());
+        let cfg = resolve(
+            &empty_file(),
+            &EnvOverrides::default(),
+            &CliOverrides::default(),
+            || "gaming-pc".into(),
+        );
         assert_eq!(cfg.device_name, "gaming-pc");
     }
 
@@ -275,35 +330,59 @@ mod tests {
         file.controller.url = "http://from-file:8080".into();
 
         // File alone.
-        let cfg = resolve(&file, &EnvOverrides::default(), &CliOverrides::default(), || "h".into());
+        let cfg = resolve(
+            &file,
+            &EnvOverrides::default(),
+            &CliOverrides::default(),
+            || "h".into(),
+        );
         assert_eq!(cfg.controller_url.as_deref(), Some("http://from-file:8080"));
 
         // Env beats file.
-        let env = EnvOverrides { controller_url: Some("http://from-env:8080".into()), ..Default::default() };
+        let env = EnvOverrides {
+            controller_url: Some("http://from-env:8080".into()),
+            ..Default::default()
+        };
         let cfg = resolve(&file, &env, &CliOverrides::default(), || "h".into());
         assert_eq!(cfg.controller_url.as_deref(), Some("http://from-env:8080"));
 
         // CLI beats env and file.
-        let cli = CliOverrides { controller_url: Some("http://from-cli:8080".into()), ..Default::default() };
+        let cli = CliOverrides {
+            controller_url: Some("http://from-cli:8080".into()),
+            ..Default::default()
+        };
         let cfg = resolve(&file, &env, &cli, || "h".into());
         assert_eq!(cfg.controller_url.as_deref(), Some("http://from-cli:8080"));
     }
 
     #[test]
     fn no_controller_url_configured_anywhere_is_none() {
-        let cfg = resolve(&empty_file(), &EnvOverrides::default(), &CliOverrides::default(), || "h".into());
+        let cfg = resolve(
+            &empty_file(),
+            &EnvOverrides::default(),
+            &CliOverrides::default(),
+            || "h".into(),
+        );
         assert_eq!(cfg.controller_url, None);
     }
 
     #[test]
     fn discovery_enabled_defaults_to_true() {
-        let cfg = resolve(&empty_file(), &EnvOverrides::default(), &CliOverrides::default(), || "h".into());
+        let cfg = resolve(
+            &empty_file(),
+            &EnvOverrides::default(),
+            &CliOverrides::default(),
+            || "h".into(),
+        );
         assert!(cfg.discovery_enabled);
     }
 
     #[test]
     fn env_can_disable_discovery() {
-        let env = EnvOverrides { discovery_enabled: Some(false), ..Default::default() };
+        let env = EnvOverrides {
+            discovery_enabled: Some(false),
+            ..Default::default()
+        };
         let cfg = resolve(&empty_file(), &env, &CliOverrides::default(), || "h".into());
         assert!(!cfg.discovery_enabled);
     }
@@ -312,20 +391,36 @@ mod tests {
     fn blank_file_values_are_treated_as_unset() {
         let mut file = empty_file();
         file.controller.url = "   ".into();
-        let cfg = resolve(&file, &EnvOverrides::default(), &CliOverrides::default(), || "h".into());
+        let cfg = resolve(
+            &file,
+            &EnvOverrides::default(),
+            &CliOverrides::default(),
+            || "h".into(),
+        );
         assert_eq!(cfg.controller_url, None);
     }
 
     #[test]
     fn defaults_match_documented_values() {
-        let cfg = resolve(&empty_file(), &EnvOverrides::default(), &CliOverrides::default(), || "h".into());
+        let cfg = resolve(
+            &empty_file(),
+            &EnvOverrides::default(),
+            &CliOverrides::default(),
+            || "h".into(),
+        );
         assert_eq!(cfg.heartbeat_interval, Duration::from_secs(30));
         assert_eq!(cfg.event_retry_interval, Duration::from_secs(10));
         assert_eq!(cfg.discovery_port, 45821);
         assert_eq!(cfg.discovery_timeout, Duration::from_secs(5));
         assert!(cfg.offline_fallback_enabled);
-        assert_eq!(cfg.offline_fallback_start, NaiveTime::from_hms_opt(1, 0, 0).unwrap());
-        assert_eq!(cfg.offline_fallback_end, NaiveTime::from_hms_opt(8, 30, 0).unwrap());
+        assert_eq!(
+            cfg.offline_fallback_start,
+            NaiveTime::from_hms_opt(1, 0, 0).unwrap()
+        );
+        assert_eq!(
+            cfg.offline_fallback_end,
+            NaiveTime::from_hms_opt(8, 30, 0).unwrap()
+        );
     }
 
     #[test]
@@ -334,18 +429,37 @@ mod tests {
         file.agent.offline_fallback_enabled = Some(false);
         file.agent.offline_fallback_start = Some("22:00".into());
         file.agent.offline_fallback_end = Some("06:00".into());
-        let cfg = resolve(&file, &EnvOverrides::default(), &CliOverrides::default(), || "h".into());
+        let cfg = resolve(
+            &file,
+            &EnvOverrides::default(),
+            &CliOverrides::default(),
+            || "h".into(),
+        );
         assert!(!cfg.offline_fallback_enabled);
-        assert_eq!(cfg.offline_fallback_start, NaiveTime::from_hms_opt(22, 0, 0).unwrap());
-        assert_eq!(cfg.offline_fallback_end, NaiveTime::from_hms_opt(6, 0, 0).unwrap());
+        assert_eq!(
+            cfg.offline_fallback_start,
+            NaiveTime::from_hms_opt(22, 0, 0).unwrap()
+        );
+        assert_eq!(
+            cfg.offline_fallback_end,
+            NaiveTime::from_hms_opt(6, 0, 0).unwrap()
+        );
     }
 
     #[test]
     fn invalid_offline_fallback_time_falls_back_to_default() {
         let mut file = empty_file();
         file.agent.offline_fallback_start = Some("not-a-time".into());
-        let cfg = resolve(&file, &EnvOverrides::default(), &CliOverrides::default(), || "h".into());
-        assert_eq!(cfg.offline_fallback_start, NaiveTime::from_hms_opt(1, 0, 0).unwrap());
+        let cfg = resolve(
+            &file,
+            &EnvOverrides::default(),
+            &CliOverrides::default(),
+            || "h".into(),
+        );
+        assert_eq!(
+            cfg.offline_fallback_start,
+            NaiveTime::from_hms_opt(1, 0, 0).unwrap()
+        );
     }
 
     #[test]

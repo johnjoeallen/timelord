@@ -33,7 +33,11 @@ impl MessageStore {
 
     /// Messages still worth showing.
     pub fn live(&self, now: DateTime<Utc>) -> Vec<AgentMessage> {
-        self.messages.iter().filter(|m| m.expires_at > now).cloned().collect()
+        self.messages
+            .iter()
+            .filter(|m| m.expires_at > now)
+            .cloned()
+            .collect()
     }
 }
 
@@ -80,7 +84,10 @@ mod tests {
         let mut s = MessageStore::default();
         assert!(s.apply(vec![msg(3, 60), msg(5, 60)], now()));
         assert_eq!(s.last_seq, 5);
-        assert!(!s.apply(vec![msg(5, 60)], now()), "same message again changes nothing");
+        assert!(
+            !s.apply(vec![msg(5, 60)], now()),
+            "same message again changes nothing"
+        );
         assert_eq!(s.messages.len(), 2);
     }
 
@@ -111,7 +118,10 @@ mod tests {
         s.apply(vec![msg(2, 60)], now());
         save(&path, &s).unwrap();
         assert_eq!(load(&path), s);
-        assert_eq!(load(&dir.path().join("missing.json")), MessageStore::default());
+        assert_eq!(
+            load(&dir.path().join("missing.json")),
+            MessageStore::default()
+        );
     }
 
     #[test]

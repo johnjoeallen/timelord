@@ -139,7 +139,9 @@ impl EventQueue {
     }
 
     fn enforce_max_size_with_cap(&self, cap: i64) -> Result<(), QueueError> {
-        let count: i64 = self.conn.query_row("SELECT COUNT(*) FROM event_queue", [], |row| row.get(0))?;
+        let count: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM event_queue", [], |row| row.get(0))?;
         let overflow = count - cap;
         if overflow > 0 {
             let discarded = self.conn.execute(
@@ -148,13 +150,21 @@ impl EventQueue {
                 )",
                 params![overflow],
             )?;
-            tracing::warn!(discarded, cap, "event queue over capacity; discarded oldest events");
+            tracing::warn!(
+                discarded,
+                cap,
+                "event queue over capacity; discarded oldest events"
+            );
         }
         Ok(())
     }
 
     /// Rows whose `next_attempt_at` has passed, oldest first, up to `limit`.
-    pub fn due_batch(&self, now: DateTime<Utc>, limit: usize) -> Result<Vec<PendingDelivery>, QueueError> {
+    pub fn due_batch(
+        &self,
+        now: DateTime<Utc>,
+        limit: usize,
+    ) -> Result<Vec<PendingDelivery>, QueueError> {
         let mut stmt = self.conn.prepare(
             "SELECT id, event_id, event_type, occurred_at, severity, source, session_id, username, payload_json, attempt_count
              FROM event_queue
@@ -189,24 +199,40 @@ impl EventQueue {
             .collect::<Result<Vec<_>, _>>()?;
 
         rows.into_iter()
-            .map(|(row_id, event_id, event_type, occurred_at, severity, source, session_id, username, payload_json, attempt_count)| {
-                Ok(PendingDelivery {
+            .map(
+                |(
                     row_id,
-                    attempt_count: attempt_count as u32,
-                    event: QueuedEvent {
-                        event_id: Uuid::parse_str(&event_id).expect("stored event_id is a valid UUID"),
-                        event_type: serde_json::from_str(&event_type)?,
-                        occurred_at: DateTime::parse_from_rfc3339(&occurred_at)
-                            .expect("stored timestamp is valid RFC3339")
-                            .with_timezone(&Utc),
-                        severity: serde_json::from_str(&severity)?,
-                        source: serde_json::from_str(&source)?,
-                        session_id: session_id.map(|s| Uuid::parse_str(&s).expect("stored session_id is a valid UUID")),
-                        username,
-                        data: serde_json::from_str(&payload_json)?,
-                    },
-                })
-            })
+                    event_id,
+                    event_type,
+                    occurred_at,
+                    severity,
+                    source,
+                    session_id,
+                    username,
+                    payload_json,
+                    attempt_count,
+                )| {
+                    Ok(PendingDelivery {
+                        row_id,
+                        attempt_count: attempt_count as u32,
+                        event: QueuedEvent {
+                            event_id: Uuid::parse_str(&event_id)
+                                .expect("stored event_id is a valid UUID"),
+                            event_type: serde_json::from_str(&event_type)?,
+                            occurred_at: DateTime::parse_from_rfc3339(&occurred_at)
+                                .expect("stored timestamp is valid RFC3339")
+                                .with_timezone(&Utc),
+                            severity: serde_json::from_str(&severity)?,
+                            source: serde_json::from_str(&source)?,
+                            session_id: session_id.map(|s| {
+                                Uuid::parse_str(&s).expect("stored session_id is a valid UUID")
+                            }),
+                            username,
+                            data: serde_json::from_str(&payload_json)?,
+                        },
+                    })
+                },
+            )
             .collect()
     }
 
@@ -214,7 +240,8 @@ impl EventQueue {
     /// section 9, "treat duplicate acknowledgement as successful delivery")
     /// delivered event.
     pub fn mark_delivered(&self, row_id: i64) -> Result<(), QueueError> {
-        self.conn.execute("DELETE FROM event_queue WHERE id = ?1", params![row_id])?;
+        self.conn
+            .execute("DELETE FROM event_queue WHERE id = ?1", params![row_id])?;
         Ok(())
     }
 
@@ -222,18 +249,31 @@ impl EventQueue {
     /// have the event's own ID, not its row ID. A no-op if the event isn't
     /// queued (e.g. it was already delivered).
     pub fn mark_delivered_by_event_id(&self, event_id: Uuid) -> Result<(), QueueError> {
-        self.conn.execute("DELETE FROM event_queue WHERE event_id = ?1", params![event_id.to_string()])?;
+        self.conn.execute(
+            "DELETE FROM event_queue WHERE event_id = ?1",
+            params![event_id.to_string()],
+        )?;
         Ok(())
     }
 
     /// Records a failed delivery attempt, scheduling the next retry via the
     /// backoff schedule, or discards the event outright once it has been
     /// retried [`MAX_ATTEMPTS`] times.
-    pub fn mark_failed(&self, row_id: i64, attempt_count: u32, now: DateTime<Utc>) -> Result<(), QueueError> {
+    pub fn mark_failed(
+        &self,
+        row_id: i64,
+        attempt_count: u32,
+        now: DateTime<Utc>,
+    ) -> Result<(), QueueError> {
         let next_attempt_count = attempt_count + 1;
         if next_attempt_count >= MAX_ATTEMPTS {
-            tracing::warn!(row_id, attempt_count = next_attempt_count, "discarding permanently undeliverable event");
-            self.conn.execute("DELETE FROM event_queue WHERE id = ?1", params![row_id])?;
+            tracing::warn!(
+                row_id,
+                attempt_count = next_attempt_count,
+                "discarding permanently undeliverable event"
+            );
+            self.conn
+                .execute("DELETE FROM event_queue WHERE id = ?1", params![row_id])?;
             return Ok(());
         }
         let delay = backoff_delay(next_attempt_count);
@@ -246,7 +286,9 @@ impl EventQueue {
     }
 
     pub fn len(&self) -> Result<usize, QueueError> {
-        let count: i64 = self.conn.query_row("SELECT COUNT(*) FROM event_queue", [], |row| row.get(0))?;
+        let count: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM event_queue", [], |row| row.get(0))?;
         Ok(count as usize)
     }
 
@@ -258,7 +300,11 @@ impl EventQueue {
     fn find_by_event_id(&self, event_id: Uuid) -> Result<Option<i64>, QueueError> {
         use rusqlite::OptionalExtension;
         self.conn
-            .query_row("SELECT id FROM event_queue WHERE event_id = ?1", params![event_id.to_string()], |row| row.get(0))
+            .query_row(
+                "SELECT id FROM event_queue WHERE event_id = ?1",
+                params![event_id.to_string()],
+                |row| row.get(0),
+            )
             .optional()
             .map_err(Into::into)
     }
@@ -266,14 +312,21 @@ impl EventQueue {
     #[cfg(test)]
     pub(crate) fn event_types(&self) -> Result<Vec<EventType>, QueueError> {
         self.due_batch(Utc::now() + chrono::Duration::hours(1), 100)
-            .map(|events| events.into_iter().map(|event| event.event.event_type).collect())
+            .map(|events| {
+                events
+                    .into_iter()
+                    .map(|event| event.event.event_type)
+                    .collect()
+            })
     }
 }
 
 /// `attempt` is 1-indexed (the attempt count *after* the failure just
 /// recorded). Holds at the last schedule entry for any attempt beyond it.
 fn backoff_delay(attempt: u32) -> Duration {
-    let index = (attempt as usize).saturating_sub(1).min(BACKOFF_SCHEDULE_SECONDS.len() - 1);
+    let index = (attempt as usize)
+        .saturating_sub(1)
+        .min(BACKOFF_SCHEDULE_SECONDS.len() - 1);
     Duration::from_secs(BACKOFF_SCHEDULE_SECONDS[index])
 }
 

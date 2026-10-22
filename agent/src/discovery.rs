@@ -99,7 +99,9 @@ fn validate_response(
     if message.request_id != expected_request_id {
         return None;
     }
-    if !(message.controller_url.starts_with("http://") || message.controller_url.starts_with("https://")) {
+    if !(message.controller_url.starts_with("http://")
+        || message.controller_url.starts_with("https://"))
+    {
         return None;
     }
 
@@ -120,7 +122,11 @@ pub fn select_best(candidates: &[DiscoveredController]) -> Option<&DiscoveredCon
         b.priority
             .cmp(&a.priority)
             .then(a.response_time.cmp(&b.response_time))
-            .then(a.controller_id.to_string().cmp(&b.controller_id.to_string()))
+            .then(
+                a.controller_id
+                    .to_string()
+                    .cmp(&b.controller_id.to_string()),
+            )
     })
 }
 
@@ -153,7 +159,10 @@ fn local_sweep_subnets() -> Vec<SweepSubnet> {
     let interfaces = match if_addrs::get_if_addrs() {
         Ok(interfaces) => interfaces,
         Err(err) => {
-            warn!(?err, "failed to enumerate local network interfaces for discovery");
+            warn!(
+                ?err,
+                "failed to enumerate local network interfaces for discovery"
+            );
             return Vec::new();
         }
     };
@@ -163,10 +172,15 @@ fn local_sweep_subnets() -> Vec<SweepSubnet> {
         if iface.is_loopback() {
             continue;
         }
-        if EXCLUDED_INTERFACE_PREFIXES.iter().any(|p| iface.name.starts_with(p)) {
+        if EXCLUDED_INTERFACE_PREFIXES
+            .iter()
+            .any(|p| iface.name.starts_with(p))
+        {
             continue;
         }
-        let if_addrs::IfAddr::V4(v4) = &iface.addr else { continue };
+        let if_addrs::IfAddr::V4(v4) = &iface.addr else {
+            continue;
+        };
 
         let all_hosts = hosts_in_subnet(v4.ip, v4.netmask);
         info!(interface = %iface.name, address = %v4.ip, netmask = %v4.netmask,
@@ -178,8 +192,15 @@ fn local_sweep_subnets() -> Vec<SweepSubnet> {
             continue;
         }
 
-        let hosts: Vec<Ipv4Addr> = all_hosts.into_iter().filter(|&addr| addr != v4.ip).collect();
-        subnets.push(SweepSubnet { interface_name: iface.name, own_addr: v4.ip, hosts });
+        let hosts: Vec<Ipv4Addr> = all_hosts
+            .into_iter()
+            .filter(|&addr| addr != v4.ip)
+            .collect();
+        subnets.push(SweepSubnet {
+            interface_name: iface.name,
+            own_addr: v4.ip,
+            hosts,
+        });
     }
     subnets
 }
@@ -198,13 +219,18 @@ pub async fn discover(
     discovery_timeout: Duration,
 ) -> anyhow::Result<Vec<DiscoveredController>> {
     let subnets = local_sweep_subnets();
-    let targets: Vec<Ipv4Addr> = subnets.iter().flat_map(|s| s.hosts.iter().copied()).collect();
+    let targets: Vec<Ipv4Addr> = subnets
+        .iter()
+        .flat_map(|s| s.hosts.iter().copied())
+        .collect();
     if targets.is_empty() {
         warn!("no local IPv4 subnets available to sweep; discovery will find nothing");
         return Ok(Vec::new());
     }
 
-    let socket = UdpSocket::bind(("0.0.0.0", 0)).await.context("binding discovery socket")?;
+    let socket = UdpSocket::bind(("0.0.0.0", 0))
+        .await
+        .context("binding discovery socket")?;
     info!(local_addr = ?socket.local_addr().ok(), target_count = targets.len(), "discovery socket bound");
 
     let request_id = Uuid::new_v4();
@@ -255,7 +281,9 @@ pub async fn discover(
                                from = %from, elapsed_ms = elapsed.as_millis(), "controller responded to discovery");
                         found.push(controller);
                     }
-                    None => warn!(from = %from, len, "ignoring invalid/unsupported discovery response"),
+                    None => {
+                        warn!(from = %from, len, "ignoring invalid/unsupported discovery response")
+                    }
                 }
             }
             Ok(Err(err)) => {
@@ -289,7 +317,10 @@ mod tests {
 
     #[test]
     fn slash_24_yields_254_hosts_excluding_network_and_broadcast() {
-        let hosts = hosts_in_subnet(Ipv4Addr::new(10, 0, 0, 160), Ipv4Addr::new(255, 255, 255, 0));
+        let hosts = hosts_in_subnet(
+            Ipv4Addr::new(10, 0, 0, 160),
+            Ipv4Addr::new(255, 255, 255, 0),
+        );
         assert_eq!(hosts.len(), 254);
         assert!(!hosts.contains(&Ipv4Addr::new(10, 0, 0, 0)));
         assert!(!hosts.contains(&Ipv4Addr::new(10, 0, 0, 255)));
@@ -299,18 +330,32 @@ mod tests {
 
     #[test]
     fn slash_30_yields_two_hosts() {
-        let hosts = hosts_in_subnet(Ipv4Addr::new(192, 168, 1, 5), Ipv4Addr::new(255, 255, 255, 252));
-        assert_eq!(hosts, vec![Ipv4Addr::new(192, 168, 1, 5), Ipv4Addr::new(192, 168, 1, 6)]);
+        let hosts = hosts_in_subnet(
+            Ipv4Addr::new(192, 168, 1, 5),
+            Ipv4Addr::new(255, 255, 255, 252),
+        );
+        assert_eq!(
+            hosts,
+            vec![Ipv4Addr::new(192, 168, 1, 5), Ipv4Addr::new(192, 168, 1, 6)]
+        );
     }
 
     #[test]
     fn slash_31_has_no_usable_host_range() {
-        assert!(hosts_in_subnet(Ipv4Addr::new(192, 168, 1, 5), Ipv4Addr::new(255, 255, 255, 254)).is_empty());
+        assert!(hosts_in_subnet(
+            Ipv4Addr::new(192, 168, 1, 5),
+            Ipv4Addr::new(255, 255, 255, 254)
+        )
+        .is_empty());
     }
 
     #[test]
     fn slash_32_has_no_usable_host_range() {
-        assert!(hosts_in_subnet(Ipv4Addr::new(192, 168, 1, 5), Ipv4Addr::new(255, 255, 255, 255)).is_empty());
+        assert!(hosts_in_subnet(
+            Ipv4Addr::new(192, 168, 1, 5),
+            Ipv4Addr::new(255, 255, 255, 255)
+        )
+        .is_empty());
     }
 
     fn sample_response_json(request_id: Uuid) -> String {
@@ -349,34 +394,41 @@ mod tests {
     #[test]
     fn wrong_protocol_name_is_rejected() {
         let request_id = Uuid::new_v4();
-        let json = sample_response_json(request_id).replace("timelord-discovery", "some-other-protocol");
+        let json =
+            sample_response_json(request_id).replace("timelord-discovery", "some-other-protocol");
         assert!(validate_response(json.as_bytes(), request_id, Duration::from_millis(5)).is_none());
     }
 
     #[test]
     fn unsupported_protocol_version_is_rejected() {
         let request_id = Uuid::new_v4();
-        let json = sample_response_json(request_id).replace("\"protocolVersion\": 1", "\"protocolVersion\": 999");
+        let json = sample_response_json(request_id)
+            .replace("\"protocolVersion\": 1", "\"protocolVersion\": 999");
         assert!(validate_response(json.as_bytes(), request_id, Duration::from_millis(5)).is_none());
     }
 
     #[test]
     fn wrong_message_type_is_rejected() {
         let request_id = Uuid::new_v4();
-        let json = sample_response_json(request_id).replace("CONTROLLER_AVAILABLE", "CONTROLLER_ANNOUNCEMENT");
+        let json = sample_response_json(request_id)
+            .replace("CONTROLLER_AVAILABLE", "CONTROLLER_ANNOUNCEMENT");
         assert!(validate_response(json.as_bytes(), request_id, Duration::from_millis(5)).is_none());
     }
 
     #[test]
     fn non_http_controller_url_is_rejected() {
         let request_id = Uuid::new_v4();
-        let json = sample_response_json(request_id).replace("http://192.168.1.20:8080", "not-a-url");
+        let json =
+            sample_response_json(request_id).replace("http://192.168.1.20:8080", "not-a-url");
         assert!(validate_response(json.as_bytes(), request_id, Duration::from_millis(5)).is_none());
     }
 
     #[test]
     fn malformed_json_is_rejected() {
-        assert!(validate_response(b"not json at all", Uuid::new_v4(), Duration::from_millis(5)).is_none());
+        assert!(
+            validate_response(b"not json at all", Uuid::new_v4(), Duration::from_millis(5))
+                .is_none()
+        );
     }
 
     fn controller(id: &str, priority: i32, response_ms: u64) -> DiscoveredController {
@@ -416,7 +468,10 @@ mod tests {
             controller("aaaaaaaa-0000-0000-0000-000000000000", 100, 10),
         ];
         let best = select_best(&candidates).unwrap();
-        assert_eq!(best.controller_id.to_string(), "aaaaaaaa-0000-0000-0000-000000000000");
+        assert_eq!(
+            best.controller_id.to_string(),
+            "aaaaaaaa-0000-0000-0000-000000000000"
+        );
     }
 
     #[test]
@@ -466,12 +521,18 @@ mod tests {
             hostname: "test-pc".into(),
         };
         socket
-            .send_to(&serde_json::to_vec(&request).unwrap(), ("127.0.0.1", responder_port))
+            .send_to(
+                &serde_json::to_vec(&request).unwrap(),
+                ("127.0.0.1", responder_port),
+            )
             .await
             .unwrap();
 
         let mut buf = [0u8; MAX_PACKET_SIZE];
-        let (len, _from) = timeout(Duration::from_secs(2), socket.recv_from(&mut buf)).await.unwrap().unwrap();
+        let (len, _from) = timeout(Duration::from_secs(2), socket.recv_from(&mut buf))
+            .await
+            .unwrap()
+            .unwrap();
         let result = validate_response(&buf[..len], request_id, Duration::from_millis(1));
         assert!(result.is_some());
         assert_eq!(result.unwrap().controller_name, "Loopback Controller");

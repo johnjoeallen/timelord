@@ -47,12 +47,18 @@ pub struct Schedule {
 impl Schedule {
     /// The window containing `now`, if the device should be off right now.
     pub fn active_window(&self, now: DateTime<Utc>) -> Option<&OffWindow> {
-        self.windows.iter().find(|w| w.off_at <= now && now < w.on_at)
+        self.windows
+            .iter()
+            .find(|w| w.off_at <= now && now < w.on_at)
     }
 
     /// Start of the next window after `now`, used to sleep until it begins.
     pub fn next_off_at(&self, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
-        self.windows.iter().map(|w| w.off_at).filter(|t| *t > now).min()
+        self.windows
+            .iter()
+            .map(|w| w.off_at)
+            .filter(|t| *t > now)
+            .min()
     }
 }
 
@@ -62,7 +68,11 @@ impl Schedule {
 /// off or asleep. So enforcement waits until a controller response has confirmed the schedule
 /// since startup (or since resuming from sleep). If the controller stays unreachable for
 /// `grace`, the cache is enforced anyway, so an offline device is still governed.
-pub fn enforcement_ready(synced: bool, unsynced_for: std::time::Duration, grace: std::time::Duration) -> bool {
+pub fn enforcement_ready(
+    synced: bool,
+    unsynced_for: std::time::Duration,
+    grace: std::time::Duration,
+) -> bool {
     synced || unsynced_for >= grace
 }
 
@@ -105,7 +115,10 @@ mod tests {
             revision: "r1".into(),
             action: PowerAction::Sleep,
             timezone: "Europe/Dublin".into(),
-            windows: vec![OffWindow { off_at: at(22, 30), on_at: at(23, 59) }],
+            windows: vec![OffWindow {
+                off_at: at(22, 30),
+                on_at: at(23, 59),
+            }],
         }
     }
 
@@ -128,10 +141,19 @@ mod tests {
     fn enforcement_waits_for_a_sync_then_falls_back_to_the_cache() {
         use std::time::Duration;
         let grace = Duration::from_secs(90);
-        assert!(!enforcement_ready(false, Duration::from_secs(5), grace), "just started: wait for the controller");
+        assert!(
+            !enforcement_ready(false, Duration::from_secs(5), grace),
+            "just started: wait for the controller"
+        );
         assert!(!enforcement_ready(false, Duration::from_secs(89), grace));
-        assert!(enforcement_ready(false, Duration::from_secs(90), grace), "controller unreachable: enforce the cache");
-        assert!(enforcement_ready(true, Duration::ZERO, grace), "confirmed by the controller");
+        assert!(
+            enforcement_ready(false, Duration::from_secs(90), grace),
+            "controller unreachable: enforce the cache"
+        );
+        assert!(
+            enforcement_ready(true, Duration::ZERO, grace),
+            "confirmed by the controller"
+        );
     }
 
     #[test]
