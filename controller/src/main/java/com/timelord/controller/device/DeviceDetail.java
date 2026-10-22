@@ -26,7 +26,8 @@ public record DeviceDetail(
         Long idleSeconds,
         Instant registeredAt,
         Instant lastRegistrationAt,
-        Instant lastHeartbeatAt
+        Instant lastHeartbeatAt,
+        UUID calendarId
 ) {
     public static DeviceDetail from(Device device) {
         return new DeviceDetail(
@@ -49,7 +50,8 @@ public record DeviceDetail(
                 device.getIdleSeconds(),
                 device.getRegisteredAt(),
                 device.getLastRegistrationAt(),
-                device.getLastHeartbeatAt()
+                device.getLastHeartbeatAt(),
+                device.getCalendarId()
         );
     }
 

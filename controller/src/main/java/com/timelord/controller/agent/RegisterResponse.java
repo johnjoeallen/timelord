@@ -8,6 +8,7 @@ public record RegisterResponse(
         UUID controllerId,
         Instant registeredAt,
         int heartbeatIntervalSeconds,
-        boolean accepted
+        boolean accepted,
+        AgentSchedule schedule
 ) {
 }

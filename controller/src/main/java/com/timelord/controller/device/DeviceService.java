@@ -1,16 +1,20 @@
 package com.timelord.controller.device;
 
+import com.timelord.controller.agent.AgentSchedule;
 import com.timelord.controller.agent.HeartbeatRequest;
 import com.timelord.controller.agent.HeartbeatResponse;
 import com.timelord.controller.agent.RegisterRequest;
 import com.timelord.controller.agent.RegisterResponse;
 import com.timelord.controller.common.ApiException;
+import com.timelord.controller.calendar.CalendarService;
+import com.timelord.controller.calendar.OffWindow;
 import com.timelord.controller.config.AgentDefaultsProperties;
 import com.timelord.controller.config.DeviceProperties;
 import com.timelord.controller.discovery.ControllerIdentityService;
 import com.timelord.controller.event.DeviceHeartbeat;
 import com.timelord.controller.event.DeviceHeartbeatRepository;
 import com.timelord.controller.ws.DeviceUpdatesWebSocketHandler;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -33,19 +38,22 @@ public class DeviceService {
     private final AgentDefaultsProperties agentDefaults;
     private final DeviceProperties deviceProperties;
     private final DeviceUpdatesWebSocketHandler deviceUpdates;
+    private final CalendarService calendarService;
 
     public DeviceService(DeviceRepository deviceRepository,
                           DeviceHeartbeatRepository heartbeatRepository,
                           ControllerIdentityService controllerIdentityService,
                           AgentDefaultsProperties agentDefaults,
                           DeviceProperties deviceProperties,
-                          DeviceUpdatesWebSocketHandler deviceUpdates) {
+                          DeviceUpdatesWebSocketHandler deviceUpdates,
+                          CalendarService calendarService) {
         this.deviceRepository = deviceRepository;
         this.heartbeatRepository = heartbeatRepository;
         this.controllerIdentityService = controllerIdentityService;
         this.agentDefaults = agentDefaults;
         this.deviceProperties = deviceProperties;
         this.deviceUpdates = deviceUpdates;
+        this.calendarService = calendarService;
     }
 
     /** Idempotent by deviceId: repeated registration updates metadata rather than creating a new row. */
@@ -78,7 +86,8 @@ public class DeviceService {
         deviceUpdates.broadcastDeviceChanged(device, isNew ? "REGISTERED" : "RE_REGISTERED");
 
         return new RegisterResponse(device.getId(), controllerIdentityService.controllerId(), now,
-                agentDefaults.heartbeatIntervalSeconds(), true);
+                agentDefaults.heartbeatIntervalSeconds(), true,
+                scheduleFor(device));
     }
 
     @Transactional
@@ -118,12 +127,59 @@ public class DeviceService {
             heartbeatRepository.save(heartbeat);
         }
 
-        return new HeartbeatResponse(true, now, agentDefaults.heartbeatIntervalSeconds());
+        return new HeartbeatResponse(true, now, agentDefaults.heartbeatIntervalSeconds(),
+                scheduleFor(device));
+    }
+
+    public AgentSchedule scheduleFor(Device device) {
+        return calendarService.scheduleFor(device.getCalendarId(), device.getExtensionUntil());
+    }
+
+    /**
+     * Lets the device stay on {@code minutes} longer than its calendar says: if it is currently inside an
+     * off window it is allowed back on for that long, otherwise the next off window starts that much later.
+     * The calendar itself is untouched.
+     */
+    @Transactional
+    public Device extend(UUID deviceId, int minutes) {
+        Device device = requireDevice(deviceId);
+        if (device.getCalendarId() == null) {
+            throw new ApiException(HttpStatus.CONFLICT, "NO_CALENDAR", "Device has no calendar assigned");
+        }
+        Instant now = Instant.now();
+        OffWindow next = calendarService.effectiveWindows(device.getCalendarId(), device.getExtensionUntil(), Duration.ofDays(2))
+                .stream().findFirst()
+                .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "NO_OFF_WINDOW", "No upcoming off window to extend"));
+        Instant base = next.offAt().isBefore(now) ? now : next.offAt();
+        device.setExtensionUntil(base.plus(Duration.ofMinutes(minutes)));
+        device.setUpdatedAt(now);
+        return deviceRepository.save(device);
+    }
+
+    @Transactional
+    public Device clearExtension(UUID deviceId) {
+        Device device = requireDevice(deviceId);
+        device.setExtensionUntil(null);
+        device.setUpdatedAt(Instant.now());
+        return deviceRepository.save(device);
     }
 
     public Device requireDevice(UUID deviceId) {
         return deviceRepository.findById(deviceId)
                 .orElseThrow(() -> ApiException.notFound("DEVICE_NOT_FOUND", "No device registered with id " + deviceId));
+    }
+
+    /** Assigns a calendar to the device, or clears it when {@code calendarId} is null. */
+    @Transactional
+    public Device assignCalendar(UUID deviceId, UUID calendarId) {
+        Device device = requireDevice(deviceId);
+        if (calendarId != null) {
+            calendarService.require(calendarId);
+        }
+        device.setCalendarId(calendarId);
+        device.setExtensionUntil(null);
+        device.setUpdatedAt(Instant.now());
+        return deviceRepository.save(device);
     }
 
     public Page<Device> list(DeviceStatus status, String hostname, Pageable pageable) {

@@ -7,6 +7,58 @@
     <h1 class="mb-1" th:text="${device.deviceName}"></h1>
     <p class="text-muted" th:text="${device.deviceId}"></p>
 
+    <div th:replace="~{fragments/flash :: flash}"></div>
+
+    <div class="card mb-4" id="calendar-card">
+        <div class="card-header">Calendar</div>
+        <div class="card-body">
+            <form method="post" th:action="@{/devices/{id}/calendar(id=${device.deviceId})}" class="row g-2 align-items-end mb-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="calendarId">Assigned calendar</label>
+                    <select class="form-select" id="calendarId" name="calendarId">
+                        <option value="">None (no on/off schedule)</option>
+                        <option th:each="c : ${calendars}" th:value="${c.id}" th:text="${c.name}"
+                                th:selected="${c.id == device.calendarId}"></option>
+                    </select>
+                </div>
+                <div class="col-auto"><button class="btn btn-primary" type="submit">Assign</button></div>
+            </form>
+            <div th:if="${device.calendarId != null}">
+                <div class="mb-2">
+                    <span class="fw-semibold">Upcoming off times</span>
+                    <ul class="mb-2">
+                        <li th:each="w : ${calendarWindows}">
+                            <span th:text="${@timeFormat.format(w.offAt, zone, 'EEE d MMM HH:mm')}"></span>
+                            &rarr; <span th:text="${@timeFormat.format(w.onAt, zone, 'EEE d MMM HH:mm')}"></span>
+                        </li>
+                        <li th:if="${#lists.isEmpty(calendarWindows)}" class="text-muted">None scheduled</li>
+                    </ul>
+                </div>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <span>Allow longer:</span>
+                    <form method="post" th:action="@{/devices/{id}/extend(id=${device.deviceId})}">
+                        <input type="hidden" name="minutes" value="15"/>
+                        <button class="btn btn-sm btn-outline-primary" type="submit">+15 min</button>
+                    </form>
+                    <form method="post" th:action="@{/devices/{id}/extend(id=${device.deviceId})}">
+                        <input type="hidden" name="minutes" value="30"/>
+                        <button class="btn btn-sm btn-outline-primary" type="submit">+30 min</button>
+                    </form>
+                    <form method="post" th:action="@{/devices/{id}/extend(id=${device.deviceId})}">
+                        <input type="hidden" name="minutes" value="60"/>
+                        <button class="btn btn-sm btn-outline-primary" type="submit">+1 hour</button>
+                    </form>
+                    <span th:if="${extensionUntil != null}" class="ms-2">
+                        Extended until <strong th:text="${@timeFormat.format(extensionUntil, zone, 'HH:mm')}"></strong>
+                    </span>
+                    <form method="post" th:action="@{/devices/{id}/extend/clear(id=${device.deviceId})}" th:if="${extensionUntil != null}">
+                        <button class="btn btn-sm btn-link" type="submit">Clear</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row g-3 mb-4">
         <div class="col-12">
             <div class="card">

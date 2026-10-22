@@ -64,6 +64,12 @@ public class Device {
     @Column(name = "idle_seconds")
     private Long idleSeconds;
 
+    @Column(name = "calendar_id")
+    private UUID calendarId;
+
+    @Column(name = "extension_until")
+    private Instant extensionUntil;
+
     @Column(name = "registered_at", nullable = false)
     private Instant registeredAt;
 
@@ -235,6 +241,22 @@ public class Device {
 
     public void setIdleSeconds(Long idleSeconds) {
         this.idleSeconds = idleSeconds;
+    }
+
+    public UUID getCalendarId() {
+        return calendarId;
+    }
+
+    public void setCalendarId(UUID calendarId) {
+        this.calendarId = calendarId;
+    }
+
+    public Instant getExtensionUntil() {
+        return extensionUntil;
+    }
+
+    public void setExtensionUntil(Instant extensionUntil) {
+        this.extensionUntil = extensionUntil;
     }
 
     public Instant getRegisteredAt() {

@@ -1,5 +1,6 @@
 package com.timelord.controller.dashboard;
 
+import com.timelord.controller.calendar.CalendarService;
 import com.timelord.controller.device.Device;
 import com.timelord.controller.device.DeviceDetail;
 import com.timelord.controller.device.DeviceService;
@@ -33,9 +34,12 @@ public class DashboardController {
     private final EventService eventService;
     private final DeviceSessionService sessionService;
     private final RequestZoneResolver zoneResolver;
+    private final CalendarService calendarService;
 
     public DashboardController(DeviceService deviceService, EventService eventService,
-                                DeviceSessionService sessionService, RequestZoneResolver zoneResolver) {
+                                DeviceSessionService sessionService, RequestZoneResolver zoneResolver,
+                                CalendarService calendarService) {
+        this.calendarService = calendarService;
         this.deviceService = deviceService;
         this.eventService = eventService;
         this.sessionService = sessionService;
@@ -64,6 +68,14 @@ public class DashboardController {
         Device device = deviceService.requireDevice(deviceId);
         model.addAttribute("device", DeviceDetail.from(device));
         model.addAttribute("sessions", sessionService.sessionsFor(device));
+        model.addAttribute("calendars", calendarService.list());
+        model.addAttribute("extensionUntil", device.getExtensionUntil() != null
+                && device.getExtensionUntil().isAfter(java.time.Instant.now()) ? device.getExtensionUntil() : null);
+        if (device.getCalendarId() != null) {
+            model.addAttribute("calendarWindows", calendarService
+                    .effectiveWindows(device.getCalendarId(), device.getExtensionUntil(), java.time.Duration.ofDays(3))
+                    .stream().limit(3).toList());
+        }
         return "device-detail";
     }
 

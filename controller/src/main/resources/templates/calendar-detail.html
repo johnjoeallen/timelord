@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<div th:replace="~{fragments/head :: head(${calendar.name})}"></div>
+<body>
+<div th:replace="~{fragments/nav :: nav}"></div>
+<div class="container">
+    <h1 class="mb-1" th:text="${calendar.name}"></h1>
+    <p class="text-muted"><a th:href="@{/calendars}">&larr; All calendars</a></p>
+    <div th:replace="~{fragments/flash :: flash}"></div>
+
+    <div class="card mb-4">
+        <div class="card-header">Weekly schedule</div>
+        <div class="card-body">
+            <p class="text-muted small">
+                Each rule applies to the <em>evening</em> it starts on: "Fri 01:00" is the night of Friday, so the
+                device goes off at 01:00 on Saturday. An off time earlier than the on time falls after midnight.
+                Every day may appear in at most one rule; clear a rule's days to remove it.
+            </p>
+            <form method="post" th:action="@{/calendars/{id}(id=${calendar.id})}">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label" for="name">Name</label>
+                        <input class="form-control" id="name" name="name" th:value="${calendar.name}" required/>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="timezone">Timezone</label>
+                        <input class="form-control" id="timezone" name="timezone" list="tzlist" th:value="${calendar.timezone}" required/>
+                        <datalist id="tzlist"><option th:each="z : ${timezones}" th:value="${z}"></option></datalist>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="action">At off time</label>
+                        <select class="form-select" id="action" name="action">
+                            <option value="SLEEP" th:selected="${calendar.action.name() == 'SLEEP'}">Sleep the device</option>
+                            <option value="SHUTDOWN" th:selected="${calendar.action.name() == 'SHUTDOWN'}">Shut the device down</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead><tr><th>Days</th><th>Off at</th><th>On (allowed) at</th></tr></thead>
+                        <tbody>
+                        <tr th:each="row, i : ${ruleRows}">
+                            <td>
+                                <div class="form-check form-check-inline" th:each="d : ${days}">
+                                    <input class="form-check-input" type="checkbox"
+                                           th:id="${'r' + i.index + d}" th:name="${'rules[' + i.index + '].days'}"
+                                           th:value="${d}" th:checked="${row.days.contains(d)}"/>
+                                    <label class="form-check-label" th:for="${'r' + i.index + d}"
+                                           th:text="${#strings.capitalize(#strings.toLowerCase(d.name()).substring(0, 3))}"></label>
+                                </div>
+                            </td>
+                            <td><input class="form-control" type="time" th:name="${'rules[' + i.index + '].offTime'}"
+                                       th:value="${row.offTime} ? ${#temporals.format(row.offTime, 'HH:mm')}"/></td>
+                            <td><input class="form-control" type="time" th:name="${'rules[' + i.index + '].onTime'}"
+                                       th:value="${row.onTime} ? ${#temporals.format(row.onTime, 'HH:mm')}"/></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <button class="btn btn-primary" type="submit">Save schedule</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Overrides (holidays, one-offs)</div>
+        <div class="card-body">
+            <p class="text-muted small">
+                An override replaces the weekly times for every night that <em>starts</em> within its dates. A single
+                day is just a start date with no end date. The weekly schedule above is never changed; remove the
+                override and it reverts.
+            </p>
+            <div class="table-responsive" th:if="${not #lists.isEmpty(calendar.overrides)}">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Name</th><th>From</th><th>To</th><th>Off at</th><th>On at</th><th></th></tr></thead>
+                    <tbody>
+                    <tr th:each="o : ${calendar.overrides}" th:classappend="${o.endDate.isBefore(today)} ? 'text-muted'">
+                        <td th:text="${o.name} ?: '–'"></td>
+                        <td th:text="${o.startDate}"></td>
+                        <td th:text="${o.endDate}"></td>
+                        <td th:text="${#temporals.format(o.offTime, 'HH:mm')}"></td>
+                        <td th:text="${#temporals.format(o.onTime, 'HH:mm')}"></td>
+                        <td class="text-end">
+                            <form method="post" th:action="@{/calendars/{id}/overrides/{oid}/delete(id=${calendar.id},oid=${o.id})}">
+                                <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button>
+                            </form>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <form method="post" th:action="@{/calendars/{id}/overrides(id=${calendar.id})}" class="row g-2 align-items-end">
+                <div class="col-md-3"><label class="form-label" for="oname">Name</label>
+                    <input class="form-control" id="oname" name="name" placeholder="Christmas"/></div>
+                <div class="col-6 col-md-2"><label class="form-label" for="ostart">From</label>
+                    <input class="form-control" id="ostart" type="date" name="startDate" required/></div>
+                <div class="col-6 col-md-2"><label class="form-label" for="oend">To (optional)</label>
+                    <input class="form-control" id="oend" type="date" name="endDate"/></div>
+                <div class="col-6 col-md-2"><label class="form-label" for="ooff">Off at</label>
+                    <input class="form-control" id="ooff" type="time" name="offTime" required/></div>
+                <div class="col-6 col-md-2"><label class="form-label" for="oon">On at</label>
+                    <input class="form-control" id="oon" type="time" name="onTime" value="06:30" required/></div>
+                <div class="col-12 col-md-1"><button class="btn btn-primary w-100" type="submit">Add</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Next 14 days <span class="text-muted small" th:text="'(' + ${calendar.timezone} + ')'"></span></div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Off</th><th>Allowed again</th></tr></thead>
+                <tbody>
+                <tr th:each="w : ${windows}">
+                    <td th:text="${@timeFormat.format(w.offAt, calendarZone, 'EEE d MMM HH:mm')}"></td>
+                    <td th:text="${@timeFormat.format(w.onAt, calendarZone, 'EEE d MMM HH:mm')}"></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(windows)}">
+                    <td colspan="2" class="text-muted text-center py-3">No off windows: devices are always allowed on.</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <form method="post" th:action="@{/calendars/{id}/delete(id=${calendar.id})}" class="mb-5"
+          onsubmit="return confirm('Delete this calendar? Devices using it will have no schedule.');">
+        <button class="btn btn-outline-danger" type="submit">Delete calendar</button>
+    </form>
+</div>
+</body>
+</html>
