@@ -1,9 +1,13 @@
+// A background program: no console window (problems go to the log file instead).
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 //! TimeLord notifier. Polls the agent service's local pipe and warns the
 //! logged-on user before the device is powered off, and shows administrator
 //! messages. Decisions live in `engine`, wording in `text`, display in `ui`.
 //! Still to come: the last-minute countdown window and the tray icon.
 
 mod engine;
+mod logfile;
 mod state;
 mod text;
 mod transport;
@@ -48,7 +52,7 @@ fn main() {
             Err(err) => {
                 // Service not running (or restarting): stay quiet and keep trying.
                 if !service_was_down {
-                    eprintln!("service unavailable: {err}");
+                    logfile::log(&format!("service unavailable: {err}"));
                     service_was_down = true;
                 }
                 Duration::from_secs(10)
@@ -70,7 +74,7 @@ fn show_new_messages(tracker: &mut MessageTracker, state_path: &Path) {
     let after = tracker.shown_ids();
     if after != before {
         if let Err(err) = state::save_shown(state_path, &after) {
-            eprintln!("could not save shown messages: {err}");
+            logfile::log(&format!("could not save shown messages: {err}"));
         }
     }
 }

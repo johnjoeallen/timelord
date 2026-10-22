@@ -79,7 +79,7 @@ mod imp {
         };
         if first {
             if let Err(err) = register_aumid() {
-                eprintln!("could not register toast identity: {err}");
+                crate::logfile::log(&format!("could not register toast identity: {err}"));
             }
         }
         first
@@ -142,7 +142,7 @@ mod imp {
 
     pub fn show(tag: &str, group: &str, text: &ToastText) {
         if let Err(err) = try_show(tag, group, text) {
-            eprintln!("could not show toast: {err}");
+            crate::logfile::log(&format!("could not show toast: {err}"));
         }
     }
 
@@ -150,7 +150,7 @@ mod imp {
         let result = ToastNotificationManager::History()
             .and_then(|h| h.RemoveGroupedTagWithId(&HSTRING::from(tag), &HSTRING::from(group), &HSTRING::from(AUMID)));
         if let Err(err) = result {
-            eprintln!("could not dismiss toast: {err}");
+            crate::logfile::log(&format!("could not dismiss toast: {err}"));
         }
     }
 

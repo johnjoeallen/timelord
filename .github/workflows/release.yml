@@ -42,11 +42,23 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: agent
+          workspaces: |
+            agent
+            notifier
+            ipc
 
       - run: cargo test --locked
 
       - run: cargo clippy --all-targets --locked -- -D warnings
+
+      - run: cargo test --locked
+        working-directory: ipc
+
+      - run: cargo test --locked
+        working-directory: notifier
+
+      - run: cargo clippy --all-targets --locked -- -D warnings
+        working-directory: notifier
 
   test-controller:
     runs-on: ubuntu-latest
@@ -86,9 +98,18 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: agent
+          workspaces: |
+            agent
+            notifier
 
       - run: cargo build --release --locked
+
+      # The notifier's toast code only compiles on Windows, so its tests (and build) run here.
+      - run: cargo test --locked
+        working-directory: notifier
+
+      - run: cargo build --release --locked
+        working-directory: notifier
 
       - name: Package release zip
         shell: pwsh
@@ -96,6 +117,7 @@ jobs:
           $dist = "dist"
           New-Item -ItemType Directory -Force -Path $dist | Out-Null
           Copy-Item target/release/timelord-agent.exe $dist/
+          Copy-Item ../notifier/target/release/timelord-notifier.exe $dist/
           Copy-Item ../deployment/windows/install.ps1 $dist/
           Copy-Item ../deployment/windows/uninstall.ps1 $dist/
           Copy-Item ../deployment/windows/README.md $dist/

@@ -2,9 +2,9 @@
 
 Packaging and deployment assets:
 
-- `windows/` — agent service installer / uninstaller (`install.ps1`, `uninstall.ps1`),
-  shipped in the release zip built by `.github/workflows/release.yml`. See
-  `windows/README.md`.
+- `windows/` — agent service + per-user notifier installer / uninstaller (`install.ps1`,
+  `uninstall.ps1`; the notifier runs from a logon scheduled task), shipped in the release zip built
+  by `.github/workflows/release.yml`. See `windows/README.md`.
 - `docker/` — `redeploy.sh`: pulls the latest images, tears down the running stack (keeping the
   postgres data volume), clears out any leftover container still holding the discovery UDP port
   (a common cause of `up` failing with "port is already allocated"), then brings the stack back

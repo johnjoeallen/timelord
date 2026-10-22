@@ -1,7 +1,7 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Removes the TimeLord Agent service and installed binary.
+    Removes the TimeLord Agent service, the notifier logon task, and the installed binaries.
 
 .DESCRIPTION
     Stops and deletes the "TimeLordAgent" service and removes the installed
@@ -34,6 +34,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 $ServiceName = "TimeLordAgent"
+$NotifierTaskName = "TimeLord Notifier"
+
+# Stop the per-user notifier first so its binary is not locked when the install directory is removed.
+Unregister-ScheduledTask -TaskName $NotifierTaskName -Confirm:$false -ErrorAction SilentlyContinue
+Get-Process -Name "timelord-notifier" -ErrorAction SilentlyContinue | Stop-Process -Force
 
 $existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($existing) {

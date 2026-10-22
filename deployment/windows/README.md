@@ -1,6 +1,7 @@
 # TimeLord Agent — Windows install scripts
 
-These ship inside the release zip alongside `timelord-agent.exe` (see the
+These ship inside the release zip alongside `timelord-agent.exe` and
+`timelord-notifier.exe` (see the
 `Release` GitHub Actions workflow, `.github/workflows/release.yml`).
 
 ## Install
@@ -14,10 +15,28 @@ From an elevated PowerShell prompt, in the extracted release folder:
 This copies the binary to `%ProgramFiles%\TimeLord`, creates
 `%ProgramData%\TimeLord` (locked down to `SYSTEM` + `Administrators` only),
 and registers/starts the `TimeLordAgent` service under `LocalSystem` with
-automatic restart on failure. Re-running it (e.g. after dropping in a newer
+automatic restart on failure. It also installs `timelord-notifier.exe` and a
+`TimeLord Notifier` scheduled task that starts it at every user's logon (see
+[Notifier](#notifier)); pass `-SkipNotifier` to install only the service.
+Re-running it (e.g. after dropping in a newer
 `timelord-agent.exe`) stops and replaces the existing service, so it also
 serves as the upgrade path — a packaged MSI/EXE installer may replace this
 script later, but this is the real install mechanism today, not a stopgap.
+
+## Notifier
+
+`timelord-notifier.exe` runs in each logged-on user's session (started by the
+`TimeLord Notifier` scheduled task, as the user with limited rights). It asks
+the agent service, over the local pipe `\\.\pipe\timelord-notify`, what is
+about to happen, and shows Windows toasts: warnings before the device sleeps or
+shuts down (at 15, 5, 1 minute and 30 seconds) and any message an administrator
+sends from the dashboard. It has no window of its own.
+
+* Log: `%LOCALAPPDATA%\TimeLord\notifier.log` (per user, rotated at 256 KiB).
+* Which messages it has already shown: `%LOCALAPPDATA%\TimeLord\notifier-shown.json`.
+* To stop it temporarily: `Stop-Process -Name timelord-notifier` (it returns at
+  the next logon). The service enforces the schedule whether or not it runs; the
+  notifier only gives the user notice.
 
 ## Uninstall
 
@@ -25,6 +44,9 @@ script later, but this is the real install mechanism today, not a stopgap.
 .\uninstall.ps1            # keeps session history and logs
 .\uninstall.ps1 -RemoveData # also deletes %ProgramData%\TimeLord
 ```
+
+Uninstalling also removes the `TimeLord Notifier` task. Per-user files under
+`%LOCALAPPDATA%\TimeLord` are left in place.
 
 ## Logs
 
