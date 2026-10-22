@@ -59,7 +59,34 @@ url = ""                             # e.g. "http://192.168.1.20:8080"
 discovery_enabled = true
 discovery_port = 45821
 discovery_timeout_seconds = 5
+
+[time]
+ntp_enabled = true                   # check the system clock against NTP; schedules use NTP time
+ntp_servers = ["time.cloudflare.com", "time.windows.com", "pool.ntp.org"]   # the defaults
 ```
+
+### The clock
+
+A schedule is a list of absolute UTC times, so it is only as right as the time the agent compares it
+with, and Windows lets a user change the system clock. The agent therefore doesn't trust it: it
+measures the system clock against **NTP servers** (SNTP over UDP port 123) and enforces schedules,
+the notifier's countdowns and message expiry against *NTP-corrected time*.
+
+- It measures at startup, every 15 minutes, after any sleep, and whenever it sees the system clock
+  jump (the system clock stops keeping pace with the agent's own timer). The median of the servers
+  that answer is used, so one wrong server can't move it.
+- A system clock more than 30 seconds out is logged as a warning, for example *the system clock is
+  behind the real time; schedules use NTP time*, with the offset in seconds.
+- At startup a cached schedule isn't enforced until the clock has been checked as well as the
+  schedule confirmed by the controller, or until the 90-second grace period passes if NTP can't be
+  reached.
+- If NTP becomes unreachable the last measured offset is kept, so blocking NTP only freezes the
+  last measurement; a clock changed afterwards is still caught by the jump check once NTP is
+  reachable again. The agent needs outbound UDP 123 (or your own server in `ntp_servers`).
+- `ntp_enabled = false` switches this off and uses the system clock. `timelord-agent status` shows
+  which servers are configured.
+
+Event timestamps sent to the controller still use the system clock.
 
 ### Devices without a schedule
 

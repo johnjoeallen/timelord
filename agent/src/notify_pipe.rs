@@ -86,7 +86,6 @@ mod server {
     use std::io;
     use std::sync::Arc;
 
-    use chrono::Utc;
     use timelord_ipc::PIPE_NAME;
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     use tokio::net::windows::named_pipe::{NamedPipeServer, ServerOptions};
@@ -187,7 +186,7 @@ mod server {
                         &line,
                         agent.schedule_for_notices().as_ref(),
                         &agent.live_messages(),
-                        Utc::now(),
+                        agent.now(),
                     )
                     .map(String::into_bytes) else {
                         continue;

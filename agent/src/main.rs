@@ -138,6 +138,14 @@ fn status(dir: &Path) -> anyhow::Result<()> {
         "Heartbeat interval:   {}s",
         config.heartbeat_interval.as_secs()
     );
+    println!(
+        "NTP time check:       {}",
+        if config.ntp_enabled {
+            config.ntp_servers.join(", ")
+        } else {
+            "disabled".to_string()
+        }
+    );
     println!("Pending local events: {}", queue.len()?);
 
     #[cfg(windows)]

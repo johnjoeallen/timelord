@@ -21,6 +21,15 @@ pub struct AgentFileConfig {
     pub agent: AgentSection,
     #[serde(default)]
     pub controller: ControllerSection,
+    #[serde(default)]
+    pub time: TimeSection,
+}
+
+/// `[time]`: where the agent gets the real time from, since the system clock can be changed by the user.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TimeSection {
+    pub ntp_enabled: Option<bool>,
+    pub ntp_servers: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -89,6 +98,9 @@ pub struct AgentConfig {
     pub discovery_enabled: bool,
     pub discovery_port: u16,
     pub discovery_timeout: Duration,
+    /// Whether schedules are enforced against NTP time instead of the (changeable) system clock.
+    pub ntp_enabled: bool,
+    pub ntp_servers: Vec<String>,
 }
 
 /// Resolves a fully-populated [`AgentConfig`] from the file contents, env
@@ -155,6 +167,25 @@ pub fn resolve(
                 .discovery_timeout_seconds
                 .unwrap_or(DEFAULT_DISCOVERY_TIMEOUT_SECONDS),
         ),
+        ntp_enabled: file.time.ntp_enabled.unwrap_or(true),
+        ntp_servers: file
+            .time
+            .ntp_servers
+            .as_ref()
+            .map(|servers| {
+                servers
+                    .iter()
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect::<Vec<_>>()
+            })
+            .filter(|servers| !servers.is_empty())
+            .unwrap_or_else(|| {
+                crate::clock::DEFAULT_NTP_SERVERS
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect()
+            }),
     }
 }
 
@@ -369,6 +400,47 @@ mod tests {
         assert_eq!(cfg.event_retry_interval, Duration::from_secs(10));
         assert_eq!(cfg.discovery_port, 45821);
         assert_eq!(cfg.discovery_timeout, Duration::from_secs(5));
+    }
+
+    #[test]
+    fn ntp_is_on_by_default_with_public_servers() {
+        let cfg = resolve(
+            &empty_file(),
+            &EnvOverrides::default(),
+            &CliOverrides::default(),
+            || "h".into(),
+        );
+        assert!(cfg.ntp_enabled);
+        assert_eq!(cfg.ntp_servers.len(), 3);
+        assert!(cfg.ntp_servers.iter().any(|s| s == "pool.ntp.org"));
+    }
+
+    #[test]
+    fn ntp_servers_can_be_configured_and_blank_entries_are_ignored() {
+        let mut file = empty_file();
+        file.time.ntp_servers = Some(vec![" ntp.example.org ".into(), "".into()]);
+        file.time.ntp_enabled = Some(false);
+        let cfg = resolve(
+            &file,
+            &EnvOverrides::default(),
+            &CliOverrides::default(),
+            || "h".into(),
+        );
+        assert!(!cfg.ntp_enabled);
+        assert_eq!(cfg.ntp_servers, vec!["ntp.example.org".to_string()]);
+
+        file.time.ntp_servers = Some(vec!["  ".into()]);
+        let cfg = resolve(
+            &file,
+            &EnvOverrides::default(),
+            &CliOverrides::default(),
+            || "h".into(),
+        );
+        assert_eq!(
+            cfg.ntp_servers.len(),
+            3,
+            "an empty list falls back to the defaults"
+        );
     }
 
     #[test]

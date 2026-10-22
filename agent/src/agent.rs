@@ -9,11 +9,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::Duration;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use tokio::sync::{watch, Mutex, Notify};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
+use crate::clock::{self, TrustedClock};
 use crate::config::{self, AgentConfig, CliOverrides};
 use crate::controller_client::ControllerClient;
 use crate::discovery;
@@ -39,6 +40,15 @@ const SCHEDULE_POLL_WAIT: Duration = Duration::from_secs(30);
 const ENFORCEMENT_MAX_WAIT: Duration = Duration::from_secs(60);
 /// After asking Windows to shut down, don't ask again for this long (the shutdown has a grace period).
 const SHUTDOWN_COOLDOWN: Duration = Duration::from_secs(300);
+/// How often the NTP offset is re-measured once it is known, and how soon to retry while it isn't.
+const CLOCK_RESYNC_INTERVAL: Duration = Duration::from_secs(15 * 60);
+const CLOCK_RETRY_INTERVAL: Duration = Duration::from_secs(30);
+const CLOCK_RETRY_INTERVAL_KNOWN: Duration = Duration::from_secs(5 * 60);
+/// How often to check whether the system clock has jumped, and by how much counts as a jump.
+const CLOCK_WATCH_INTERVAL: Duration = Duration::from_secs(15);
+const CLOCK_JUMP_THRESHOLD: chrono::Duration = chrono::Duration::seconds(5);
+/// A system clock this far from NTP time is worth a warning in the log.
+const CLOCK_SKEW_WARN_MS: i64 = 30_000;
 /// Bound on how long shutdown waits for one last delivery attempt of
 /// anything still queued (notably `AgentStopping`) before giving up and
 /// letting the process exit anyway — the SCM only grants a service a short
@@ -62,6 +72,8 @@ pub struct Agent {
     messages: StdMutex<MessageStore>,
     messages_path: PathBuf,
     schedule_sync: StdMutex<ScheduleSync>,
+    clock: TrustedClock,
+    clock_resync: Notify,
 }
 
 /// Whether the cached schedule has been confirmed by the controller since startup / last resume.
@@ -82,6 +94,7 @@ impl Agent {
         let schedule = StdMutex::new(schedule::load(&schedule_path));
         let messages_path = agent_toml_path.with_file_name("messages.json");
         let messages = StdMutex::new(messages::load(&messages_path));
+        let clock = TrustedClock::new(config.ntp_enabled);
         Self {
             config,
             agent_toml_path,
@@ -99,7 +112,14 @@ impl Agent {
                 confirmed: false,
                 since: std::time::Instant::now(),
             }),
+            clock,
+            clock_resync: Notify::new(),
         }
+    }
+
+    /// The real time: NTP-corrected, so changing the system clock doesn't move schedules.
+    pub fn now(&self) -> DateTime<Utc> {
+        self.clock.now()
     }
 
     /// The currently cached schedule, if the device has a calendar.
@@ -132,6 +152,8 @@ impl Agent {
             reason,
             "cached schedule needs re-confirming with the controller before it is enforced"
         );
+        // The system clock may have been changed meanwhile, so re-measure it too.
+        self.clock_resync.notify_one();
         let mut sync = self.schedule_sync.lock().unwrap();
         sync.confirmed = false;
         sync.since = std::time::Instant::now();
@@ -144,7 +166,9 @@ impl Agent {
             let sync = self.schedule_sync.lock().unwrap();
             (sync.confirmed, sync.since.elapsed())
         };
-        if schedule::enforcement_ready(confirmed, unsynced_for, grace) {
+        // Until the clock has been checked against NTP the schedule could be compared with a wrong
+        // time, so that is waited for too (or the grace period, if NTP can't be reached).
+        if schedule::enforcement_ready(confirmed && self.clock.is_ready(), unsynced_for, grace) {
             (self.schedule(), None)
         } else {
             (None, Some(grace.saturating_sub(unsynced_for)))
@@ -169,7 +193,7 @@ impl Agent {
         }
         match incoming.as_ref() {
             Some(s) => {
-                let now = Utc::now();
+                let now = self.now();
                 info!(
                     revision = s.revision.as_str(),
                     windows = s.windows.len(),
@@ -189,7 +213,7 @@ impl Agent {
 
     /// Administrator messages still worth showing (unexpired).
     pub fn live_messages(&self) -> Vec<crate::protocol::AgentMessage> {
-        self.messages.lock().unwrap().live(Utc::now())
+        self.messages.lock().unwrap().live(self.now())
     }
 
     fn messages_cursor(&self) -> i64 {
@@ -198,7 +222,7 @@ impl Agent {
 
     fn apply_messages(&self, incoming: Vec<crate::protocol::AgentMessage>) {
         let mut store = self.messages.lock().unwrap();
-        if store.apply(incoming, Utc::now()) {
+        if store.apply(incoming, self.now()) {
             if let Err(err) = messages::save(&self.messages_path, &store) {
                 warn!(?err, "failed to cache messages locally");
             }
@@ -575,6 +599,80 @@ pub async fn message_poll_loop(agent: Arc<Agent>, client: Arc<Mutex<(ControllerC
     }
 }
 
+/// Keeps [`TrustedClock`] right: measures the system clock against NTP at startup, every few minutes,
+/// after any sleep, and whenever the system clock is seen to jump. Runs without the controller.
+pub async fn clock_sync_loop(agent: Arc<Agent>) {
+    if !agent.clock.enabled() {
+        info!("NTP time checking is disabled; schedules use the system clock");
+        return;
+    }
+    let mut shutdown = agent.shutdown_signal();
+    let mut watch = tokio::time::interval(CLOCK_WATCH_INTERVAL);
+    watch.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    let mut last_system = Utc::now();
+    let mut last_tick = std::time::Instant::now();
+    let mut next_sync = tokio::time::Instant::now();
+    loop {
+        if tokio::time::Instant::now() >= next_sync {
+            let servers = agent.config.ntp_servers.clone();
+            let measured = tokio::task::spawn_blocking(move || clock::measure_default(&servers))
+                .await
+                .ok()
+                .flatten();
+            match measured {
+                Some(offset_ms) => {
+                    agent.clock.set_offset_ms(offset_ms);
+                    if offset_ms.abs() > CLOCK_SKEW_WARN_MS {
+                        warn!(
+                            offset_seconds = offset_ms / 1000,
+                            "the system clock is {} the real time; schedules use NTP time",
+                            if offset_ms > 0 { "behind" } else { "ahead of" }
+                        );
+                    } else {
+                        info!(offset_ms, "system clock checked against NTP");
+                    }
+                    next_sync = tokio::time::Instant::now() + CLOCK_RESYNC_INTERVAL;
+                }
+                None => {
+                    let retry = if agent.clock.is_ready() {
+                        CLOCK_RETRY_INTERVAL_KNOWN
+                    } else {
+                        CLOCK_RETRY_INTERVAL
+                    };
+                    warn!(
+                        retry_seconds = retry.as_secs(),
+                        "could not reach any NTP server; using the last known clock offset"
+                    );
+                    next_sync = tokio::time::Instant::now() + retry;
+                }
+            }
+            // Enforcement may have been waiting for the clock.
+            agent.schedule_changed.notify_one();
+            last_system = Utc::now();
+            last_tick = std::time::Instant::now();
+        }
+        tokio::select! {
+            _ = tokio::time::sleep_until(next_sync) => {}
+            _ = agent.clock_resync.notified() => {
+                next_sync = tokio::time::Instant::now();
+            }
+            _ = watch.tick() => {
+                // The system clock should advance as fast as the monotonic one. If it didn't, the
+                // user moved it (or the machine slept, which only costs one extra measurement).
+                let system = Utc::now();
+                let drift = (system - last_system) - chrono::Duration::from_std(last_tick.elapsed()).unwrap_or_default();
+                if drift.abs() > CLOCK_JUMP_THRESHOLD {
+                    warn!(drift_seconds = drift.num_seconds(), "the system clock jumped; re-checking it against NTP");
+                    next_sync = tokio::time::Instant::now();
+                }
+                last_system = system;
+                last_tick = std::time::Instant::now();
+            }
+            _ = shutdown.changed() => break,
+        }
+    }
+}
+
 /// Enforces the cached calendar schedule, including while the controller is unreachable: whenever
 /// `now` is inside an off window, performs the schedule's action (sleep or shutdown). Wakes on a
 /// schedule change, the next window start, or [`ENFORCEMENT_MAX_WAIT`], whichever is soonest.
@@ -582,7 +680,7 @@ pub async fn enforcement_loop(agent: Arc<Agent>) {
     let mut shutdown = agent.shutdown_signal();
     let mut last_shutdown_request: Option<tokio::time::Instant> = None;
     loop {
-        let now = Utc::now();
+        let now = agent.now();
         let mut wait = ENFORCEMENT_MAX_WAIT;
         // At startup (and after any sleep) the cache may predate a calendar edit or an extension, so
         // it is only enforced once the controller has confirmed it, or the controller stays silent.
@@ -602,6 +700,7 @@ pub async fn enforcement_loop(agent: Arc<Agent>) {
                 wait = wait.min((next - now).to_std().unwrap_or(Duration::ZERO));
             }
         }
+        // The wake-up checks below deliberately read the raw system clock: a jump in it is what they detect.
         let planned_wake = Utc::now() + chrono::Duration::from_std(wait).unwrap_or_default();
         tokio::select! {
             _ = tokio::time::sleep(wait) => {}
@@ -774,6 +873,8 @@ pub fn run_blocking(dir: &std::path::Path, cli: &CliOverrides) -> anyhow::Result
     rt.block_on(agent.enqueue(events::agent_started(AGENT_VERSION, "STARTUP")));
     rt.block_on(agent.enqueue(events::system_boot()));
 
+    rt.spawn(clock_sync_loop(agent.clone()));
+
     let networking = {
         let agent = agent.clone();
         rt.spawn(async move {
@@ -828,6 +929,14 @@ mod tests {
         dir: &std::path::Path,
         windows: Vec<schedule::OffWindow>,
     ) -> Agent {
+        agent_with_cached_schedule_ntp(dir, windows, false)
+    }
+
+    fn agent_with_cached_schedule_ntp(
+        dir: &std::path::Path,
+        windows: Vec<schedule::OffWindow>,
+        ntp: bool,
+    ) -> Agent {
         let cached = Schedule {
             revision: "cached".into(),
             action: schedule::PowerAction::Sleep,
@@ -836,7 +945,8 @@ mod tests {
         };
         schedule::save(&dir.join("schedule.json"), Some(&cached)).unwrap();
         let toml = dir.join("agent.toml");
-        let config = config::load(&toml, &CliOverrides::default()).unwrap();
+        let mut config = config::load(&toml, &CliOverrides::default()).unwrap();
+        config.ntp_enabled = ntp;
         Agent::new(
             config,
             toml,
@@ -850,6 +960,40 @@ mod tests {
             off_at: Utc::now() - chrono::Duration::hours(1),
             on_at: Utc::now() + chrono::Duration::hours(1),
         }
+    }
+
+    #[test]
+    fn enforcement_also_waits_for_the_clock_to_be_checked_against_ntp() {
+        let dir = tempfile::tempdir().unwrap();
+        let agent = agent_with_cached_schedule_ntp(dir.path(), vec![open_window()], true);
+        agent.mark_schedule_synced();
+
+        assert!(
+            agent.enforcement_view(Duration::from_secs(90)).0.is_none(),
+            "the controller confirmed it, but the clock has not been checked yet"
+        );
+
+        agent.clock.set_offset_ms(0);
+
+        assert!(agent.enforcement_view(Duration::from_secs(90)).0.is_some());
+    }
+
+    #[test]
+    fn a_slow_system_clock_does_not_hide_a_window_that_has_started() {
+        let dir = tempfile::tempdir().unwrap();
+        // Window starts in 30 minutes by the system clock...
+        let window = schedule::OffWindow {
+            off_at: Utc::now() + chrono::Duration::minutes(30),
+            on_at: Utc::now() + chrono::Duration::minutes(60),
+        };
+        let agent = agent_with_cached_schedule_ntp(dir.path(), vec![window], true);
+        let schedule = agent.schedule().unwrap();
+        assert!(schedule.active_window(Utc::now()).is_none());
+
+        // ...but NTP says the system clock is 40 minutes slow, so it is already running.
+        agent.clock.set_offset_ms(40 * 60 * 1000);
+
+        assert!(schedule.active_window(agent.now()).is_some());
     }
 
     #[test]

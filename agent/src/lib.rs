@@ -1,4 +1,5 @@
 pub mod agent;
+pub mod clock;
 pub mod config;
 pub mod controller_client;
 pub mod discovery;

@@ -138,6 +138,8 @@ has to understand rows or overrides; it only asks whether the time now falls ins
   assignment or schedule edit changes the revision, so "+30 minutes" takes effect within moments,
   not at the next heartbeat. With no change the request simply returns after about 30 seconds and
   the agent asks again.
+- **Trusted time.** The agent compares the windows with NTP-corrected time, not the system clock,
+  so changing the PC's clock doesn't move the schedule (see [the clock](agent.md#the-clock)).
 - **Enforcement loop.** The agent acts when the current time is inside an off window, and
   re-checks at the next window start, on any schedule change, and at least every 60 seconds — so a
   device woken mid-window is put back to sleep within about a minute. Each action is reported as
