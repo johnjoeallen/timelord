@@ -7,10 +7,10 @@ controls across Windows devices. **It isn't that yet.**
 **Today it monitors devices and enforces on/off calendars.** A Windows agent tracks who's logged
 into a device and for how long, and a controller/dashboard shows it live — device online/offline
 status, whether someone is actually using it right now ("Active"), login session history, and
-network interfaces. You can also give each device a **calendar** (weekly off/on times such as
-Sun–Thu off 22:30, Fri/Sat off 01:00, on at 06:30, with dated overrides for holidays that never
-change the base schedule); the agent sleeps or shuts the device down at off time, even if the
-controller is down, and a per-user **notifier** warns the person at the keyboard beforehand and
+network interfaces. You can also give each device a **calendar** (weekly on-windows, several per day
+if you like — say 08:30–10:30 and 18:30–23:30 — with dated overrides that add time for holidays and
+never change the base schedule); the agent sleeps or shuts the device down whenever it is outside the
+windows, even if the controller is down, and a per-user **notifier** warns the person at the keyboard beforehand and
 shows messages you send from the dashboard. You can grant a device a few more minutes with one
 click. **Not** implemented: session limits, mandatory breaks, connectivity requirements, or
 immediate remote power commands. See [`docs/architecture.md`](docs/architecture.md#whats-implemented)

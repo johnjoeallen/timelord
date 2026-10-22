@@ -74,7 +74,15 @@ public class CalendarController {
         return dto;
     }
 
-    /** The concrete off windows the calendar resolves to, for checking overrides before relying on them. */
+    /** The concrete allowed ("on") windows the calendar resolves to. */
+    @GetMapping("/{id}/allowed")
+    public List<AllowedWindow> allowed(@PathVariable UUID id,
+                                       @RequestParam(required = false) Instant from,
+                                       @RequestParam(defaultValue = "14") int days) {
+        return service.allowed(id, from != null ? from : Instant.now(), Math.min(Math.max(days, 1), 366));
+    }
+
+    /** The concrete off windows (what the agent enforces) the calendar resolves to. */
     @GetMapping("/{id}/windows")
     public List<OffWindow> windows(@PathVariable UUID id,
                                    @RequestParam(required = false) Instant from,

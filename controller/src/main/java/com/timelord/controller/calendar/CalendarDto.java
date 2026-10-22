@@ -18,16 +18,23 @@ public record CalendarDto(
         Instant updatedAt
 ) {
 
-    public record Rule(List<DayOfWeek> days, LocalTime offTime, LocalTime onTime) {
+    /**
+     * Allowed from {@code startTime} to {@code endTime} on each of {@code days}, within the day. A missing
+     * {@code startTime} means the start of the day and a missing {@code endTime} means midnight at the end
+     * of it (stored as 00:00), so 00:00 to 00:00, or both left out, is the whole day. Responses always
+     * carry both.
+     */
+    public record Rule(List<DayOfWeek> days, LocalTime startTime, LocalTime endTime) {
         static Rule from(CalendarRule r) {
-            return new Rule(r.getDays(), r.getOffTime(), r.getOnTime());
+            return new Rule(r.getDays(), r.getStartTime(), r.getEndTime());
         }
     }
 
     public record Override(UUID id, String name, LocalDate startDate, LocalDate endDate,
-                           LocalTime offTime, LocalTime onTime) {
+                           LocalTime startTime, LocalTime endTime) {
         static Override from(CalendarOverride o) {
-            return new Override(o.getId(), o.getName(), o.getStartDate(), o.getEndDate(), o.getOffTime(), o.getOnTime());
+            return new Override(o.getId(), o.getName(), o.getStartDate(), o.getEndDate(), o.getStartTime(),
+                    o.getEndTime());
         }
     }
 

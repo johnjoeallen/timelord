@@ -11,6 +11,9 @@ import com.timelord.controller.device.DeviceService;
 import com.timelord.controller.message.MessageRequest;
 import com.timelord.controller.message.MessageService;
 import com.timelord.controller.timezone.RequestZoneResolver;
+import com.timelord.controller.timezone.TimeFormat;
+import com.timelord.controller.calendar.CalendarResolver;
+import com.timelord.controller.calendar.CalendarRule;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.DayOfWeek;
 import java.time.Duration;
@@ -40,7 +43,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class CalendarDashboardController {
 
     /** Blank rows offered below the existing rules so new ones can be added without extra clicks. */
-    private static final int SPARE_RULE_ROWS = 2;
+    private static final int SPARE_RULE_ROWS = 3;
     private static final int PREVIEW_DAYS = 14;
 
     private final CalendarService calendarService;
@@ -48,11 +51,13 @@ public class CalendarDashboardController {
     private final ScheduleChangeNotifier scheduleChanges;
     private final RequestZoneResolver zoneResolver;
     private final MessageService messageService;
+    private final TimeFormat timeFormat;
 
     public CalendarDashboardController(CalendarService calendarService, DeviceService deviceService,
                                        ScheduleChangeNotifier scheduleChanges, RequestZoneResolver zoneResolver,
-                                       MessageService messageService) {
+                                       MessageService messageService, TimeFormat timeFormat) {
         this.messageService = messageService;
+        this.timeFormat = timeFormat;
         this.calendarService = calendarService;
         this.deviceService = deviceService;
         this.scheduleChanges = scheduleChanges;
@@ -64,13 +69,15 @@ public class CalendarDashboardController {
         return zoneResolver.resolve(request);
     }
 
-    /** One editable weekly-rule row; a row with no days ticked is ignored on save. */
+    /** One editable weekly-schedule row; a row with no days ticked is ignored on save. */
     public static class RuleForm {
         private List<DayOfWeek> days = new ArrayList<>();
         @DateTimeFormat(pattern = "HH:mm")
-        private LocalTime offTime;
+        private LocalTime startTime;
         @DateTimeFormat(pattern = "HH:mm")
-        private LocalTime onTime;
+        private LocalTime endTime;
+        /** Display only: the next window this row gives, so a surprising row is obvious at once. */
+        private String preview;
 
         public List<DayOfWeek> getDays() {
             return days;
@@ -80,20 +87,28 @@ public class CalendarDashboardController {
             this.days = days;
         }
 
-        public LocalTime getOffTime() {
-            return offTime;
+        public LocalTime getStartTime() {
+            return startTime;
         }
 
-        public void setOffTime(LocalTime offTime) {
-            this.offTime = offTime;
+        public void setStartTime(LocalTime startTime) {
+            this.startTime = startTime;
         }
 
-        public LocalTime getOnTime() {
-            return onTime;
+        public LocalTime getEndTime() {
+            return endTime;
         }
 
-        public void setOnTime(LocalTime onTime) {
-            this.onTime = onTime;
+        public void setEndTime(LocalTime endTime) {
+            this.endTime = endTime;
+        }
+
+        public String getPreview() {
+            return preview;
+        }
+
+        public void setPreview(String preview) {
+            this.preview = preview;
         }
     }
 
@@ -141,10 +156,7 @@ public class CalendarDashboardController {
                 if (r.days == null || r.days.isEmpty()) {
                     continue;
                 }
-                if (r.offTime == null || r.onTime == null) {
-                    throw ApiException.badRequest("INVALID_RULE", "Each rule with days needs an off and an on time");
-                }
-                out.add(new CalendarDto.Rule(new ArrayList<>(new TreeSet<>(r.days)), r.offTime, r.onTime));
+                out.add(new CalendarDto.Rule(new ArrayList<>(new TreeSet<>(r.days)), r.startTime, r.endTime));
             }
             return new CalendarRequest(name == null ? "" : name.strip(), timezone == null ? "" : timezone.strip(), action, out);
         }
@@ -181,8 +193,9 @@ public class CalendarDashboardController {
         for (CalendarDto.Rule r : calendar.rules()) {
             RuleForm row = new RuleForm();
             row.setDays(new ArrayList<>(r.days()));
-            row.setOffTime(r.offTime());
-            row.setOnTime(r.onTime());
+            row.setStartTime(r.startTime());
+            row.setEndTime(r.endTime());
+            row.setPreview(previewOf(r, calendarZone));
             rows.add(row);
         }
         for (int i = 0; i < SPARE_RULE_ROWS; i++) {
@@ -195,7 +208,7 @@ public class CalendarDashboardController {
         model.addAttribute("actions", CalendarAction.values());
         model.addAttribute("timezones", timezones());
         model.addAttribute("calendarZone", calendarZone);
-        model.addAttribute("windows", calendarService.preview(id, java.time.Instant.now(), PREVIEW_DAYS));
+        model.addAttribute("allowedWindows", calendarService.allowed(id, java.time.Instant.now(), PREVIEW_DAYS));
         model.addAttribute("today", LocalDate.now(calendarZone));
         return "calendar-detail";
     }
@@ -221,14 +234,14 @@ public class CalendarDashboardController {
                               @RequestParam(required = false) String name,
                               @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-                              @RequestParam @DateTimeFormat(pattern = "HH:mm") LocalTime offTime,
-                              @RequestParam @DateTimeFormat(pattern = "HH:mm") LocalTime onTime,
+                              @RequestParam(required = false) @DateTimeFormat(pattern = "HH:mm") LocalTime startTime,
+                              @RequestParam(required = false) @DateTimeFormat(pattern = "HH:mm") LocalTime endTime,
                               RedirectAttributes redirect) {
         return run(redirect, "/calendars/" + id, "Override added.", () -> {
             // A blank end date means a single day.
             LocalDate end = endDate != null ? endDate : startDate;
             calendarService.addOverride(id, new OverrideRequest(name == null || name.isBlank() ? null : name.strip(),
-                    startDate, end, offTime, onTime));
+                    startDate, end, startTime, endTime));
             scheduleChanges.allChanged();
         });
     }
@@ -295,6 +308,18 @@ public class CalendarDashboardController {
             deviceService.clearExtension(deviceId);
             scheduleChanges.deviceChanged(deviceId);
         });
+    }
+
+    /** The row's next allowed window in the calendar's own timezone, e.g. "Next: Thu 22 Oct 18:30 \u2192 Thu 22 Oct 23:30". */
+    private String previewOf(CalendarDto.Rule rule, ZoneId zone) {
+        CalendarRule single = new CalendarRule(UUID.randomUUID(), UUID.randomUUID(), rule.days(), rule.startTime(),
+                rule.endTime());
+        java.time.Instant now = java.time.Instant.now();
+        return CalendarResolver.allowedWindows(zone, List.of(single), List.of(), now, now.plus(Duration.ofDays(9)))
+                .stream().findFirst()
+                .map(w -> "Next: " + timeFormat.format(w.onAt(), zone, "EEE d MMM HH:mm") + " \u2192 "
+                        + timeFormat.format(w.offAt(), zone, "EEE d MMM HH:mm"))
+                .orElse(null);
     }
 
     private String run(RedirectAttributes redirect, String target, String success, Runnable action) {

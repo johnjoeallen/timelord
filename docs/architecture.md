@@ -104,8 +104,8 @@ scheduled retry.
 - **Network interface inventory** — every adapter the OS reports (not just
   ones with a routable address), with name, MAC, and address(es), shown on
   the device detail page.
-- **Calendars** — named weekly on/off rules with dated overrides, assigned to
-  devices. The controller resolves a calendar into concrete off windows
+- **Calendars** — named weekly on-windows (any number per day) with dated
+  overrides that only add time, assigned to devices. The controller resolves a calendar into concrete off windows
   (applying any extension) and sends them to the agent with a revision; the
   agent caches them in `schedule.json` and sleeps or shuts the device down
   inside a window, even offline. See [Calendars](scheduling.md).

@@ -10,9 +10,10 @@ import java.time.LocalTime;
 import java.util.UUID;
 
 /**
- * Replaces the weekly rule for every night that starts on a date in
- * [{@code startDate}, {@code endDate}] (inclusive; a single day has the same
- * start and end). Same night semantics as {@link CalendarRule}.
+ * Adds an allowed window ({@code startTime} to {@code endTime} within the day, same meaning as for a
+ * {@link CalendarRule}) on every date in [{@code startDate}, {@code endDate}] (inclusive; a single
+ * day has the same start and end). It is unioned with the weekly rows, so an override can extend a
+ * day but never shorten it.
  */
 @Entity
 @Table(name = "calendar_override")
@@ -32,11 +33,11 @@ public class CalendarOverride {
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
-    @Column(name = "off_time", nullable = false)
-    private LocalTime offTime;
+    @Column(name = "start_time", nullable = false)
+    private LocalTime startTime;
 
-    @Column(name = "on_time", nullable = false)
-    private LocalTime onTime;
+    @Column(name = "end_time", nullable = false)
+    private LocalTime endTime;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -45,14 +46,14 @@ public class CalendarOverride {
     }
 
     public CalendarOverride(UUID id, UUID calendarId, String name, LocalDate startDate, LocalDate endDate,
-                            LocalTime offTime, LocalTime onTime, Instant createdAt) {
+                            LocalTime startTime, LocalTime endTime, Instant createdAt) {
         this.id = id;
         this.calendarId = calendarId;
         this.name = name;
         this.startDate = startDate;
         this.endDate = endDate;
-        this.offTime = offTime;
-        this.onTime = onTime;
+        this.startTime = startTime;
+        this.endTime = endTime;
         this.createdAt = createdAt;
     }
 
@@ -76,12 +77,12 @@ public class CalendarOverride {
         return endDate;
     }
 
-    public LocalTime getOffTime() {
-        return offTime;
+    public LocalTime getStartTime() {
+        return startTime;
     }
 
-    public LocalTime getOnTime() {
-        return onTime;
+    public LocalTime getEndTime() {
+        return endTime;
     }
 
     public Instant getCreatedAt() {

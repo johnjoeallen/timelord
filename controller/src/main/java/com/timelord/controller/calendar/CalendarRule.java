@@ -13,11 +13,10 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * One line of the weekly base schedule: on each of {@code days}, the night
- * that starts that evening goes off at {@code offTime} and is allowed on
- * again at {@code onTime} the following morning. An off time earlier than the
- * on time (e.g. 01:00 vs 06:30) falls after midnight, i.e. on the next
- * calendar day.
+ * One row of the weekly schedule: on each of {@code days} the device is allowed to be on from
+ * {@code startTime} until {@code endTime}, within that day. An end time of 00:00 means midnight at the
+ * end of the day (so 00:00 to 00:00 is the whole day); otherwise the end must be after the start. Any
+ * number of rows may cover the same day; their windows are unioned.
  */
 @Entity
 @Table(name = "calendar_rule")
@@ -33,21 +32,21 @@ public class CalendarRule {
     @Column(nullable = false, columnDefinition = "jsonb")
     private List<DayOfWeek> days = new ArrayList<>();
 
-    @Column(name = "off_time", nullable = false)
-    private LocalTime offTime;
+    @Column(name = "start_time", nullable = false)
+    private LocalTime startTime;
 
-    @Column(name = "on_time", nullable = false)
-    private LocalTime onTime;
+    @Column(name = "end_time", nullable = false)
+    private LocalTime endTime;
 
     protected CalendarRule() {
     }
 
-    public CalendarRule(UUID id, UUID calendarId, List<DayOfWeek> days, LocalTime offTime, LocalTime onTime) {
+    public CalendarRule(UUID id, UUID calendarId, List<DayOfWeek> days, LocalTime startTime, LocalTime endTime) {
         this.id = id;
         this.calendarId = calendarId;
         this.days = new ArrayList<>(days);
-        this.offTime = offTime;
-        this.onTime = onTime;
+        this.startTime = startTime;
+        this.endTime = endTime;
     }
 
     public UUID getId() {
@@ -62,11 +61,11 @@ public class CalendarRule {
         return days;
     }
 
-    public LocalTime getOffTime() {
-        return offTime;
+    public LocalTime getStartTime() {
+        return startTime;
     }
 
-    public LocalTime getOnTime() {
-        return onTime;
+    public LocalTime getEndTime() {
+        return endTime;
     }
 }

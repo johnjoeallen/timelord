@@ -4,13 +4,11 @@ import com.timelord.controller.agent.AgentSchedule;
 import com.timelord.controller.calendar.CalendarDto.Rule;
 import com.timelord.controller.common.ApiException;
 import java.time.DateTimeException;
-import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.ZoneId;
-import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,9 +78,11 @@ public class CalendarService {
         if (request.endDate().isBefore(request.startDate())) {
             throw ApiException.badRequest("INVALID_OVERRIDE", "endDate must not be before startDate");
         }
-        requireDistinctTimes(request.offTime(), request.onTime());
+        LocalTime start = CalendarResolver.startOrMidnight(request.startTime());
+        LocalTime end = CalendarResolver.endOrMidnight(request.endTime());
+        requireValidWindow(start, end, "INVALID_OVERRIDE");
         overrides.save(new CalendarOverride(UUID.randomUUID(), calendarId, request.name(), request.startDate(),
-                request.endDate(), request.offTime(), request.onTime(), Instant.now()));
+                request.endDate(), start, end, Instant.now()));
         return toDto(calendar);
     }
 
@@ -96,10 +96,20 @@ public class CalendarService {
         return toDto(calendar);
     }
 
+    /** The off windows (what the agent enforces) the calendar resolves to. */
     @Transactional(readOnly = true)
     public List<OffWindow> preview(UUID calendarId, Instant from, int days) {
         Calendar calendar = require(calendarId);
         return resolve(calendar, from, from.plus(Duration.ofDays(days)));
+    }
+
+    /** The allowed ("on") windows the calendar resolves to; empty both for "no rows" and "never allowed". */
+    @Transactional(readOnly = true)
+    public List<AllowedWindow> allowed(UUID calendarId, Instant from, int days) {
+        Calendar calendar = require(calendarId);
+        return CalendarResolver.allowedWindows(ZoneId.of(calendar.getTimezone()),
+                rules.findByCalendarId(calendarId), overrides.findByCalendarIdOrderByStartDateAsc(calendarId),
+                from, from.plus(Duration.ofDays(days)));
     }
 
     /**
@@ -151,7 +161,7 @@ public class CalendarService {
     }
 
     private List<OffWindow> resolve(Calendar calendar, Instant from, Instant to) {
-        return CalendarResolver.windows(ZoneId.of(calendar.getTimezone()),
+        return CalendarResolver.offWindows(ZoneId.of(calendar.getTimezone()),
                 rules.findByCalendarId(calendar.getId()),
                 overrides.findByCalendarIdOrderByStartDateAsc(calendar.getId()), from, to);
     }
@@ -163,7 +173,8 @@ public class CalendarService {
         calendar.setUpdatedAt(now);
         calendars.save(calendar);
         for (Rule rule : request.rules()) {
-            rules.save(new CalendarRule(UUID.randomUUID(), calendar.getId(), rule.days(), rule.offTime(), rule.onTime()));
+            rules.save(new CalendarRule(UUID.randomUUID(), calendar.getId(), rule.days(),
+                    CalendarResolver.startOrMidnight(rule.startTime()), CalendarResolver.endOrMidnight(rule.endTime())));
         }
     }
 
@@ -178,23 +189,19 @@ public class CalendarService {
         } catch (DateTimeException e) {
             throw ApiException.badRequest("INVALID_TIMEZONE", "Unknown timezone: " + request.timezone());
         }
-        Set<DayOfWeek> seen = EnumSet.noneOf(DayOfWeek.class);
         for (Rule rule : request.rules()) {
-            if (rule.days() == null || rule.days().isEmpty() || rule.offTime() == null || rule.onTime() == null) {
-                throw ApiException.badRequest("INVALID_RULE", "Each rule needs days, offTime and onTime");
+            if (rule.days() == null || rule.days().isEmpty()) {
+                throw ApiException.badRequest("INVALID_RULE", "Each row needs at least one day");
             }
-            requireDistinctTimes(rule.offTime(), rule.onTime());
-            for (DayOfWeek day : rule.days()) {
-                if (!seen.add(day)) {
-                    throw ApiException.badRequest("INVALID_RULE", day + " appears in more than one rule");
-                }
-            }
+            requireValidWindow(CalendarResolver.startOrMidnight(rule.startTime()),
+                    CalendarResolver.endOrMidnight(rule.endTime()), "INVALID_RULE");
         }
     }
 
-    private static void requireDistinctTimes(java.time.LocalTime off, java.time.LocalTime on) {
-        if (off.equals(on)) {
-            throw ApiException.badRequest("INVALID_RULE", "offTime and onTime must differ");
+    private static void requireValidWindow(java.time.LocalTime start, java.time.LocalTime end, String code) {
+        if (!CalendarResolver.isValidWindow(start, end)) {
+            throw ApiException.badRequest(code, "The off time (" + end + ") must be after the on time (" + start
+                    + "); use 00:00 for midnight. A window can't run past midnight: add a row for the next day instead.");
         }
     }
 

@@ -12,9 +12,17 @@
         <div class="card-header">Weekly schedule</div>
         <div class="card-body">
             <p class="text-muted small">
-                Each rule applies to the <em>evening</em> it starts on: "Fri 01:00" is the night of Friday, so the
-                device goes off at 01:00 on Saturday. An off time earlier than the on time falls after midnight.
-                Every day may appear in at most one rule; clear a rule's days to remove it.
+                The device may be <strong>on</strong> during the windows below and is <strong>put to sleep or shut
+                down outside them</strong>. Each day is its own line from midnight to midnight: a row gives a window on
+                each ticked day, from <em>On from</em> until <em>Off at</em>. Add as many rows as you like, including
+                several for the same day (08:30&ndash;10:30 and 18:30&ndash;23:30). Windows stay within the day, and
+                <em>Off at</em> 00:00 means midnight at the end of it. Leave <em>On from</em> blank to start at the
+                beginning of the day and <em>Off at</em> blank to run to midnight (both blank is the whole day). A window
+                that ends at midnight carries straight on into the next day's window if that starts at 00:00, so a late
+                night is two rows: Fri on from 18:00 (no off), Sat off at 01:00 (no on from).
+                To be off for a while inside a day, leave a gap: 00:00&ndash;16:15 and 16:30&ndash;00:00 is off from 16:15
+                to 16:30. A day with no row is off all day, but a calendar with no rows at all restricts nothing. The line
+                under each row shows its next window. Clear a row's days to remove it.
             </p>
             <form method="post" th:action="@{/calendars/{id}(id=${calendar.id})}">
                 <div class="row g-3 mb-3">
@@ -38,9 +46,10 @@
 
                 <div class="table-responsive">
                     <table class="table align-middle">
-                        <thead><tr><th>Days</th><th>Off at</th><th>On (allowed) at</th></tr></thead>
+                        <thead><tr><th>Days</th><th>On from</th><th>Off at</th></tr></thead>
                         <tbody>
-                        <tr th:each="row, i : ${ruleRows}">
+                        <th:block th:each="row, i : ${ruleRows}">
+                        <tr>
                             <td>
                                 <div class="form-check form-check-inline" th:each="d : ${days}">
                                     <input class="form-check-input" type="checkbox"
@@ -50,11 +59,15 @@
                                            th:text="${#strings.capitalize(#strings.toLowerCase(d.name()).substring(0, 3))}"></label>
                                 </div>
                             </td>
-                            <td><input class="form-control" type="time" th:name="${'rules[' + i.index + '].offTime'}"
-                                       th:value="${row.offTime} ? ${#temporals.format(row.offTime, 'HH:mm')}"/></td>
-                            <td><input class="form-control" type="time" th:name="${'rules[' + i.index + '].onTime'}"
-                                       th:value="${row.onTime} ? ${#temporals.format(row.onTime, 'HH:mm')}"/></td>
+                            <td><input class="form-control" type="time" th:name="${'rules[' + i.index + '].startTime'}"
+                                       th:value="${row.startTime} ? ${#temporals.format(row.startTime, 'HH:mm')}"/></td>
+                            <td><input class="form-control" type="time" th:name="${'rules[' + i.index + '].endTime'}"
+                                       th:value="${row.endTime} ? ${#temporals.format(row.endTime, 'HH:mm')}"/></td>
                         </tr>
+                        <tr th:if="${row.preview}" class="table-borderless">
+                            <td colspan="3" class="small text-muted pt-0" th:text="${row.preview}"></td>
+                        </tr>
+                        </th:block>
                         </tbody>
                     </table>
                 </div>
@@ -67,20 +80,22 @@
         <div class="card-header">Overrides (holidays, one-offs)</div>
         <div class="card-body">
             <p class="text-muted small">
-                An override replaces the weekly times for every night that <em>starts</em> within its dates. A single
-                day is just a start date with no end date. The weekly schedule above is never changed; remove the
-                override and it reverts.
+                An override <strong>adds</strong> an allowed window on every date in its range, on top of the weekly
+                rows, so it can extend a day (an evening that runs late) but never shorten one. A single day is just a
+                start date with no end date. The window is within the day like a row: <em>On from</em> until
+                <em>Off at</em>, with blank or 00:00 meaning midnight (and a blank <em>On from</em> the start of the
+                day). To run past midnight, add a second override for the next day with no <em>On from</em>. The weekly schedule above is never changed; remove the override and it reverts.
             </p>
             <div class="table-responsive" th:if="${not #lists.isEmpty(calendar.overrides)}">
                 <table class="table table-sm align-middle">
-                    <thead><tr><th>Name</th><th>From</th><th>To</th><th>Off at</th><th>On at</th><th></th></tr></thead>
+                    <thead><tr><th>Name</th><th>From</th><th>To</th><th>On from</th><th>Off at</th><th></th></tr></thead>
                     <tbody>
                     <tr th:each="o : ${calendar.overrides}" th:classappend="${o.endDate.isBefore(today)} ? 'text-muted'">
                         <td th:text="${o.name} ?: '–'"></td>
                         <td th:text="${o.startDate}"></td>
                         <td th:text="${o.endDate}"></td>
-                        <td th:text="${#temporals.format(o.offTime, 'HH:mm')}"></td>
-                        <td th:text="${#temporals.format(o.onTime, 'HH:mm')}"></td>
+                        <td th:text="${#temporals.format(o.startTime, 'HH:mm')}"></td>
+                        <td th:text="${#temporals.format(o.endTime, 'HH:mm')}"></td>
                         <td class="text-end">
                             <form method="post" th:action="@{/calendars/{id}/overrides/{oid}/delete(id=${calendar.id},oid=${o.id})}">
                                 <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button>
@@ -97,27 +112,30 @@
                     <input class="form-control" id="ostart" type="date" name="startDate" required/></div>
                 <div class="col-6 col-md-2"><label class="form-label" for="oend">To (optional)</label>
                     <input class="form-control" id="oend" type="date" name="endDate"/></div>
+                <div class="col-6 col-md-2"><label class="form-label" for="oon">On from</label>
+                    <input class="form-control" id="oon" type="time" name="startTime"/></div>
                 <div class="col-6 col-md-2"><label class="form-label" for="ooff">Off at</label>
-                    <input class="form-control" id="ooff" type="time" name="offTime" required/></div>
-                <div class="col-6 col-md-2"><label class="form-label" for="oon">On at</label>
-                    <input class="form-control" id="oon" type="time" name="onTime" value="06:30" required/></div>
+                    <input class="form-control" id="ooff" type="time" name="endTime"/></div>
                 <div class="col-12 col-md-1"><button class="btn btn-primary w-100" type="submit">Add</button></div>
             </form>
         </div>
     </div>
 
     <div class="card mb-4">
-        <div class="card-header">Next 14 days <span class="text-muted small" th:text="'(' + ${calendar.timezone} + ')'"></span></div>
+        <div class="card-header">Allowed in the next 14 days <span class="text-muted small" th:text="'(' + ${calendar.timezone} + ')'"></span></div>
         <div class="table-responsive">
             <table class="table table-sm mb-0">
-                <thead><tr><th>Off</th><th>Allowed again</th></tr></thead>
+                <thead><tr><th>On from</th><th>Off at</th></tr></thead>
                 <tbody>
-                <tr th:each="w : ${windows}">
-                    <td th:text="${@timeFormat.format(w.offAt, calendarZone, 'EEE d MMM HH:mm')}"></td>
+                <tr th:each="w : ${allowedWindows}">
                     <td th:text="${@timeFormat.format(w.onAt, calendarZone, 'EEE d MMM HH:mm')}"></td>
+                    <td th:text="${@timeFormat.format(w.offAt, calendarZone, 'EEE d MMM HH:mm')}"></td>
                 </tr>
-                <tr th:if="${#lists.isEmpty(windows)}">
-                    <td colspan="2" class="text-muted text-center py-3">No off windows: devices are always allowed on.</td>
+                <tr th:if="${#lists.isEmpty(allowedWindows) and #lists.isEmpty(calendar.rules)}">
+                    <td colspan="2" class="text-muted text-center py-3">No rows yet: this calendar doesn't restrict anything, devices are always allowed on.</td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(allowedWindows) and not #lists.isEmpty(calendar.rules)}">
+                    <td colspan="2" class="text-muted text-center py-3">Nothing is allowed in this period, so devices are off throughout.</td>
                 </tr>
                 </tbody>
             </table>

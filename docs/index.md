@@ -39,10 +39,11 @@ keyboard first.
 - **Login sessions** — a per-device history of login → logout spans, derived from the event log,
   distinct from "the agent was running." Starting the service with nobody logged in shows the
   machine online but produces no session at all.
-- **Calendars** — named weekly on/off schedules (e.g. Sun–Thu off 22:30, Fri/Sat off 01:00, on at
-  06:30) with dated **overrides** for holidays that never modify the base schedule. Assign one
-  to each device; the agent sleeps or shuts the device down at off time and keeps enforcing from
-  a local cache even if the controller is down. See [Calendars](scheduling.md).
+- **Calendars** — named weekly schedules of **on-windows**, several per day if you like (e.g. on
+  07:00–08:30 and 15:30–21:30 on school days), with dated **overrides** that add time for holidays and
+  never modify the base schedule. The device is slept or shut down whenever it is outside every window.
+  Assign a calendar to each device; the agent keeps enforcing from a local cache even if the controller
+  is down. See [Calendars](scheduling.md).
 - **Allow longer** — one click (+15 / +30 / +60 minutes) lets a device stay on past its off time;
   the agent hears about it within moments via a long poll.
 - **Notifier and messages** — a small per-user program shows Windows toast warnings before a
@@ -79,10 +80,10 @@ keyboard first.
 </figure>
 
 <figure markdown>
-  ![A calendar's page with weekly rules, holiday overrides and a 14-day preview](images/calendar-detail.png)
-  <figcaption>A calendar: weekly off/on rules, dated overrides (half-term, a one-night sleepover,
-  the Christmas holidays) that never change the base schedule, and a preview of exactly what it
-  resolves to over the next 14 days.</figcaption>
+  ![A calendar's page with weekly rows, holiday overrides and the resulting on-windows](images/calendar-detail.png)
+  <figcaption>A calendar: weekly rows (several windows on the same day), dated overrides (half-term, a
+  sleepover, the Christmas holidays) that only ever add time, and the on-windows it resolves to over
+  the next 14 days.</figcaption>
 </figure>
 
 <figure markdown>

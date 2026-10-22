@@ -48,15 +48,16 @@ class CalendarDashboardIntegrationTest extends AbstractIntegrationTest {
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.FOUND);
         UUID id = idFromRedirect(created);
 
-        // Sun-Thu 22:30, Fri-Sat 01:00, plus a blank spare row that must be ignored.
+        // Two rows covering the same weekdays, plus a blank spare row that must be ignored.
         ResponseEntity<String> saved = post("/calendars/" + id, form(
                 "name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
-                "rules[0].days", "SUNDAY", "rules[0].days", "MONDAY", "rules[0].days", "TUESDAY",
-                "rules[0].days", "WEDNESDAY", "rules[0].days", "THURSDAY",
-                "rules[0].offTime", "22:30", "rules[0].onTime", "06:30",
-                "rules[1].days", "FRIDAY", "rules[1].days", "SATURDAY",
-                "rules[1].offTime", "01:00", "rules[1].onTime", "06:30",
-                "rules[2].offTime", "", "rules[2].onTime", ""));
+                "rules[0].days", "MONDAY", "rules[0].days", "TUESDAY", "rules[0].days", "WEDNESDAY",
+                "rules[0].days", "THURSDAY", "rules[0].days", "FRIDAY",
+                "rules[0].startTime", "08:30", "rules[0].endTime", "10:30",
+                "rules[1].days", "MONDAY", "rules[1].days", "TUESDAY", "rules[1].days", "WEDNESDAY",
+                "rules[1].days", "THURSDAY", "rules[1].days", "FRIDAY",
+                "rules[1].startTime", "18:30", "rules[1].endTime", "23:30",
+                "rules[2].startTime", "", "rules[2].endTime", ""));
         assertThat(saved.getStatusCode()).isEqualTo(HttpStatus.FOUND);
 
         CalendarDto calendar = restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class);
@@ -64,14 +65,15 @@ class CalendarDashboardIntegrationTest extends AbstractIntegrationTest {
 
         // Single-day override: no end date.
         ResponseEntity<String> override = post("/calendars/" + id + "/overrides",
-                form("name", "Party", "startDate", "2030-12-24", "endDate", "", "offTime", "23:30", "onTime", "06:30"));
+                form("name", "Party", "startDate", "2030-12-24", "endDate", "", "startTime", "23:30", "endTime", "00:00"));
         assertThat(override.getStatusCode()).isEqualTo(HttpStatus.FOUND);
         calendar = restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class);
         assertThat(calendar.overrides()).hasSize(1);
         assertThat(calendar.overrides().get(0).endDate()).isEqualTo(calendar.overrides().get(0).startDate());
 
         String page = restTemplate.getForObject("/calendars/" + id, String.class);
-        assertThat(page).contains(name).contains("Party").contains("22:30").contains("Next 14 days");
+        assertThat(page).contains(name).contains("Party").contains("08:30").contains("18:30")
+                .contains("Allowed in the next 14 days").contains("Next: ");
 
         post("/calendars/" + id + "/overrides/" + calendar.overrides().get(0).id() + "/delete", form());
         assertThat(restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class).overrides()).isEmpty();
@@ -88,7 +90,7 @@ class CalendarDashboardIntegrationTest extends AbstractIntegrationTest {
         post("/calendars/" + calendarId, form("name", name, "timezone", "Europe/Dublin", "action", "SHUTDOWN",
                 "rules[0].days", "MONDAY", "rules[0].days", "TUESDAY", "rules[0].days", "WEDNESDAY", "rules[0].days", "THURSDAY",
                 "rules[0].days", "FRIDAY", "rules[0].days", "SATURDAY", "rules[0].days", "SUNDAY",
-                "rules[0].offTime", "22:30", "rules[0].onTime", "06:30"));
+                "rules[0].startTime", "06:30", "rules[0].endTime", "22:30"));
 
         assertThat(post("/devices/" + deviceId + "/calendar", form("calendarId", calendarId.toString())).getStatusCode())
                 .isEqualTo(HttpStatus.FOUND);
@@ -132,5 +134,52 @@ class CalendarDashboardIntegrationTest extends AbstractIntegrationTest {
                 .getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(restTemplate.exchange("/api/v1/devices/" + deviceId, org.springframework.http.HttpMethod.DELETE, null, String.class)
                 .getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void offWindowWithinADayAsTwoRowsAndAMidnightEndThroughForms() {
+        String name = "Thursday " + UUID.randomUUID();
+        UUID id = idFromRedirect(post("/calendars", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));
+        // "Off 16:15, on 16:30" on Thursdays: on 00:00-16:15 and on 16:30-midnight (00:00 as the end means midnight).
+        post("/calendars/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
+                "rules[0].days", "THURSDAY", "rules[0].startTime", "00:00", "rules[0].endTime", "16:15",
+                "rules[1].days", "THURSDAY", "rules[1].startTime", "16:30", "rules[1].endTime", "00:00"));
+        assertThat(restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class).rules()).hasSize(2);
+
+        // 2030-01-10 is a Thursday (UTC+0 in January in Dublin).
+        var off = restTemplate.getForObject("/api/v1/calendars/" + id + "/windows?from=2030-01-10T09:00:00Z&days=1",
+                com.timelord.controller.calendar.OffWindow[].class);
+        assertThat(off).anySatisfy(w -> {
+            assertThat(w.offAt()).isEqualTo(java.time.Instant.parse("2030-01-10T16:15:00Z"));
+            assertThat(w.onAt()).isEqualTo(java.time.Instant.parse("2030-01-10T16:30:00Z"));
+        });
+
+        // A row that would run past midnight is refused with a message, not saved.
+        ResponseEntity<String> refused = post("/calendars/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
+                "rules[0].days", "FRIDAY", "rules[0].startTime", "18:30", "rules[0].endTime", "01:00"));
+        assertThat(refused.getStatusCode()).isEqualTo(HttpStatus.FOUND);
+        assertThat(restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class).rules()).hasSize(2);
+    }
+
+    @Test
+    void blankFormTimesDefaultToTheStartAndEndOfTheDay() {
+        String name = "Blanks " + UUID.randomUUID();
+        UUID id = idFromRedirect(post("/calendars", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));
+        // Friday: on from 18:00, off at left blank. Saturday: on from left blank, off at 01:00.
+        post("/calendars/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
+                "rules[0].days", "FRIDAY", "rules[0].startTime", "18:00", "rules[0].endTime", "",
+                "rules[1].days", "SATURDAY", "rules[1].startTime", "", "rules[1].endTime", "01:00",
+                "rules[2].days", "SUNDAY", "rules[2].startTime", "", "rules[2].endTime", ""));
+
+        CalendarDto calendar = restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class);
+
+        assertThat(calendar.rules()).extracting(CalendarDto.Rule::startTime, CalendarDto.Rule::endTime).containsExactlyInAnyOrder(
+                org.assertj.core.groups.Tuple.tuple(java.time.LocalTime.of(18, 0), java.time.LocalTime.MIDNIGHT),
+                org.assertj.core.groups.Tuple.tuple(java.time.LocalTime.MIDNIGHT, java.time.LocalTime.of(1, 0)),
+                org.assertj.core.groups.Tuple.tuple(java.time.LocalTime.MIDNIGHT, java.time.LocalTime.MIDNIGHT));
+
+        // An override with both times blank is a whole extra day.
+        post("/calendars/" + id + "/overrides", form("name", "Open day", "startDate", "2030-02-04", "endDate", "", "startTime", "", "endTime", ""));
+        assertThat(restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class).overrides()).hasSize(1);
     }
 }
