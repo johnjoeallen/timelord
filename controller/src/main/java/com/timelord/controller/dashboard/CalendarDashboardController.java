@@ -272,6 +272,15 @@ public class CalendarDashboardController {
         });
     }
 
+    @PostMapping("/calendars/{id}/overrides/{overrideId}/enabled")
+    public String setOverrideEnabled(@PathVariable UUID id, @PathVariable UUID overrideId,
+                                     @RequestParam boolean enabled, RedirectAttributes redirect) {
+        return run(redirect, "/calendars/" + id, enabled ? "Override enabled." : "Override disabled.", () -> {
+            calendarService.setOverrideEnabled(id, overrideId, enabled);
+            scheduleChanges.allChanged();
+        });
+    }
+
     @PostMapping("/devices/{deviceId}/messages")
     public String sendMessage(@PathVariable UUID deviceId, @RequestParam(required = false) String title,
                               @RequestParam String body, @RequestParam(required = false) Integer expiresInMinutes,

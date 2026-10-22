@@ -304,6 +304,17 @@ class CalendarResolverTest {
     }
 
     @Test
+    void aDisabledOverrideAddsNothing() {
+        CalendarOverride off = new CalendarOverride(UUID.randomUUID(), CAL, null, LocalDate.parse("2026-10-26"),
+                LocalDate.parse("2026-10-26"), LocalTime.of(20, 0), LocalTime.of(23, 0), Instant.EPOCH);
+        off.setEnabled(false);
+
+        List<AllowedWindow> w = allowed(List.of(row("08:30", "10:30", DayOfWeek.MONDAY)), List.of(off), "2026-10-26 00:00", "2026-10-26 23:59");
+
+        assertThat(w).containsExactly(on("2026-10-26", "08:30", "2026-10-26", "10:30"));
+    }
+
+    @Test
     void aCalendarWhoseRowsAreAllDisabledRestrictsNothing() {
         CalendarRule off = new CalendarRule(UUID.randomUUID(), CAL, List.of(EVERY_DAY), LocalTime.of(8, 0),
                 LocalTime.of(9, 0), false);

@@ -74,6 +74,15 @@ public class CalendarController {
         return dto;
     }
 
+    /** Body {@code {"enabled": false}} keeps the override but stops it adding time; {@code true} turns it back on. */
+    @PutMapping("/{id}/overrides/{overrideId}/enabled")
+    public CalendarDto setOverrideEnabled(@PathVariable UUID id, @PathVariable UUID overrideId,
+                                          @Valid @RequestBody EnabledRequest request) {
+        CalendarDto dto = service.setOverrideEnabled(id, overrideId, request.enabled());
+        scheduleChanges.allChanged();
+        return dto;
+    }
+
     /** The concrete allowed ("on") windows the calendar resolves to. */
     @GetMapping("/{id}/allowed")
     public List<AllowedWindow> allowed(@PathVariable UUID id,

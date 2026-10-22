@@ -53,6 +53,23 @@ class CalendarApiIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void anOverrideCanBeDisabledThroughTheApi() {
+        CalendarDto created = restTemplate.postForObject("/api/v1/calendars", request("Toggle " + UUID.randomUUID()), CalendarDto.class);
+        CalendarDto withOverride = restTemplate.postForObject("/api/v1/calendars/" + created.id() + "/overrides",
+                new OverrideRequest("Holiday", java.time.LocalDate.parse("2030-02-01"), java.time.LocalDate.parse("2030-02-03"),
+                        LocalTime.of(8, 0), LocalTime.of(23, 0)), CalendarDto.class);
+        UUID overrideId = withOverride.overrides().get(0).id();
+        assertThat(withOverride.overrides().get(0).enabled()).isTrue();
+
+        CalendarDto off = restTemplate.exchange("/api/v1/calendars/" + created.id() + "/overrides/" + overrideId + "/enabled",
+                HttpMethod.PUT, new HttpEntity<>(new EnabledRequest(false)), CalendarDto.class).getBody();
+
+        assertThat(off.overrides().get(0).enabled()).isFalse();
+        assertThat(restTemplate.exchange("/api/v1/calendars/" + created.id() + "/overrides/" + UUID.randomUUID() + "/enabled",
+                HttpMethod.PUT, new HttpEntity<>(new EnabledRequest(true)), String.class).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
     void deviceWithoutCalendarGetsNoSchedule() {
         assertThat(heartbeat(registerDevice()).schedule()).isNull();
     }

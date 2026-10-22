@@ -41,10 +41,10 @@ public record CalendarDto(
     }
 
     public record Override(UUID id, String name, LocalDate startDate, LocalDate endDate,
-                           LocalTime startTime, LocalTime endTime) {
+                           LocalTime startTime, LocalTime endTime, boolean enabled) {
         static Override from(CalendarOverride o) {
             return new Override(o.getId(), o.getName(), o.getStartDate(), o.getEndDate(), o.getStartTime(),
-                    o.getEndTime());
+                    o.getEndTime(), o.isEnabled());
         }
     }
 

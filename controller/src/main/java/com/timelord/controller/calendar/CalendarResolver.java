@@ -34,6 +34,7 @@ public final class CalendarResolver {
     public static List<AllowedWindow> allowedWindows(ZoneId zone, List<CalendarRule> rules,
                                                      List<CalendarOverride> overrides, Instant from, Instant to) {
         rules = rules.stream().filter(CalendarRule::isEnabled).toList();
+        overrides = overrides.stream().filter(CalendarOverride::isEnabled).toList();
         List<AllowedWindow> windows = new ArrayList<>();
         // Windows stay inside their day, so one day back is enough to catch one still running at `from`.
         LocalDate first = from.atZone(zone).toLocalDate().minusDays(1);

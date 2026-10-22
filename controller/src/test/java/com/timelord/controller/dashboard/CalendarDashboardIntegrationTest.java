@@ -102,6 +102,28 @@ class CalendarDashboardIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void anOverrideCanBeDisabledAndEnabledAgain() {
+        String name = "OverrideToggle " + UUID.randomUUID();
+        UUID id = idFromRedirect(post("/calendars", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));
+        post("/calendars/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
+                "rules[0].days", "MONDAY", "rules[0].startTime", "08:00", "rules[0].endTime", "10:00"));
+        post("/calendars/" + id + "/overrides", form("name", "Trip", "startDate", "2030-05-06", "endDate", "",
+                "startTime", "18:00", "endTime", "22:00"));
+        UUID overrideId = restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class).overrides().get(0).id();
+
+        post("/calendars/" + id + "/overrides/" + overrideId + "/enabled", form("enabled", "false"));
+
+        CalendarDto disabled = restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class);
+        assertThat(disabled.overrides()).hasSize(1);
+        assertThat(disabled.overrides().get(0).enabled()).isFalse();
+        assertThat(restTemplate.getForObject("/calendars/" + id, String.class)).contains("disabled").contains("Enable");
+
+        post("/calendars/" + id + "/overrides/" + overrideId + "/enabled", form("enabled", "true"));
+
+        assertThat(restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class).overrides().get(0).enabled()).isTrue();
+    }
+
+    @Test
     void aRowWithTimesButNoDaysIsRefusedNotDropped() {
         String name = "NoDays " + UUID.randomUUID();
         UUID id = idFromRedirect(post("/calendars", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));

@@ -17,7 +17,7 @@ schedule says it should be off — that is, outside every on-window. Nothing wak
 
 <figure markdown>
   ![A schedule's page with weekly rows, holiday overrides and the resulting on-windows](images/calendar-detail.png)
-  <figcaption>The schedule editor: weekly rows (several on the same day), overrides that add time, and the resolved on-windows for the next 14 days.</figcaption>
+  <figcaption>The schedule editor: weekly rows (several on the same day, <strong>+</strong>/<strong>−</strong> to add, disable or delete, a dimmed disabled row), overrides that add time (one is disabled), and the resolved on-windows for the next 14 days.</figcaption>
 </figure>
 
 ## How a schedule works
@@ -89,6 +89,11 @@ day or **add** time on a day with no row, but it can **never narrow** one — an
 existing window changes nothing. The weekly rows themselves are never edited; remove the override and
 the day goes back. A single day is an override whose start and end date are the same (in the
 dashboard, leave "To" blank). Overrides stack.
+
+Each override has **Disable** and **Remove** buttons. *Disable* keeps the override but stops it adding
+any time, exactly as if it were gone, and *Enable* turns it back on; use it to switch a holiday off and
+on again without re-entering it. (In the API: `PUT /api/v1/calendars/{id}/overrides/{overrideId}/enabled`
+with `{"enabled": false}`.)
 
 !!! example
     Weekdays normally have 07:00–08:30 and 15:30–21:30. *Half-term, 30 Oct – 8 Nov, on 09:00–23:00*
@@ -163,6 +168,7 @@ All of these are unauthenticated in this preview — see the [security boundary]
 | `DELETE /api/v1/calendars/{id}` | Delete; devices using it lose their schedule |
 | `POST /api/v1/calendars/{id}/overrides` | Add an override |
 | `DELETE /api/v1/calendars/{id}/overrides/{overrideId}` | Remove an override |
+| `PUT /api/v1/calendars/{id}/overrides/{overrideId}/enabled` | Switch an override off or on (`{"enabled": false}`) |
 | `GET /api/v1/calendars/{id}/allowed?from=&days=` | Preview the resolved on-windows (what the dashboard's table shows) |
 | `GET /api/v1/calendars/{id}/windows?from=&days=` | Preview the resolved off windows (what the agent is sent) |
 | `PUT /api/v1/devices/{id}/calendar` | Assign (`{"calendarId": "<uuid>"}`) or clear (`{"calendarId": null}`) |

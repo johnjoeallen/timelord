@@ -13,7 +13,7 @@ import java.util.UUID;
  * Adds an allowed window ({@code startTime} to {@code endTime} within the day, same meaning as for a
  * {@link CalendarRule}) on every date in [{@code startDate}, {@code endDate}] (inclusive; a single
  * day has the same start and end). It is unioned with the weekly rows, so an override can extend a
- * day but never shorten it.
+ * day but never shorten it. A disabled override is kept but adds nothing.
  */
 @Entity
 @Table(name = "calendar_override")
@@ -41,6 +41,9 @@ public class CalendarOverride {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    @Column(nullable = false)
+    private boolean enabled = true;
 
     protected CalendarOverride() {
     }
@@ -87,5 +90,14 @@ public class CalendarOverride {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    /** A disabled override is kept but adds no window, exactly as if it had been removed. */
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 }

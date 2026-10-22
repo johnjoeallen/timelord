@@ -100,6 +100,17 @@ public class CalendarService {
         return toDto(calendar);
     }
 
+    @Transactional
+    public CalendarDto setOverrideEnabled(UUID calendarId, UUID overrideId, boolean enabled) {
+        Calendar calendar = require(calendarId);
+        CalendarOverride override = overrides.findByIdAndCalendarId(overrideId, calendarId)
+                .orElseThrow(() -> ApiException.notFound("OVERRIDE_NOT_FOUND",
+                        "No override " + overrideId + " on schedule " + calendarId));
+        override.setEnabled(enabled);
+        overrides.save(override);
+        return toDto(calendar);
+    }
+
     /** The off windows (what the agent enforces) the calendar resolves to. */
     @Transactional(readOnly = true)
     public List<OffWindow> preview(UUID calendarId, Instant from, int days) {

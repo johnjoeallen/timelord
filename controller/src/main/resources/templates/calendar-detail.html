@@ -5,7 +5,7 @@
 <div th:replace="~{fragments/nav :: nav}"></div>
 <div class="container">
     <h1 class="mb-1" th:text="${calendar.name}"></h1>
-    <p class="text-muted"><a th:href="@{/calendars}">&larr; All calendars</a></p>
+    <p class="text-muted"><a th:href="@{/calendars}">&larr; All schedules</a></p>
     <div th:replace="~{fragments/flash :: flash}"></div>
 
     <div class="card mb-4">
@@ -162,19 +162,30 @@
                 start date with no end date. The window is within the day like a row: <em>On from</em> until
                 <em>Off at</em>, with blank or 00:00 meaning midnight (and a blank <em>On from</em> the start of the
                 day). To run past midnight, add a second override for the next day with no <em>On from</em>. The weekly schedule above is never changed; remove the override and it reverts.
+                <strong>Disable</strong> keeps an override but stops it adding time, so you can switch a holiday off and
+                back on again (<strong>Enable</strong>) without re-entering it.
             </p>
             <div class="table-responsive" th:if="${not #lists.isEmpty(calendar.overrides)}">
                 <table class="table table-sm align-middle">
                     <thead><tr><th>Name</th><th>From</th><th>To</th><th>On from</th><th>Off at</th><th></th></tr></thead>
                     <tbody>
-                    <tr th:each="o : ${calendar.overrides}" th:classappend="${o.endDate.isBefore(today)} ? 'text-muted'">
-                        <td th:text="${o.name} ?: '–'"></td>
+                    <tr th:each="o : ${calendar.overrides}"
+                        th:classappend="${o.endDate.isBefore(today) or not o.enabled} ? 'text-muted'">
+                        <td><span th:text="${o.name} ?: '–'"></span>
+                            <span class="badge text-bg-secondary ms-1" th:unless="${o.enabled}">disabled</span></td>
                         <td th:text="${o.startDate}"></td>
                         <td th:text="${o.endDate}"></td>
                         <td th:text="${#temporals.format(o.startTime, 'HH:mm')}"></td>
                         <td th:text="${#temporals.format(o.endTime, 'HH:mm')}"></td>
-                        <td class="text-end">
-                            <form method="post" th:action="@{/calendars/{id}/overrides/{oid}/delete(id=${calendar.id},oid=${o.id})}">
+                        <td class="text-end text-nowrap">
+                            <form method="post" class="d-inline"
+                                  th:action="@{/calendars/{id}/overrides/{oid}/enabled(id=${calendar.id},oid=${o.id})}">
+                                <input type="hidden" name="enabled" th:value="${not o.enabled}"/>
+                                <button class="btn btn-sm btn-outline-secondary" type="submit"
+                                        th:text="${o.enabled} ? 'Disable' : 'Enable'"></button>
+                            </form>
+                            <form method="post" class="d-inline"
+                                  th:action="@{/calendars/{id}/overrides/{oid}/delete(id=${calendar.id},oid=${o.id})}">
                                 <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button>
                             </form>
                         </td>
