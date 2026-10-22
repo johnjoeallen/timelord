@@ -25,7 +25,11 @@
     Install only the service, not the per-user notifier and its logon task.
 
 .EXAMPLE
+    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
     .\install.ps1
+
+    Run from an elevated PowerShell in the extracted release folder. The first line is needed when
+    the zip was downloaded, because Windows blocks its scripts by default; it only affects that window.
 #>
 [CmdletBinding()]
 param(

@@ -164,7 +164,22 @@ queued in `events.db` — nothing is lost.
 ```
 
 `install`/`uninstall` use the Service Control Manager API directly, not `sc.exe`. A packaged zip
-with a PowerShell installer is attached to every tagged release on GitHub; it contains both
+with a PowerShell installer is attached to every tagged release on GitHub. To install from it,
+extract the zip and run, from PowerShell **as Administrator** in that folder:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\install.ps1
+```
+
+!!! note "Why the first line"
+    Windows blocks PowerShell scripts that came from a download by default. `-Scope Process` lifts
+    that for the current PowerShell window only; nothing is changed permanently, and it reverts when
+    you close the window. Alternatively run `Unblock-File .\install.ps1, .\uninstall.ps1` (or untick
+    *Unblock* in the zip's Properties before extracting). Re-running `install.ps1` with a newer
+    `timelord-agent.exe` upgrades an existing install.
+
+The zip contains both
 `timelord-agent.exe` and `timelord-notifier.exe`, and `install.ps1` also registers a
 **TimeLord Notifier** scheduled task that starts the [notifier](notifier.md) at each user's logon
 (`-SkipNotifier` to skip it).

@@ -6,11 +6,19 @@ These ship inside the release zip alongside `timelord-agent.exe` and
 
 ## Install
 
-From an elevated PowerShell prompt, in the extracted release folder:
+Extract the release zip, then open PowerShell **as Administrator** in the extracted folder and run:
 
 ```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\install.ps1
 ```
+
+The first line is usually needed: Windows blocks scripts from a downloaded zip by default
+("running scripts is disabled on this system", or a security warning). `-Scope Process` lifts that
+for this PowerShell window only, so nothing is changed permanently and it reverts when you close
+the window. If you would rather not change the policy even for the session, run
+`Unblock-File .\install.ps1, .\uninstall.ps1` first, or right-click the zip → Properties → Unblock
+before extracting it. `uninstall.ps1` needs the same treatment.
 
 This copies the binary to `%ProgramFiles%\TimeLord`, creates
 `%ProgramData%\TimeLord` (locked down to `SYSTEM` + `Administrators` only),
@@ -41,6 +49,7 @@ sends from the dashboard. It has no window of its own.
 ## Uninstall
 
 ```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass   # if this is a new window
 .\uninstall.ps1            # keeps session history and logs
 .\uninstall.ps1 -RemoveData # also deletes %ProgramData%\TimeLord
 ```
