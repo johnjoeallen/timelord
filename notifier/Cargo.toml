@@ -1,0 +1,24 @@
+[package]
+name = "timelord-notifier"
+version = "0.1.0"
+edition = "2021"
+description = "TimeLord per-user notifier: warns the logged-on user before the agent powers the device off"
+license = "AGPL-3.0-or-later"
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+serde_json = "1"
+timelord-ipc = { path = "../ipc" }
+uuid = { version = "1", features = ["serde"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Data_Xml_Dom",
+    "Foundation",
+    "UI_Notifications",
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Com",
+    "Win32_System_Registry",
+    "Win32_System_Threading",
+] }
