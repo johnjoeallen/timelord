@@ -6,6 +6,7 @@ pub mod events;
 pub mod platform;
 pub mod protocol;
 pub mod queue;
+pub mod schedule;
 #[cfg(windows)]
 pub mod service_win;
 pub mod store;

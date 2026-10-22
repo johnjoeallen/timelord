@@ -11,6 +11,7 @@ use crate::protocol::{
     EventSubmissionRequest, EventSubmissionResponse, HeartbeatRequest, HeartbeatResponse, RegisterRequest,
     RegisterResponse, SystemInfoResponse,
 };
+use crate::schedule::Schedule;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -90,6 +91,29 @@ impl ControllerClient {
             .send()
             .await?;
         Self::parse(response).await
+    }
+
+    /// Long-polls for schedule changes: returns as soon as the controller's schedule differs from
+    /// `revision`, or the current one after `wait` with no change. `None` means no calendar is assigned.
+    pub async fn poll_schedule(
+        &self,
+        device_id: Uuid,
+        revision: Option<&str>,
+        wait: Duration,
+    ) -> Result<Option<Schedule>, ClientError> {
+        let mut request = self
+            .http
+            .get(format!("{}/api/v1/agents/{device_id}/schedule", self.base_url))
+            .query(&[("waitSeconds", wait.as_secs().to_string())])
+            .timeout(wait + REQUEST_TIMEOUT);
+        if let Some(revision) = revision {
+            request = request.query(&[("revision", revision)]);
+        }
+        let response = request.send().await?;
+        if response.status() == reqwest::StatusCode::NO_CONTENT {
+            return Ok(None);
+        }
+        Self::parse(response).await.map(Some)
     }
 
     pub async fn submit_events(

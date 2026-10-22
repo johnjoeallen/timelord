@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+use crate::schedule::Schedule;
+
 /// Full Phase-1 event vocabulary (design brief section 8). The controller
 /// accepts all of these; the agent only emits a subset today — see
 /// `events.rs` for what's actually wired up to the tracker.
@@ -101,6 +103,8 @@ pub struct RegisterResponse {
     pub registered_at: DateTime<Utc>,
     pub heartbeat_interval_seconds: u32,
     pub accepted: bool,
+    #[serde(default)]
+    pub schedule: Option<Schedule>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -123,6 +127,8 @@ pub struct HeartbeatResponse {
     pub accepted: bool,
     pub server_time: DateTime<Utc>,
     pub heartbeat_interval_seconds: u32,
+    #[serde(default)]
+    pub schedule: Option<Schedule>,
 }
 
 #[derive(Debug, Clone, Serialize)]

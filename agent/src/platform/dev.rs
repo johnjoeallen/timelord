@@ -22,6 +22,12 @@ pub fn suspend() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Dev stand-in for the Windows power-off, which just logs.
+pub fn shutdown() -> anyhow::Result<()> {
+    info!("dev backend: pretending to shut the device down");
+    Ok(())
+}
+
 pub fn shutdown_requested() -> bool {
     false
 }

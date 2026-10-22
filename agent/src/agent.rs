@@ -20,6 +20,7 @@ use crate::discovery;
 use crate::events;
 use crate::protocol::{EventSubmissionRequest, HeartbeatRequest, RegisterRequest};
 use crate::queue::EventQueue;
+use crate::schedule::{self, Schedule};
 use crate::{platform, SessionSnapshot, UsageRecorder};
 
 pub const AGENT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -29,6 +30,12 @@ const OFFLINE_FALLBACK_CHECK_INTERVAL: Duration = Duration::from_secs(300);
 /// Interval for [`hard_sleep_loop`]'s window check. Same cadence as the
 /// offline fallback check; there's no reason for it to differ.
 const HARD_SLEEP_CHECK_INTERVAL: Duration = Duration::from_secs(300);
+/// How long the controller may hold a schedule long-poll open before answering "no change".
+const SCHEDULE_POLL_WAIT: Duration = Duration::from_secs(30);
+/// Upper bound between enforcement checks, so a device woken mid-window is put back to sleep promptly.
+const ENFORCEMENT_MAX_WAIT: Duration = Duration::from_secs(60);
+/// After asking Windows to shut down, don't ask again for this long (the shutdown has a grace period).
+const SHUTDOWN_COOLDOWN: Duration = Duration::from_secs(300);
 /// Bound on how long shutdown waits for one last delivery attempt of
 /// anything still queued (notably `AgentStopping`) before giving up and
 /// letting the process exit anyway — the SCM only grants a service a short
@@ -46,6 +53,9 @@ pub struct Agent {
     session_snapshot: Arc<StdMutex<SessionSnapshot>>,
     shutdown_tx: watch::Sender<bool>,
     flush_notify: Notify,
+    schedule: StdMutex<Option<Schedule>>,
+    schedule_path: PathBuf,
+    schedule_changed: Notify,
 }
 
 impl Agent {
@@ -56,6 +66,8 @@ impl Agent {
         session_snapshot: Arc<StdMutex<SessionSnapshot>>,
     ) -> Self {
         let (shutdown_tx, _) = watch::channel(false);
+        let schedule_path = agent_toml_path.with_file_name("schedule.json");
+        let schedule = StdMutex::new(schedule::load(&schedule_path));
         Self {
             config,
             agent_toml_path,
@@ -64,7 +76,36 @@ impl Agent {
             session_snapshot,
             shutdown_tx,
             flush_notify: Notify::new(),
+            schedule,
+            schedule_path,
+            schedule_changed: Notify::new(),
         }
+    }
+
+    /// The currently cached schedule, if the device has a calendar.
+    pub fn schedule(&self) -> Option<Schedule> {
+        self.schedule.lock().unwrap().clone()
+    }
+
+    fn schedule_revision(&self) -> Option<String> {
+        self.schedule.lock().unwrap().as_ref().map(|s| s.revision.clone())
+    }
+
+    /// Adopts a schedule from the controller (`None` = calendar removed), persists it, and wakes the
+    /// enforcement loop. A no-op if nothing changed.
+    fn apply_schedule(&self, incoming: Option<Schedule>) {
+        {
+            let mut current = self.schedule.lock().unwrap();
+            if *current == incoming {
+                return;
+            }
+            *current = incoming.clone();
+        }
+        info!(revision = incoming.as_ref().map(|s| s.revision.as_str()), "schedule updated");
+        if let Err(err) = schedule::save(&self.schedule_path, incoming.as_ref()) {
+            warn!(?err, "failed to cache schedule locally");
+        }
+        self.schedule_changed.notify_one();
     }
 
     pub fn is_connected(&self) -> bool {
@@ -169,6 +210,7 @@ impl Agent {
                     info!(device_id = %response.device_id, controller_id = %response.controller_id, "registered");
                     self.enqueue(events::registration_succeeded(response.device_id)).await;
                     self.connected.store(true, Ordering::Relaxed);
+                    self.apply_schedule(response.schedule.clone());
                     self.request_flush();
                     return response.device_id;
                 }
@@ -236,8 +278,9 @@ pub async fn heartbeat_loop(agent: Arc<Agent>, client: Arc<Mutex<(ControllerClie
             guard.0.heartbeat(device_id, &request).await
         };
         match result {
-            Ok(_) => {
+            Ok(response) => {
                 agent.note_connected(&client_ref).await;
+                agent.apply_schedule(response.schedule);
                 agent.enqueue(events::heartbeat_sent()).await;
             }
             Err(err) if err.is_device_not_found() => {
@@ -363,7 +406,7 @@ pub async fn offline_fallback_loop(agent: Arc<Agent>) {
             _ = interval.tick() => {}
             _ = shutdown.changed() => break,
         }
-        if agent.is_connected() {
+        if agent.is_connected() || agent.schedule().is_some() {
             continue;
         }
         if !is_within_window(Local::now().time(), agent.config.offline_fallback_start, agent.config.offline_fallback_end) {
@@ -388,6 +431,7 @@ pub async fn offline_fallback_loop(agent: Arc<Agent>) {
 }
 
 /// Hardcoded 02:00-06:00 local-time sleep window, enforced unconditionally
+/// unless a calendar schedule is cached (then [`enforcement_loop`] owns it)
 /// (unlike [`offline_fallback_loop`], regardless of controller connectivity).
 /// This is a stopgap until schedules are server-side configurable — remove
 /// once that lands.
@@ -404,7 +448,7 @@ pub async fn hard_sleep_loop(agent: Arc<Agent>) {
             _ = interval.tick() => {}
             _ = shutdown.changed() => break,
         }
-        if !is_within_window(Local::now().time(), start, end) {
+        if agent.schedule().is_some() || !is_within_window(Local::now().time(), start, end) {
             continue;
         }
 
@@ -419,6 +463,99 @@ pub async fn hard_sleep_loop(agent: Arc<Agent>) {
             Err(err) => {
                 error!(?err, "hard sleep suspend task panicked");
             }
+        }
+    }
+}
+
+/// Long-polls the controller for schedule changes so an extension (or calendar edit) reaches the agent
+/// within moments rather than at the next heartbeat. Uses its own client so a parked request never
+/// holds the heartbeat loop's lock.
+pub async fn schedule_poll_loop(agent: Arc<Agent>, client: Arc<Mutex<(ControllerClient, Uuid)>>) {
+    let mut shutdown = agent.shutdown_signal();
+    loop {
+        let (url, device_id) = {
+            let guard = client.lock().await;
+            (guard.0.base_url().to_string(), guard.1)
+        };
+        let poll_client = ControllerClient::new(url);
+        let revision = agent.schedule_revision();
+        let result = tokio::select! {
+            r = poll_client.poll_schedule(device_id, revision.as_deref(), SCHEDULE_POLL_WAIT) => r,
+            _ = shutdown.changed() => break,
+        };
+        match result {
+            Ok(schedule) => agent.apply_schedule(schedule),
+            Err(err) => {
+                // Not-found is the heartbeat loop's job to fix (re-register); either way, back off.
+                if !err.is_device_not_found() {
+                    warn!(?err, "schedule poll failed");
+                }
+                tokio::select! {
+                    _ = tokio::time::sleep(RECONNECT_BACKOFF) => {}
+                    _ = shutdown.changed() => break,
+                }
+            }
+        }
+    }
+}
+
+/// Enforces the cached calendar schedule, including while the controller is unreachable: whenever
+/// `now` is inside an off window, performs the schedule's action (sleep or shutdown). Wakes on a
+/// schedule change, the next window start, or [`ENFORCEMENT_MAX_WAIT`], whichever is soonest.
+pub async fn enforcement_loop(agent: Arc<Agent>) {
+    let mut shutdown = agent.shutdown_signal();
+    let mut last_shutdown_request: Option<tokio::time::Instant> = None;
+    loop {
+        let now = Utc::now();
+        let mut wait = ENFORCEMENT_MAX_WAIT;
+        if let Some(schedule) = agent.schedule() {
+            if schedule.active_window(now).is_some() {
+                enforce(&agent, &schedule, &mut last_shutdown_request).await;
+            } else if let Some(next) = schedule.next_off_at(now) {
+                wait = wait.min((next - now).to_std().unwrap_or(Duration::ZERO));
+            }
+        }
+        tokio::select! {
+            _ = tokio::time::sleep(wait) => {}
+            _ = agent.schedule_changed.notified() => {}
+            _ = shutdown.changed() => break,
+        }
+    }
+}
+
+async fn enforce(agent: &Agent, schedule: &Schedule, last_shutdown_request: &mut Option<tokio::time::Instant>) {
+    let action = schedule.action.event_name();
+    match schedule.action {
+        schedule::PowerAction::Sleep => {
+            info!("within calendar off window; suspending device");
+            agent.enqueue(events::power_action_requested(action, "calendar off window")).await;
+            // SetSuspendState blocks until resume, so it must not run on a Tokio worker thread.
+            match tokio::task::spawn_blocking(platform::suspend).await {
+                Ok(Ok(())) => agent.enqueue(events::power_action_completed(action)).await,
+                Ok(Err(err)) => {
+                    warn!(?err, "calendar suspend failed");
+                    agent.enqueue(events::power_action_failed(action, &err.to_string())).await;
+                }
+                Err(err) => error!(?err, "calendar suspend task panicked"),
+            }
+        }
+        schedule::PowerAction::Shutdown => {
+            if last_shutdown_request.is_some_and(|t| t.elapsed() < SHUTDOWN_COOLDOWN) {
+                return;
+            }
+            info!("within calendar off window; shutting device down");
+            agent.enqueue(events::power_action_requested(action, "calendar off window")).await;
+            *last_shutdown_request = Some(tokio::time::Instant::now());
+            match tokio::task::spawn_blocking(platform::shutdown).await {
+                Ok(Ok(())) => agent.enqueue(events::power_action_completed(action)).await,
+                Ok(Err(err)) => {
+                    warn!(?err, "calendar shutdown failed");
+                    agent.enqueue(events::power_action_failed(action, &err.to_string())).await;
+                }
+                Err(err) => error!(?err, "calendar shutdown task panicked"),
+            }
+            // Flush now: the machine may be gone before the next delivery tick.
+            agent.request_flush();
         }
     }
 }
@@ -532,7 +669,9 @@ pub fn run_blocking(dir: &std::path::Path, cli: &CliOverrides) -> anyhow::Result
             let client = Arc::new(Mutex::new((client, device_id)));
             tokio::join!(
                 heartbeat_loop(agent.clone(), client.clone()),
+                schedule_poll_loop(agent.clone(), client.clone()),
                 delivery_loop(agent.clone(), client),
+                enforcement_loop(agent.clone()),
                 offline_fallback_loop(agent.clone()),
                 hard_sleep_loop(agent),
             );

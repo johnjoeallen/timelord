@@ -87,6 +87,21 @@ pub fn suspend() -> anyhow::Result<()> {
     }
 }
 
+/// Powers the machine off after a 30 second on-screen warning. Uses `shutdown.exe` rather than
+/// `ExitWindowsEx` so the service doesn't have to enable `SeShutdownPrivilege` itself and the user
+/// gets a chance to save work. A repeat request while one is pending fails harmlessly.
+pub fn shutdown() -> anyhow::Result<()> {
+    let output = std::process::Command::new("shutdown")
+        .args(["/s", "/t", "30", "/c", "TimeLord: scheduled off time"])
+        .output()
+        .context("running shutdown.exe")?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!("shutdown.exe failed: {}", String::from_utf8_lossy(&output.stderr).trim()))
+    }
+}
+
 pub fn run(recorder: UsageRecorder) -> anyhow::Result<()> {
     RECORDER.with(|cell| *cell.borrow_mut() = Some(recorder));
     // SAFETY: no preconditions; returns the calling thread's ID.
