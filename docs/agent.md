@@ -5,8 +5,8 @@ Windows service (Rust) that tracks device usage and reports it to a TimeLord Con
 !!! note
     Unauthenticated plain HTTP to the controller. There is no session-limit or break enforcement
     yet. The agent does enforce a [schedule](scheduling.md)
-    assigned by the controller (sleep or shutdown at off times), and — for devices with no
-    schedule — a hard-wired overnight sleep and an offline fallback (below). See
+    assigned by the controller (sleep or shutdown at off times); a device with no schedule is
+    never put to sleep or shut down. See
     [Security boundary](architecture.md#security-boundary).
 
 ## What it does
@@ -54,9 +54,6 @@ device_id = ""                       # generated + persisted on first run if emp
 device_name = ""                     # defaults to the hostname if empty
 heartbeat_interval_seconds = 30
 event_retry_interval_seconds = 10
-offline_fallback_enabled = true      # sleep the device on the schedule below when offline
-offline_fallback_start = "01:00"     # "HH:MM", local time; invalid/missing falls back to this default
-offline_fallback_end = "08:30"
 
 [controller]
 url = ""                             # e.g. "http://192.168.1.20:8080"
@@ -65,30 +62,15 @@ discovery_port = 45821
 discovery_timeout_seconds = 5
 ```
 
-### Overnight sleep and offline fallback
+### Devices without a schedule
 
-!!! note
-    Both of these apply **only to a device with no schedule**. As soon as the agent has a cached
-    schedule they are skipped and the [schedule](scheduling.md) governs.
+A device with no [schedule](scheduling.md) assigned is **unrestricted**: the agent never puts it to
+sleep or shuts it down. Earlier versions slept such a device 02:00–06:00 and, while the controller
+was unreachable, 01:00–08:30. Both are gone, and any `offline_fallback_*` keys left in `agent.toml`
+are ignored.
 
-**Hard-wired overnight sleep.** Between **02:00 and 06:00** local time the agent puts the device
-to sleep (checked every 5 minutes), whether or not the controller is reachable. The window is
-compiled in — a stopgap until schedules cover every device — and cannot be changed from
-`agent.toml` or the controller.
-
-**Offline fallback.** If the agent can't reach the controller at all (registration, heartbeats, and event delivery are
-all failing), it falls back to a local safety schedule: every 5 minutes, if still disconnected and
-local time falls within `offline_fallback_start`-`offline_fallback_end` (wrapping past midnight is
-supported, e.g. `22:00`-`06:00`), it puts the device to sleep (`SetSuspendState`, not hibernate — a
-shutdown never happens). This only runs while disconnected — once the controller is reachable
-again this stops immediately. `POWER_ACTION_REQUESTED`/`_COMPLETED`/`_FAILED` events are queued
-locally and delivered once connectivity returns, so the outage and the fallback action it
-triggered are both visible on the dashboard afterward.
-
-!!! warning
-    There is no way to configure this per-device from the controller/dashboard, or via
-    environment variable/CLI flag, yet — the only way to change or disable it is hand-editing that
-    device's local `agent.toml` (the `offline_fallback_*` keys above) and restarting the service.
+An assigned schedule keeps being enforced from the agent's cached copy while the controller is
+unreachable, so losing the network doesn't lift it.
 
 Precedence is **CLI flags > environment variables > `agent.toml` > defaults**, unit tested for
 every combination. Environment overrides:

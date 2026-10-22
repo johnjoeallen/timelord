@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::Duration;
 
-use chrono::{Local, NaiveTime, Utc};
+use chrono::Utc;
 use tokio::sync::{watch, Mutex, Notify};
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -27,10 +27,6 @@ use crate::{platform, SessionSnapshot, UsageRecorder};
 pub const AGENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const EVENT_BATCH_SIZE: usize = 100;
 const RECONNECT_BACKOFF: Duration = Duration::from_secs(15);
-const OFFLINE_FALLBACK_CHECK_INTERVAL: Duration = Duration::from_secs(300);
-/// Interval for [`hard_sleep_loop`]'s window check. Same cadence as the
-/// offline fallback check; there's no reason for it to differ.
-const HARD_SLEEP_CHECK_INTERVAL: Duration = Duration::from_secs(300);
 /// After startup, or after resuming from sleep, how long enforcement waits for the controller to
 /// confirm the cached schedule before enforcing the cache regardless (see `schedule::enforcement_ready`).
 const SCHEDULE_SYNC_GRACE: Duration = Duration::from_secs(90);
@@ -515,118 +511,6 @@ async fn deliver_due_batch(agent: &Arc<Agent>, client: &Arc<Mutex<(ControllerCli
     }
 }
 
-/// While the controller is unreachable, usage policy would otherwise go
-/// completely unenforced — so on this fixed schedule, if the agent has no
-/// live connection *and* local time falls in the configured offline-fallback
-/// window (default 01:00-08:30), it puts the device to sleep. Does nothing
-/// once the controller is reachable again; the controller's own schedule
-/// takes over from there (once schedules exist to enforce).
-pub async fn offline_fallback_loop(agent: Arc<Agent>) {
-    if !agent.config.offline_fallback_enabled {
-        return;
-    }
-    // `tokio::time::interval` fires its first tick immediately on creation,
-    // not after one period — without `interval_at` here, a freshly started
-    // agent that's disconnected during the fallback window would suspend
-    // within moments of launch instead of waiting out a full check
-    // interval first.
-    let mut interval = tokio::time::interval_at(
-        tokio::time::Instant::now() + OFFLINE_FALLBACK_CHECK_INTERVAL,
-        OFFLINE_FALLBACK_CHECK_INTERVAL,
-    );
-    let mut shutdown = agent.shutdown_signal();
-    loop {
-        tokio::select! {
-            _ = interval.tick() => {}
-            _ = shutdown.changed() => break,
-        }
-        if agent.is_connected() || agent.schedule().is_some() {
-            continue;
-        }
-        if !is_within_window(
-            Local::now().time(),
-            agent.config.offline_fallback_start,
-            agent.config.offline_fallback_end,
-        ) {
-            continue;
-        }
-
-        info!("offline and within fallback window; suspending device");
-        agent
-            .enqueue(events::power_action_requested(
-                "SUSPEND",
-                "offline fallback window",
-            ))
-            .await;
-        // SetSuspendState blocks until resume, so it must not run on a
-        // Tokio worker thread directly.
-        match tokio::task::spawn_blocking(platform::suspend).await {
-            Ok(Ok(())) => {
-                agent
-                    .enqueue(events::power_action_completed("SUSPEND"))
-                    .await
-            }
-            Ok(Err(err)) => {
-                warn!(?err, "offline fallback suspend failed");
-                agent
-                    .enqueue(events::power_action_failed("SUSPEND", &err.to_string()))
-                    .await;
-            }
-            Err(err) => {
-                error!(?err, "offline fallback suspend task panicked");
-            }
-        }
-    }
-}
-
-/// Hardcoded 02:00-06:00 local-time sleep window, enforced unconditionally
-/// unless a calendar schedule is cached (then [`enforcement_loop`] owns it)
-/// (unlike [`offline_fallback_loop`], regardless of controller connectivity).
-/// This is a stopgap until schedules are server-side configurable — remove
-/// once that lands.
-pub async fn hard_sleep_loop(agent: Arc<Agent>) {
-    let start = NaiveTime::from_hms_opt(2, 0, 0).unwrap();
-    let end = NaiveTime::from_hms_opt(6, 0, 0).unwrap();
-    let mut interval = tokio::time::interval_at(
-        tokio::time::Instant::now() + HARD_SLEEP_CHECK_INTERVAL,
-        HARD_SLEEP_CHECK_INTERVAL,
-    );
-    let mut shutdown = agent.shutdown_signal();
-    loop {
-        tokio::select! {
-            _ = interval.tick() => {}
-            _ = shutdown.changed() => break,
-        }
-        if agent.schedule().is_some() || !is_within_window(Local::now().time(), start, end) {
-            continue;
-        }
-
-        info!("within hard sleep window (02:00-06:00); suspending device");
-        agent
-            .enqueue(events::power_action_requested(
-                "SUSPEND",
-                "hard sleep window",
-            ))
-            .await;
-        match tokio::task::spawn_blocking(platform::suspend).await {
-            Ok(Ok(())) => {
-                agent
-                    .enqueue(events::power_action_completed("SUSPEND"))
-                    .await
-            }
-            Ok(Err(err)) => {
-                warn!(?err, "hard sleep suspend failed");
-                agent
-                    .enqueue(events::power_action_failed("SUSPEND", &err.to_string()))
-                    .await;
-            }
-            Err(err) => {
-                error!(?err, "hard sleep suspend task panicked");
-            }
-        }
-    }
-}
-
 /// Long-polls the controller for schedule changes so an extension (or calendar edit) reaches the agent
 /// within moments rather than at the next heartbeat. Uses its own client so a parked request never
 /// holds the heartbeat loop's lock.
@@ -791,16 +675,6 @@ async fn enforce(
     }
 }
 
-/// Whether `now` falls in `[start, end)`, handling windows that cross
-/// midnight (e.g. 22:00-06:00) as well as same-day ones (e.g. 01:00-08:30).
-fn is_within_window(now: NaiveTime, start: NaiveTime, end: NaiveTime) -> bool {
-    if start <= end {
-        now >= start && now < end
-    } else {
-        now >= start || now < end
-    }
-}
-
 #[cfg(windows)]
 fn os_info() -> (String, String) {
     // Real product-name/build-number detection (registry read) is a
@@ -913,9 +787,7 @@ pub fn run_blocking(dir: &std::path::Path, cli: &CliOverrides) -> anyhow::Result
                 message_poll_loop(agent.clone(), client.clone()),
                 delivery_loop(agent.clone(), client),
                 enforcement_loop(agent.clone()),
-                crate::notify_pipe::serve(agent.clone()),
-                offline_fallback_loop(agent.clone()),
-                hard_sleep_loop(agent),
+                crate::notify_pipe::serve(agent),
             );
         })
     };
@@ -951,35 +823,6 @@ pub fn run_blocking(dir: &std::path::Path, cli: &CliOverrides) -> anyhow::Result
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn t(h: u32, m: u32) -> NaiveTime {
-        NaiveTime::from_hms_opt(h, m, 0).unwrap()
-    }
-
-    #[test]
-    fn same_day_window_matches_documented_default() {
-        let start = t(1, 0);
-        let end = t(8, 30);
-        assert!(is_within_window(t(1, 0), start, end), "inclusive start");
-        assert!(is_within_window(t(4, 0), start, end), "middle of window");
-        assert!(!is_within_window(t(8, 30), start, end), "exclusive end");
-        assert!(
-            !is_within_window(t(0, 59), start, end),
-            "just before window"
-        );
-        assert!(!is_within_window(t(12, 0), start, end), "outside window");
-    }
-
-    #[test]
-    fn overnight_window_crossing_midnight_is_handled() {
-        let start = t(22, 0);
-        let end = t(6, 0);
-        assert!(is_within_window(t(23, 30), start, end), "before midnight");
-        assert!(is_within_window(t(0, 30), start, end), "after midnight");
-        assert!(is_within_window(t(22, 0), start, end), "inclusive start");
-        assert!(!is_within_window(t(6, 0), start, end), "exclusive end");
-        assert!(!is_within_window(t(12, 0), start, end), "outside window");
-    }
 
     fn agent_with_cached_schedule(
         dir: &std::path::Path,

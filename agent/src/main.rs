@@ -138,18 +138,6 @@ fn status(dir: &Path) -> anyhow::Result<()> {
         "Heartbeat interval:   {}s",
         config.heartbeat_interval.as_secs()
     );
-    println!(
-        "Offline fallback:     {}",
-        if config.offline_fallback_enabled {
-            format!(
-                "sleep {}-{} when offline",
-                config.offline_fallback_start.format("%H:%M"),
-                config.offline_fallback_end.format("%H:%M")
-            )
-        } else {
-            "disabled".to_string()
-        }
-    );
     println!("Pending local events: {}", queue.len()?);
 
     #[cfg(windows)]

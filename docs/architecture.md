@@ -35,20 +35,9 @@
   [Known limitations](#known-limitations) for the additional constraint this
   puts on UDP discovery specifically (same broadcast domain, not just same
   routed network).
-- **The agent puts devices to sleep on its own schedule.** Two behaviours
-  apply to a device that has **no schedule** assigned, and neither can be
-  configured or disabled from the controller:
-    - an unconditional sleep between **02:00 and 06:00 local time**, checked
-      every 5 minutes (a stopgap hard-wired into the agent); and
-    - if the agent can't reach the controller *at all* (registration,
-      heartbeats, and event delivery all failing), a local safety schedule —
-      by default **01:00 to 08:30** — that sleeps the device every 5 minutes
-      while still disconnected (`SetSuspendState`: sleep, never hibernate).
-
-  Changing the window, or turning the fallback off, means hand-editing that
-  device's local `agent.toml` and restarting the service. Both are replaced
-  by the schedule once a device has one (the agent caches it, so this holds
-  while the controller is down too). See [Agent](agent.md#overnight-sleep-and-offline-fallback).
+- **A device with no schedule is unrestricted.** Earlier versions slept such a device 02:00–06:00,
+  and 01:00–08:30 while the controller was unreachable; both rules were removed. Only an assigned
+  [schedule](scheduling.md) ever puts a device to sleep or shuts it down.
 - **A schedule sleeps or shuts the device down.** At its off times a device
   with a [schedule](scheduling.md) is suspended or powered off (`shutdown.exe
   /s /t 30`, a 30-second warning). Test on a spare machine first; the

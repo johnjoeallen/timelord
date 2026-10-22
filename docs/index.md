@@ -13,9 +13,8 @@ keyboard first.
     - **It acts on devices.** A device with a [schedule](scheduling.md) is put to sleep or shut
       down at its off times. Session limits, forced breaks and connectivity rules are **not**
       implemented — the project's tagline still describes the eventual product.
-    - **Devices without a schedule still get put to sleep overnight.** A hard-wired sleep runs
-      02:00–06:00 local time, and an agent that can't reach the controller at all also sleeps the
-      device 01:00–08:30 — neither configurable from the controller.
+    - **A device without a schedule is never slept or shut down.** Only an assigned schedule acts
+      on a device.
     - **Every agent must reach the controller directly, on the same network(s).** Everything is
       unicast HTTP — no NAT traversal, relay, or cloud/VPN routing.
 

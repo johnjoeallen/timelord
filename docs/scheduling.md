@@ -135,14 +135,9 @@ has to understand rows or overrides; it only asks whether the time now falls ins
 
 ### Devices without a schedule
 
-A device with no schedule assigned keeps the older hard-wired behaviour, which is **not
-configurable from the controller**:
-
-- an unconditional sleep between **02:00 and 06:00** local time, checked every 5 minutes; and
-- the [offline fallback](agent.md#overnight-sleep-and-offline-fallback) (sleep between 01:00 and 08:30 while the
-  controller is unreachable).
-
-Both stop applying as soon as the agent has a cached schedule.
+A device with no schedule assigned is **unrestricted**: the agent never puts it to sleep or shuts it
+down. Earlier versions slept such a device 02:00–06:00 (and 01:00–08:30 while the controller was
+unreachable); both rules were removed.
 
 ## Admin API
 

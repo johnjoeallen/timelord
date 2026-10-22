@@ -24,8 +24,7 @@ the same content, nicer.
 > controller directly on the same network(s) — there's no NAT traversal or relay. The admin API is
 > unauthenticated too, so anyone who can reach the controller can send messages, grant time and
 > delete devices. It's meant for a trusted local/dev network only. Devices **without a schedule**
-> are put to sleep 02:00–06:00 local time, and an agent that can't reach the controller also
-> sleeps its device 01:00–08:30 (neither configurable from the controller). Schedule sleep and
+> are left alone. Schedule sleep and
 > shutdown, and the notifier's toasts, have had unit tests and compile checks but no end-to-end
 > testing on real machines. See
 > [Before you deploy this](docs/architecture.md#before-you-deploy-this) for the full list.
