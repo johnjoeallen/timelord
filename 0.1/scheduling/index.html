@@ -945,6 +945,16 @@ windows are combined; the device is on inside them and off everywhere else.</p>
 <li><strong>A day with no row is off all day</strong> — but a schedule with <strong>no rows at all</strong> restricts nothing,
   so a newly created, still-empty schedule doesn't keep a device asleep.</li>
 </ul>
+<p>Rows are managed with the <strong>+</strong> and <strong>−</strong> buttons on the schedule page:</p>
+<ul>
+<li>The bottom row is always blank. Fill it in and press <strong>+</strong> to keep it and get a new blank row; with
+  nothing filled in, <strong>+</strong> does nothing.</li>
+<li><strong>−</strong> <em>disables</em> a row: it is dimmed, kept, and ignored (it gives no window, exactly as if it were
+  deleted), so you can switch a row off and bring it back later. Pressing <strong>−</strong> on a disabled row
+  <em>deletes</em> it.</li>
+<li>Nothing is stored until you press <strong>Save schedule</strong>. A schedule whose rows are all disabled
+  restricts nothing, like one with no rows.</li>
+</ul>
 <p>Each row on the schedule page shows its next window (for example <em>Next: Thu 22 Oct 18:30 → Thu 22
 Oct 23:30</em>), and the page lists the combined on-windows for the next 14 days, so you can check what a
 schedule does before relying on it.</p>
@@ -1077,7 +1087,8 @@ unreachable); both rules were removed.</p>
 </table>
 <p>=== "Create a schedule"</p>
 <div class="highlight"><pre><span></span><code>The JSON field for a row is still called `rules`; `startTime` / `endTime` may be left out
-(start or end of the day), and `00:00` as an end means midnight.
+(start or end of the day), and `00:00` as an end means midnight. `"enabled": false` keeps a row
+but ignores it (default `true`).
 
 ```console
 $ curl -X POST http://localhost:9099/api/v1/calendars \
