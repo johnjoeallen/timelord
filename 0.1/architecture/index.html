@@ -1062,7 +1062,10 @@ changes take effect quickly:</p>
   and otherwise returns after the timeout so the agent asks again.</li>
 </ul>
 <p>The agent caches both (<code>schedule.json</code>, <code>messages.json</code>) and keeps enforcing
-from the cache while the controller is unreachable. The notifier then reads
+from the cache while the controller is unreachable. Because that cache can be
+stale after the device has been off or asleep, the agent re-confirms it with
+the controller on startup and after a sleep before enforcing it (falling back
+to the cache after 90 seconds without an answer). The notifier then reads
 that cache through the agent's local pipe; see <a href="../notifier/#how-it-works">Notifier</a>.</p>
 <h2 id="event-delivery-and-idempotency">Event delivery and idempotency<a class="headerlink" href="#event-delivery-and-idempotency" title="Permanent link">&para;</a></h2>
 <ul>

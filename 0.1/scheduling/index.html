@@ -847,12 +847,22 @@
 assign each device to one, and the agent puts the device to sleep (or shuts it down) at the
 calendar's off times. "On" simply means <em>allowed to be on again</em> — nothing wakes a sleeping
 device.</p>
+<figure>
+<p><img alt="The Calendars page listing two calendars and a form to create another" src="../images/calendars.png" />
+  </p>
+<figcaption>The Calendars page: each calendar's action, timezone and how many rules and overrides it has.</figcaption>
+</figure>
 <div class="admonition note">
 <p class="admonition-title">Developer preview</p>
 <p>Scheduling is new. The agent-side sleep and shutdown have not been exercised on real hardware
 beyond compile checks and unit tests — try it on a spare machine first (see
 <a href="#trying-it-safely">Trying it safely</a>).</p>
 </div>
+<figure>
+<p><img alt="A calendar's page with weekly rules, holiday overrides and a 14-day preview" src="../images/calendar-detail.png" />
+  </p>
+<figcaption>The calendar editor: weekly rules, overrides, and the resolved next 14 days.</figcaption>
+</figure>
 <h2 id="how-a-calendar-works">How a calendar works<a class="headerlink" href="#how-a-calendar-works" title="Permanent link">&para;</a></h2>
 <p>A calendar has a <strong>name</strong>, a <strong>timezone</strong>, and an <strong>action</strong> taken at off time:</p>
 <table>
@@ -918,6 +928,11 @@ in that range goes off at 01:00 instead of 22:30. A second override for <em>24 D
 <p>Use the <strong>Next 14 days</strong> table on a calendar's page (or <code>GET /api/v1/calendars/{id}/windows</code>) to
 see exactly what a calendar resolves to before relying on it.</p>
 <h3 id="allowing-a-device-longer">Allowing a device longer<a class="headerlink" href="#allowing-a-device-longer" title="Permanent link">&para;</a></h3>
+<figure>
+<p><img alt="Device page cards for assigning a calendar and granting more time" src="../images/device-calendar.png" />
+  </p>
+<figcaption>The device page: calendar assignment, upcoming off times and the extension buttons.</figcaption>
+</figure>
 <p>On a device's page, <strong>+15 min / +30 min / +1 hour</strong> grant a temporary <strong>extension</strong>:</p>
 <ul>
 <li>If the device is already inside an off window, it is allowed back on for that long from now.</li>
@@ -935,6 +950,16 @@ overrides.</p>
 <ul>
 <li><strong>Cached locally.</strong> The latest schedule is saved as <code>schedule.json</code> next to <code>agent.toml</code>, so
   enforcement continues across restarts and while the controller is unreachable.</li>
+<li><strong>Startup and resume.</strong> The cached schedule can be stale: the calendar may have been edited, or
+  the device granted more time, while it was off or asleep. So the agent does <strong>not</strong> enforce the
+  cache the moment it starts. It waits until the controller has confirmed the schedule (in the
+  registration or heartbeat response, or a long poll). If the controller stays unreachable for
+  90 seconds it enforces the cache anyway, so an offline device is still governed. The same
+  re-confirmation happens after the agent resumes from a sleep it caused, and after any wake it
+  notices (a wake-up much later than planned, such as a closed lid). The notifier is not told about
+  upcoming actions from an unconfirmed cache either. In practice a device that boots inside a
+  cached off window stays on for a few seconds while it checks in, then either goes back to sleep
+  (nothing changed) or stays on (the calendar or an extension now says it may).</li>
 <li><strong>Changes arrive immediately.</strong> Besides every heartbeat, the agent holds a long poll open to
   <code>GET /api/v1/agents/{id}/schedule?revision=…</code>. The controller answers the moment an extension,
   assignment or calendar edit changes the revision, so "+30 minutes" takes effect within moments,

@@ -830,7 +830,9 @@ calendar — a hard-wired overnight sleep and an offline fallback (below). See
 <li>Receives its <a href="../scheduling/">calendar</a> as concrete off windows (in heartbeat responses and via
    a long poll that delivers changes within moments), caches it in <code>schedule.json</code>, and puts the
    device to sleep or shuts it down inside an off window — also while the controller is
-   unreachable.</li>
+   unreachable. At startup and after a sleep it first waits for the controller to confirm the
+   cached schedule (up to 90 seconds), since a calendar edit or extension may have happened
+   meanwhile; see <a href="../scheduling/#how-the-device-enforces-it">Startup and resume</a>.</li>
 <li>Long-polls for administrator messages, caches them in <code>messages.json</code>, and serves pending
    power actions and messages to the per-user <a href="../notifier/">notifier</a> over a local named pipe
    (<code>\\.\pipe\timelord-notify</code>, read-only).</li>
