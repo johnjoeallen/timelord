@@ -1,7 +1,7 @@
 site_name: TimeLord
 site_description: >-
-  Phase 1 of TimeLord — a Windows device monitoring platform: usage tracking,
-  reporting, and a live dashboard. No enforcement yet.
+  TimeLord — a Windows device monitoring and scheduling platform: usage tracking, a live
+  dashboard, calendar-based sleep/shutdown, and on-screen warnings and messages.
 site_url: https://johnjoeallen.github.io/timelord/
 repo_url: https://github.com/johnjoeallen/timelord
 repo_name: johnjoeallen/timelord
@@ -19,6 +19,8 @@ nav:
   - Architecture: architecture.md
   - Agent: agent.md
   - Controller: controller.md
+  - Calendars: scheduling.md
+  - Notifier: notifier.md
 
 theme:
   name: material

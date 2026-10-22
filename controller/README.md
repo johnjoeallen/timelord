@@ -1,8 +1,9 @@
 # TimeLord Controller
 
 Central controller service (Java 21 / Spring Boot / PostgreSQL). Accepts agent registration,
-heartbeats, and events over plain HTTP (Phase 1 — see the security warning in the root
-`README.md`), and serves a Thymeleaf admin dashboard.
+heartbeats, and events over plain HTTP (unauthenticated — see the security warning in the root
+`README.md`), resolves calendars into off windows, queues messages, and serves a Thymeleaf admin
+dashboard.
 
 ## Running
 
@@ -46,7 +47,11 @@ src/main/java/com/timelord/controller/
 ├── event/              DeviceEvent/DeviceHeartbeat entities, EventService (idempotent submission),
 │                        admin EventController, heartbeat retention scheduler
 ├── discovery/            UDP listener + optional periodic announcer, controller identity persistence
-├── dashboard/              Thymeleaf DashboardController
+├── calendar/               Calendar/rule/override entities, CalendarResolver (rules + overrides ->
+│                            off windows), CalendarService, admin CalendarController
+├── message/                DeviceMessage entity, MessageService, admin MessageController,
+│                            MessageChangeNotifier (wakes message long polls)
+├── dashboard/              Thymeleaf DashboardController + CalendarDashboardController (form posts)
 ├── health/                  Custom actuator health indicator (discovery listener)
 └── common/                    ApiError/ApiException/GlobalExceptionHandler, correlation IDs,
                                 AgentRequestAuthenticator (no-op — the Phase-2 auth seam)
@@ -57,8 +62,16 @@ Flyway migrations: `src/main/resources/db/migration/`. Templates: `src/main/reso
 ## API
 
 `GET /api/v1/system/info` · admin: `/api/v1/devices`, `/api/v1/devices/{id}`,
-`/api/v1/devices/{id}/events`, `/api/v1/events`, `/api/v1/events/{id}` · agent:
-`/api/v1/agents/register`, `/api/v1/agents/{id}/heartbeat`, `/api/v1/agents/{id}/events`.
+`DELETE /api/v1/devices/{id}` (also removes its events, heartbeats and messages),
+`/api/v1/devices/{id}/events`, `/api/v1/events`, `/api/v1/events/{id}`, plus
+`/api/v1/calendars/**`, `PUT /api/v1/devices/{id}/calendar`, `POST /api/v1/devices/{id}/extend`
+and `/api/v1/devices/{id}/messages`, `POST /api/v1/messages` (see `../docs/scheduling.md` and
+`../docs/notifier.md`) · agent: `/api/v1/agents/register`, `/api/v1/agents/{id}/heartbeat`,
+`/api/v1/agents/{id}/events`, and the long polls `GET /api/v1/agents/{id}/schedule` and
+`GET /api/v1/agents/{id}/messages`.
+
+Heartbeat and registration responses also carry the device's resolved schedule (`schedule`,
+`null` without a calendar).
 
 Errors are a consistent JSON shape (`timestamp/status/code/message/details/correlationId`);
 device/event lookups return `404` with code `DEVICE_NOT_FOUND` / `EVENT_NOT_FOUND`.
@@ -89,5 +102,8 @@ $ docker run --rm -v "$PWD":/build -w /build -v /var/run/docker.sock:/var/run/do
 
 ## Web UI
 
-`/` (dashboard), `/devices` (filterable list), `/devices/{id}` (detail + recent events),
-`/events` (filterable, paginated). Bootstrap is bundled via WebJars — no external CDN.
+`/` (dashboard, with a "message all devices" form), `/devices` (filterable list), `/devices/{id}`
+(detail, calendar assignment and "allow longer" buttons, send-a-message with history, delete
+device), `/calendars` and `/calendars/{id}` (create and edit calendars, weekly rules, overrides,
+14-day preview), `/events` (filterable, paginated). Bootstrap is bundled via WebJars — no external
+CDN.

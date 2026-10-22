@@ -4,20 +4,30 @@ TimeLord is aiming to become a centrally managed computer-usage policy platform 
 enforces schedules, session limits, mandatory breaks, connectivity requirements, and remote power
 controls across Windows devices. **It isn't that yet.**
 
-**Today, Phase 1 is monitoring only:** a Windows agent tracks who's logged into a device and for
-how long, and a controller/dashboard shows it live — device online/offline status, whether someone
-is actually using it right now ("Active"), login session history, and network interfaces. There is
-no schedule engine, no enforcement, and no remote power control. See
-[`docs/architecture.md`](docs/architecture.md#whats-implemented) for exactly what exists today, or
-the [docs site](https://johnjoeallen.github.io/timelord/) for the same content, nicer.
+**Today it monitors devices and enforces on/off calendars.** A Windows agent tracks who's logged
+into a device and for how long, and a controller/dashboard shows it live — device online/offline
+status, whether someone is actually using it right now ("Active"), login session history, and
+network interfaces. You can also give each device a **calendar** (weekly off/on times such as
+Sun–Thu off 22:30, Fri/Sat off 01:00, on at 06:30, with dated overrides for holidays that never
+change the base schedule); the agent sleeps or shuts the device down at off time, even if the
+controller is down, and a per-user **notifier** warns the person at the keyboard beforehand and
+shows messages you send from the dashboard. You can grant a device a few more minutes with one
+click. **Not** implemented: session limits, mandatory breaks, connectivity requirements, or
+immediate remote power commands. See [`docs/architecture.md`](docs/architecture.md#whats-implemented)
+for exactly what exists today, or the [docs site](https://johnjoeallen.github.io/timelord/) for
+the same content, nicer.
 
 **TimeLord — The Authority on Computer Time.** *(eventually.)*
 
 > **⚠ Developer preview — not for production use.** This build uses plain, unauthenticated HTTP
 > (no TLS, no request signing, no access control) and every agent must be able to reach the
-> controller directly on the same network(s) — there's no NAT traversal or relay. It's meant for a
-> trusted local/dev network only. It also puts an unreachable device to sleep between 01:00–08:30
-> local time by default (not configurable from the controller). See
+> controller directly on the same network(s) — there's no NAT traversal or relay. The admin API is
+> unauthenticated too, so anyone who can reach the controller can send messages, grant time and
+> delete devices. It's meant for a trusted local/dev network only. Devices **without a calendar**
+> are put to sleep 02:00–06:00 local time, and an agent that can't reach the controller also
+> sleeps its device 01:00–08:30 (neither configurable from the controller). Calendar sleep and
+> shutdown, and the notifier's toasts, have had unit tests and compile checks but no end-to-end
+> testing on real machines. See
 > [Before you deploy this](docs/architecture.md#before-you-deploy-this) for the full list.
 
 ## Screenshots
@@ -30,9 +40,11 @@ the [docs site](https://johnjoeallen.github.io/timelord/) for the same content, 
 
 | Component            | Path          | Language                | Status                          |
 |-----------------------|---------------|--------------------------|----------------------------------|
-| TimeLord Agent        | `agent/`      | Rust (Windows service)   | Phase 1: usage tracking + reporting (monitoring only) |
-| TimeLord Controller    | `controller/` | Java 21 / Spring Boot    | Phase 1: registration, events, status, dashboard |
-| TimeLord Console       | (controller)  | Thymeleaf (server-rendered) | Phase 1: dashboard/devices/events |
+| TimeLord Agent        | `agent/`      | Rust (Windows service)   | Usage tracking + reporting, calendar enforcement (sleep/shutdown), local pipe for the notifier |
+| TimeLord Notifier     | `notifier/`   | Rust (per-user program)  | Toast warnings before sleep/shutdown, admin messages (no countdown window or tray yet) |
+| Shared IPC types      | `ipc/`        | Rust (library)           | Agent ↔ notifier named-pipe messages |
+| TimeLord Controller    | `controller/` | Java 21 / Spring Boot    | Registration, events, status, calendars, extensions, messages, dashboard |
+| TimeLord Console       | (controller)  | Thymeleaf (server-rendered) | Dashboard, devices, calendars, messages, events |
 | TimeLord Protocol      | `protocol/`   | JSON Schema              | Not yet populated |
 
 ## Quick start
@@ -97,9 +109,12 @@ timelord/
 **[johnjoeallen.github.io/timelord](https://johnjoeallen.github.io/timelord/)** — the docs site
 (built from `docs/` via MkDocs, published on every push to `main`).
 
-- [`docs/architecture.md`](docs/architecture.md) — what's implemented (monitoring only),
-  component diagram, discovery sequence, event delivery/idempotency, security boundary, known
+- [`docs/architecture.md`](docs/architecture.md) — what's implemented, component
+  diagram, discovery sequence, event delivery/idempotency, security boundary, known
   limitations
+- [`docs/scheduling.md`](docs/scheduling.md) — calendars, holiday overrides, extending a device,
+  how the agent enforces and caches the schedule
+- [`docs/notifier.md`](docs/notifier.md) — toast warnings, sending messages, the local pipe
 - [`agent/README.md`](agent/README.md) — agent internals, CLI, local dev workflow
 - [`controller/README.md`](controller/README.md) — controller internals, API, running tests
 - [`deployment/windows/README.md`](deployment/windows/README.md) — Windows service install

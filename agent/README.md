@@ -2,10 +2,11 @@
 
 Windows service (Rust) that tracks device usage and reports it to a TimeLord Controller.
 
-> Phase 1: unauthenticated plain HTTP to the controller. The controller itself has no
-> schedule/policy enforcement yet — the only enforcement today is the agent's own offline
-> fallback (below), which acts locally when it can't reach the controller at all. See
-> `../docs/architecture.md` for the security boundary.
+> Unauthenticated plain HTTP to the controller. There is no session-limit or break enforcement
+> yet. The agent does enforce a calendar assigned by the controller (sleep or shutdown at off
+> times — see `../docs/scheduling.md`), and, for devices with no calendar, a hard-wired
+> overnight sleep and an offline fallback (below). See `../docs/architecture.md` for the
+> security boundary.
 
 ## What it does
 
@@ -16,6 +17,13 @@ Windows service (Rust) that tracks device usage and reports it to a TimeLord Con
    `USER_LOCK`, ... — the full list is in `src/protocol.rs::EventType`).
 4. Queues events locally (SQLite) so a controller outage never loses one — see
    `../docs/architecture.md#event-delivery-and-idempotency`.
+5. Receives its calendar (`../docs/scheduling.md`) as concrete off windows — in heartbeat
+   responses and via a long poll that delivers changes within moments — caches it in
+   `schedule.json`, and puts the device to sleep or shuts it down inside an off window, also
+   while the controller is unreachable (`schedule.rs`, `agent.rs::enforcement_loop`).
+6. Long-polls for administrator messages, caches them in `messages.json`, and serves pending
+   power actions and messages to the per-user notifier (`../notifier/`, `../docs/notifier.md`)
+   over a read-only named pipe, `\\.\pipe\timelord-notify` (`notify_pipe.rs`).
 
 ## CLI
 
@@ -54,9 +62,17 @@ discovery_port = 45821
 discovery_timeout_seconds = 5
 ```
 
-### Offline fallback
+### Overnight sleep and offline fallback
 
-If the agent can't reach the controller at all (registration, heartbeats, and event delivery are
+Both of these apply **only to a device with no calendar** — once the agent has a cached calendar
+schedule they are skipped and the calendar governs.
+
+**Hard-wired overnight sleep.** Between 02:00 and 06:00 local time the agent puts the device to
+sleep (checked every 5 minutes), whether or not the controller is reachable. The window is
+compiled in (`agent.rs::hard_sleep_loop`) — a stopgap until calendars cover every device — and
+cannot be changed from `agent.toml` or the controller.
+
+**Offline fallback.** If the agent can't reach the controller at all (registration, heartbeats, and event delivery are
 all failing), it falls back to a local safety schedule: every 5 minutes, if still disconnected
 and local time falls within `offline_fallback_start`-`offline_fallback_end` (wrapping past
 midnight is supported, e.g. `22:00`-`06:00`), it puts the device to sleep (`SetSuspendState`, not
@@ -173,18 +189,20 @@ $ cargo check --target x86_64-pc-windows-gnu --bins
 ```
 
 `install`/`uninstall` use the Service Control Manager API directly (`windows-service` crate),
-not `sc.exe`. For a packaged zip with a PowerShell installer instead, see
-`deployment/windows/README.md`.
+not `sc.exe`. For a packaged zip with a PowerShell installer instead (which also installs the
+per-user notifier and its logon task), see `deployment/windows/README.md`.
 
 ## Data
 
 By default state lives under `C:\ProgramData\TimeLord\` (override with `TIMELORD_DATA_DIR`):
 
 ```text
-state.db     Usage sessions (tracker.rs / store.rs)
-events.db    Local event queue pending controller delivery (queue.rs)
-agent.toml   Configuration
-logs/        Daily-rolling structured logs
+state.db        Usage sessions (tracker.rs / store.rs)
+events.db       Local event queue pending controller delivery (queue.rs)
+agent.toml      Configuration
+schedule.json   Cached calendar schedule (schedule.rs); absent if no calendar
+messages.json   Cached administrator messages + polling cursor (messages.rs)
+logs/           Daily-rolling structured logs
 ```
 
 If the agent is killed rather than shut down cleanly, the next start finds any dangling open

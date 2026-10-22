@@ -3,9 +3,10 @@
 Windows service (Rust) that tracks device usage and reports it to a TimeLord Controller.
 
 !!! note
-    Phase 1: unauthenticated plain HTTP to the controller. The controller itself has no
-    schedule/policy enforcement yet — the only enforcement today is the agent's own offline
-    fallback (below), which acts locally when it can't reach the controller at all. See
+    Unauthenticated plain HTTP to the controller. There is no session-limit or break enforcement
+    yet. The agent does enforce a [calendar](scheduling.md)
+    assigned by the controller (sleep or shutdown at off times), and — for devices with no
+    calendar — a hard-wired overnight sleep and an offline fallback (below). See
     [Security boundary](architecture.md#security-boundary).
 
 ## What it does
@@ -17,6 +18,13 @@ Windows service (Rust) that tracks device usage and reports it to a TimeLord Con
    `USER_LOCK`, ... — the full list is in `protocol.rs::EventType`).
 4. Queues events locally (SQLite) so a controller outage never loses one — see
    [Event delivery and idempotency](architecture.md#event-delivery-and-idempotency).
+5. Receives its [calendar](scheduling.md) as concrete off windows (in heartbeat responses and via
+   a long poll that delivers changes within moments), caches it in `schedule.json`, and puts the
+   device to sleep or shuts it down inside an off window — also while the controller is
+   unreachable.
+6. Long-polls for administrator messages, caches them in `messages.json`, and serves pending
+   power actions and messages to the per-user [notifier](notifier.md) over a local named pipe
+   (`\\.\pipe\timelord-notify`, read-only).
 
 ## CLI
 
@@ -55,9 +63,18 @@ discovery_port = 45821
 discovery_timeout_seconds = 5
 ```
 
-### Offline fallback
+### Overnight sleep and offline fallback
 
-If the agent can't reach the controller at all (registration, heartbeats, and event delivery are
+!!! note
+    Both of these apply **only to a device with no calendar**. As soon as the agent has a cached
+    calendar schedule they are skipped and the [calendar](scheduling.md) governs.
+
+**Hard-wired overnight sleep.** Between **02:00 and 06:00** local time the agent puts the device
+to sleep (checked every 5 minutes), whether or not the controller is reachable. The window is
+compiled in — a stopgap until calendars cover every device — and cannot be changed from
+`agent.toml` or the controller.
+
+**Offline fallback.** If the agent can't reach the controller at all (registration, heartbeats, and event delivery are
 all failing), it falls back to a local safety schedule: every 5 minutes, if still disconnected and
 local time falls within `offline_fallback_start`-`offline_fallback_end` (wrapping past midnight is
 supported, e.g. `22:00`-`06:00`), it puts the device to sleep (`SetSuspendState`, not hibernate — a
@@ -115,10 +132,12 @@ not create a synthetic logon.
 By default state lives under `C:\ProgramData\TimeLord\` (override with `TIMELORD_DATA_DIR`):
 
 ```text
-state.db     Usage sessions
-events.db    Local event queue pending controller delivery
-agent.toml   Configuration
-logs/        Daily-rolling structured logs
+state.db        Usage sessions
+events.db       Local event queue pending controller delivery
+agent.toml      Configuration
+schedule.json   Cached calendar schedule (resolved off windows); absent if no calendar
+messages.json   Cached administrator messages and the polling cursor
+logs/           Daily-rolling structured logs
 ```
 
 If the agent is killed rather than shut down cleanly, the next start finds any dangling open usage
@@ -134,4 +153,7 @@ queued in `events.db` — nothing is lost.
 ```
 
 `install`/`uninstall` use the Service Control Manager API directly, not `sc.exe`. A packaged zip
-with a PowerShell installer is attached to every tagged release on GitHub.
+with a PowerShell installer is attached to every tagged release on GitHub; it contains both
+`timelord-agent.exe` and `timelord-notifier.exe`, and `install.ps1` also registers a
+**TimeLord Notifier** scheduled task that starts the [notifier](notifier.md) at each user's logon
+(`-SkipNotifier` to skip it).

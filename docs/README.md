@@ -8,6 +8,10 @@ published to GitHub Pages via `.github/workflows/docs.yml` on every push to `mai
 - [`index.md`](index.md) — site home page (overview, screenshots, what's implemented)
 - [`architecture.md`](architecture.md) — component diagram, discovery sequence, event
   delivery/idempotency, security boundary, known limitations
+- [`scheduling.md`](scheduling.md) — calendars, holiday overrides, extending a device, how the
+  agent enforces and caches the schedule, admin API
+- [`notifier.md`](notifier.md) — toast warnings, sending messages, the local pipe
+- [`agent.md`](agent.md), [`controller.md`](controller.md) — component internals
 - `images/` — screenshots referenced from the pages above
 
 ## Previewing locally
@@ -26,4 +30,4 @@ the `gh-pages` branch — never hand-edit that branch, it's generated output, no
 fix always goes into `docs/` on `main`; the workflow rebuilds and pushes `gh-pages` for you.
 
 A threat model, formal protocol spec, and further operational guides land here as the system
-grows past Phase 1.
+grows.
