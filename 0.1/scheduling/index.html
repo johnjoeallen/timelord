@@ -569,10 +569,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#weekly-rules-the-base-schedule" class="md-nav__link">
+  <a href="#weekly-rows-the-base-schedule" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Weekly rules (the base schedule)
+        Weekly rows (the base schedule)
       
     </span>
   </a>
@@ -730,10 +730,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#weekly-rules-the-base-schedule" class="md-nav__link">
+  <a href="#weekly-rows-the-base-schedule" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Weekly rules (the base schedule)
+        Weekly rows (the base schedule)
       
     </span>
   </a>
@@ -843,14 +843,14 @@
 
 
 <h1 id="calendars-and-scheduling">Calendars and scheduling<a class="headerlink" href="#calendars-and-scheduling" title="Permanent link">&para;</a></h1>
-<p>A <strong>calendar</strong> tells a device when it must be off. You create named calendars in the dashboard,
-assign each device to one, and the agent puts the device to sleep (or shuts it down) at the
-calendar's off times. "On" simply means <em>allowed to be on again</em> — nothing wakes a sleeping
-device.</p>
+<p>A <strong>calendar</strong> tells a device when it may be <strong>on</strong>. You create named calendars in the dashboard,
+assign each device to one, and the agent puts the device to sleep (or shuts it down) whenever the
+calendar says it should be off — that is, outside every on-window. Nothing wakes a sleeping device:
+"on" only means <em>allowed to be on</em>.</p>
 <figure>
 <p><img alt="The Calendars page listing two calendars and a form to create another" src="../images/calendars.png" />
   </p>
-<figcaption>The Calendars page: each calendar's action, timezone and how many rules and overrides it has.</figcaption>
+<figcaption>The Calendars page: each calendar's action, timezone and how many weekly rows and overrides it has.</figcaption>
 </figure>
 <div class="admonition note">
 <p class="admonition-title">Developer preview</p>
@@ -859,9 +859,9 @@ beyond compile checks and unit tests — try it on a spare machine first (see
 <a href="#trying-it-safely">Trying it safely</a>).</p>
 </div>
 <figure>
-<p><img alt="A calendar's page with weekly rules, holiday overrides and a 14-day preview" src="../images/calendar-detail.png" />
+<p><img alt="A calendar's page with weekly rows, holiday overrides and the resulting on-windows" src="../images/calendar-detail.png" />
   </p>
-<figcaption>The calendar editor: weekly rules, overrides, and the resolved next 14 days.</figcaption>
+<figcaption>The calendar editor: weekly rows (several on the same day), overrides that add time, and the resolved on-windows for the next 14 days.</figcaption>
 </figure>
 <h2 id="how-a-calendar-works">How a calendar works<a class="headerlink" href="#how-a-calendar-works" title="Permanent link">&para;</a></h2>
 <p>A calendar has a <strong>name</strong>, a <strong>timezone</strong>, and an <strong>action</strong> taken at off time:</p>
@@ -875,7 +875,7 @@ beyond compile checks and unit tests — try it on a spare machine first (see
 <tbody>
 <tr>
 <td><code>SLEEP</code></td>
-<td>Suspends the device (<code>SetSuspendState</code>, never hibernate) and keeps re-suspending it until the on time if someone wakes it.</td>
+<td>Suspends the device (<code>SetSuspendState</code>, never hibernate) and keeps re-suspending it for as long as the calendar says off, if someone wakes it.</td>
 </tr>
 <tr>
 <td><code>SHUTDOWN</code></td>
@@ -883,50 +883,95 @@ beyond compile checks and unit tests — try it on a spare machine first (see
 </tr>
 </tbody>
 </table>
-<h3 id="weekly-rules-the-base-schedule">Weekly rules (the base schedule)<a class="headerlink" href="#weekly-rules-the-base-schedule" title="Permanent link">&para;</a></h3>
-<p>Each rule has a set of <strong>days</strong>, an <strong>off</strong> time and an <strong>on</strong> time. A rule belongs to the
-<em>evening it starts on</em>, which makes overnight rules read the way people say them:</p>
+<h3 id="weekly-rows-the-base-schedule">Weekly rows (the base schedule)<a class="headerlink" href="#weekly-rows-the-base-schedule" title="Permanent link">&para;</a></h3>
+<p>Each day is its own line from midnight to midnight. A <strong>row</strong> has a set of <strong>days</strong>, an <strong>On from</strong>
+time and an <strong>Off at</strong> time, and says: <em>on each of these days the device may be on from On from until
+Off at</em>. You can add as many rows as you like, <strong>including several for the same day</strong>. All the
+windows are combined; the device is on inside them and off everywhere else.</p>
 <table>
 <thead>
 <tr>
-<th>Rule</th>
-<th>Off</th>
-<th>On</th>
+<th>Days</th>
+<th>On from</th>
+<th>Off at</th>
 <th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Sun–Thu</td>
-<td>22:30</td>
-<td>06:30</td>
-<td>Off at 22:30 that evening, allowed again at 06:30 next morning</td>
+<td>Mon–Fri</td>
+<td>08:30</td>
+<td>10:30</td>
+<td>On 08:30–10:30 ...</td>
 </tr>
 <tr>
-<td>Fri, Sat</td>
-<td>01:00</td>
-<td>06:30</td>
-<td>The night of Friday is off from 01:00 <strong>Saturday</strong> to 06:30 Saturday</td>
+<td>Mon–Fri</td>
+<td>18:30</td>
+<td>23:30</td>
+<td>... and again 18:30–23:30; off the rest of the day</td>
+</tr>
+<tr>
+<td>Sat, Sun</td>
+<td><em>(blank)</em></td>
+<td><em>(blank)</em></td>
+<td>The whole day</td>
+</tr>
+<tr>
+<td>Thu</td>
+<td>00:00</td>
+<td>16:15</td>
+<td>On from midnight until 16:15 ...</td>
+</tr>
+<tr>
+<td>Thu</td>
+<td>16:30</td>
+<td>00:00</td>
+<td>... off 16:15–16:30, on again 16:30 until midnight</td>
 </tr>
 </tbody>
 </table>
-<p>If the off time is earlier than the on time (01:00 vs 06:30) it falls after midnight, on the next
-calendar day. A day may appear in at most one rule, and a rule's off and on times must differ. A
-day with no rule has no off window at all.</p>
+<p>Rules for the times:</p>
+<ul>
+<li><strong>Windows stay inside their day.</strong> A window never runs past midnight; <strong>Off at 00:00 means midnight
+  at the end of the day</strong>, so <code>18:30 → 00:00</code> is the evening and <code>00:00 → 00:00</code> is the whole day.
+  Off at must otherwise be later than On from, and the dashboard and API refuse a row that isn't.</li>
+<li><strong>Blank means the edge of the day.</strong> Leave <strong>On from</strong> blank to start at the beginning of the day
+  (00:00) and <strong>Off at</strong> blank to run to midnight; both blank is the whole day.</li>
+<li><strong>The next day takes over.</strong> A window that ends at midnight simply continues into the next day's
+  window if that starts at 00:00 — there is no gap at midnight. So a late night is two rows:
+  <em>Fri, on from 18:00, no off</em> and <em>Sat, no on from, off at 01:00</em> give one continuous window from
+  Friday 18:00 to Saturday 01:00.</li>
+<li><strong>Off for a while inside a day</strong> is a gap between two rows (the Thursday example above).</li>
+<li><strong>A day with no row is off all day</strong> — but a calendar with <strong>no rows at all</strong> restricts nothing,
+  so a newly created, still-empty calendar doesn't keep a device asleep.</li>
+</ul>
+<p>Each row on the calendar page shows its next window (for example <em>Next: Thu 22 Oct 18:30 → Thu 22
+Oct 23:30</em>), and the page lists the combined on-windows for the next 14 days, so you can check what a
+calendar does before relying on it.</p>
+<div class="admonition note">
+<p class="admonition-title">Earlier versions</p>
+<p>Earlier versions described a calendar as <em>off</em> times (one rule per day, an off and an on time,
+with an inferred "after midnight"). On upgrade the controller converts existing calendars to
+on-windows automatically: weekly rules become the equivalent rows exactly. Overrides are
+converted too, but they can no longer <em>narrow</em> a day (see below). A calendar whose old rules left
+no on-time at all ends up with no rows, which restricts nothing.</p>
+</div>
 <h3 id="overrides-holidays-and-one-offs">Overrides (holidays and one-offs)<a class="headerlink" href="#overrides-holidays-and-one-offs" title="Permanent link">&para;</a></h3>
-<p>An <strong>override</strong> is a date range with its own off and on times. For every night that <em>starts</em> within
-the range it replaces the weekly rule; the weekly rules themselves are never changed, so removing
-the override puts everything back. A single day is an override whose start and end date are the
-same (in the dashboard, leave "To" blank).</p>
-<p>If overrides overlap, the <strong>narrowest range wins</strong>; on a tie the most recently created wins.</p>
+<p>An <strong>override</strong> is a date range with an On from and an Off at time, written like a row (same blank
+and midnight rules). It is <strong>layered on after</strong> the weekly rows are expanded: for every date in the
+range it <em>adds</em> that window to the day, and everything is combined. So an override can <strong>extend</strong> a
+day or <strong>add</strong> time on a day with no row, but it can <strong>never narrow</strong> one — an override inside an
+existing window changes nothing. The weekly rows themselves are never edited; remove the override and
+the day goes back. A single day is an override whose start and end date are the same (in the
+dashboard, leave "To" blank). Overrides stack.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<p>The base calendar above, plus an override <em>20 Dec – 5 Jan, off 01:00, on 06:30</em>: every night
-in that range goes off at 01:00 instead of 22:30. A second override for <em>24 Dec only, off
-23:30</em> wins on that one night because it is narrower.</p>
+<p>Weekdays normally have 07:00–08:30 and 15:30–21:30. <em>Half-term, 30 Oct – 8 Nov, on 09:00–23:00</em>
+adds a long window each of those days, so the device is on 07:00–08:30 and 09:00–23:00 (the
+window 15:30–21:30 is absorbed). <em>Birthday sleepover, 13 Nov, on from 15:30</em> extends that evening
+to midnight, and a second override for <em>14 Nov, off at 02:00</em> (no on from) carries it to 02:00.
+To let a holiday run late you add the early-hours piece as an override for the next date.</p>
 </div>
-<p>Use the <strong>Next 14 days</strong> table on a calendar's page (or <code>GET /api/v1/calendars/{id}/windows</code>) to
-see exactly what a calendar resolves to before relying on it.</p>
 <h3 id="allowing-a-device-longer">Allowing a device longer<a class="headerlink" href="#allowing-a-device-longer" title="Permanent link">&para;</a></h3>
 <figure>
 <p><img alt="Device page cards for assigning a calendar and granting more time" src="../images/device-calendar.png" />
@@ -943,10 +988,10 @@ see exactly what a calendar resolves to before relying on it.</p>
 <p>An extension never edits the calendar. It is cleared if you assign the device a different
 calendar.</p>
 <h2 id="how-the-device-enforces-it">How the device enforces it<a class="headerlink" href="#how-the-device-enforces-it" title="Permanent link">&para;</a></h2>
-<p>The controller resolves the calendar (rules, overrides and any extension) into <strong>concrete off
-windows</strong> — absolute start and end times for the next 7 days — and sends them to the agent with a
-<strong>revision</strong> that changes whenever they do. The agent therefore never has to understand rules or
-overrides.</p>
+<p>The controller resolves the calendar (rows, overrides and any extension) into <strong>concrete off
+windows</strong> — the gaps between the on-windows, as absolute start and end times for the next 7 days — and
+sends them to the agent with a <strong>revision</strong> that changes whenever they do. The agent therefore never
+has to understand rows or overrides; it only asks whether the time now falls inside an off window.</p>
 <ul>
 <li><strong>Cached locally.</strong> The latest schedule is saved as <code>schedule.json</code> next to <code>agent.toml</code>, so
   enforcement continues across restarts and while the controller is unreachable.</li>
@@ -991,7 +1036,7 @@ configurable from the controller</strong>:</p>
 <tbody>
 <tr>
 <td><code>GET /api/v1/calendars</code> · <code>GET /api/v1/calendars/{id}</code></td>
-<td>List / read calendars (with rules and overrides)</td>
+<td>List / read calendars (with rows and overrides)</td>
 </tr>
 <tr>
 <td><code>POST /api/v1/calendars</code></td>
@@ -999,7 +1044,7 @@ configurable from the controller</strong>:</p>
 </tr>
 <tr>
 <td><code>PUT /api/v1/calendars/{id}</code></td>
-<td>Replace name, timezone, action and the <strong>whole set of weekly rules</strong> (overrides untouched)</td>
+<td>Replace name, timezone, action and the <strong>whole set of weekly rows</strong> (overrides untouched)</td>
 </tr>
 <tr>
 <td><code>DELETE /api/v1/calendars/{id}</code></td>
@@ -1014,8 +1059,12 @@ configurable from the controller</strong>:</p>
 <td>Remove an override</td>
 </tr>
 <tr>
+<td><code>GET /api/v1/calendars/{id}/allowed?from=&amp;days=</code></td>
+<td>Preview the resolved on-windows (what the dashboard's table shows)</td>
+</tr>
+<tr>
 <td><code>GET /api/v1/calendars/{id}/windows?from=&amp;days=</code></td>
-<td>Preview the resolved off windows</td>
+<td>Preview the resolved off windows (what the agent is sent)</td>
 </tr>
 <tr>
 <td><code>PUT /api/v1/devices/{id}/calendar</code></td>
@@ -1032,15 +1081,21 @@ configurable from the controller</strong>:</p>
 </tbody>
 </table>
 <p>=== "Create a calendar"</p>
-<div class="highlight"><pre><span></span><code>```console
+<div class="highlight"><pre><span></span><code>The JSON field for a row is still called `rules`; `startTime` / `endTime` may be left out
+(start or end of the day), and `00:00` as an end means midnight.
+
+```console
 $ curl -X POST http://localhost:9099/api/v1/calendars \
     -H 'Content-Type: application/json' -d '{
-      "name": "School kids",
+      "name": "School days",
       "timezone": "Europe/Dublin",
       "action": "SLEEP",
       "rules": [
-        {"days": ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY"], "offTime": "22:30", "onTime": "06:30"},
-        {"days": ["FRIDAY","SATURDAY"], "offTime": "01:00", "onTime": "06:30"}
+        {"days": ["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY"], "startTime": "07:00", "endTime": "08:30"},
+        {"days": ["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY"], "startTime": "15:30", "endTime": "21:30"},
+        {"days": ["SATURDAY","SUNDAY"], "startTime": "08:30", "endTime": "12:00"},
+        {"days": ["SATURDAY","SUNDAY"], "startTime": "14:00"},
+        {"days": ["SATURDAY","SUNDAY"], "endTime": "01:00"}
       ]
     }'
 ```
@@ -1050,10 +1105,9 @@ $ curl -X POST http://localhost:9099/api/v1/calendars \
 $ curl -X POST http://localhost:9099/api/v1/calendars/$CALENDAR_ID/overrides \
     -H 'Content-Type: application/json' -d '{
       "name": "Christmas",
-      "startDate": "2026-12-20",
+      "startDate": "2026-12-19",
       "endDate": "2027-01-05",
-      "offTime": "01:00",
-      "onTime": "06:30"
+      "startTime": "08:00"
     }'
 ```
 </code></pre></div>
@@ -1064,15 +1118,17 @@ $ curl -X POST http://localhost:9099/api/v1/devices/$DEVICE_ID/extend \
 ```
 </code></pre></div>
 <p>Validation errors come back in the usual <a href="../controller/#api">error shape</a>, for example
-<code>INVALID_TIMEZONE</code>, <code>INVALID_RULE</code> (a day in two rules, or equal off/on times),
-<code>INVALID_OVERRIDE</code>, <code>CALENDAR_NAME_TAKEN</code> (<code>409</code>), and <code>NO_CALENDAR</code> / <code>NO_OFF_WINDOW</code> (<code>409</code>) when
+<code>INVALID_TIMEZONE</code>, <code>INVALID_RULE</code> (no days, or an Off at that is not after On from — a window
+can't run past midnight, add a row for the next day), <code>INVALID_OVERRIDE</code> (the same, or an end date
+before the start date), <code>CALENDAR_NAME_TAKEN</code> (<code>409</code>), and <code>NO_CALENDAR</code> / <code>NO_OFF_WINDOW</code> (<code>409</code>) when
 extending a device that has nothing to extend.</p>
 <h2 id="trying-it-safely">Trying it safely<a class="headerlink" href="#trying-it-safely" title="Permanent link">&para;</a></h2>
 <ol>
-<li>Create a calendar with an off time about 20 minutes ahead and the <strong>Sleep</strong> action, and assign
-   it to a spare device.</li>
-<li>Watch the device sleep at the off time; wake it and confirm it is put back to sleep.</li>
-<li>Assign it again, press <strong>+15 min</strong> shortly before the off time, and confirm it stays on.</li>
+<li>Create a calendar with a window that ends about 20 minutes from now (say, <em>on from</em> blank, <em>off
+   at</em> 20 minutes ahead, for today's weekday) and the <strong>Sleep</strong> action, and assign it to a spare
+   device. Remember the rest of that day, and every other day without a row, is then off.</li>
+<li>Watch the device sleep at the end of the window; wake it and confirm it is put back to sleep.</li>
+<li>Assign it again, press <strong>+15 min</strong> shortly before the window ends, and confirm it stays on.</li>
 <li>Only then try <strong>Shutdown</strong>, again on a machine you can afford to power off.</li>
 </ol>
 
