@@ -861,7 +861,7 @@ beyond compile checks and unit tests — try it on a spare machine first (see
 <figure>
 <p><img alt="A schedule's page with weekly rows, holiday overrides and the resulting on-windows" src="../images/calendar-detail.png" />
   </p>
-<figcaption>The schedule editor: weekly rows (several on the same day), overrides that add time, and the resolved on-windows for the next 14 days.</figcaption>
+<figcaption>The schedule editor: weekly rows (several on the same day, <strong>+</strong>/<strong>−</strong> to add, disable or delete, a dimmed disabled row), overrides that add time (one is disabled), and the resolved on-windows for the next 14 days.</figcaption>
 </figure>
 <h2 id="how-a-schedule-works">How a schedule works<a class="headerlink" href="#how-a-schedule-works" title="Permanent link">&para;</a></h2>
 <p>A schedule has a <strong>name</strong>, a <strong>timezone</strong>, and an <strong>action</strong> taken at off time:</p>
@@ -974,6 +974,10 @@ day or <strong>add</strong> time on a day with no row, but it can <strong>never 
 existing window changes nothing. The weekly rows themselves are never edited; remove the override and
 the day goes back. A single day is an override whose start and end date are the same (in the
 dashboard, leave "To" blank). Overrides stack.</p>
+<p>Each override has <strong>Disable</strong> and <strong>Remove</strong> buttons. <em>Disable</em> keeps the override but stops it adding
+any time, exactly as if it were gone, and <em>Enable</em> turns it back on; use it to switch a holiday off and
+on again without re-entering it. (In the API: <code>PUT /api/v1/calendars/{id}/overrides/{overrideId}/enabled</code>
+with <code>{"enabled": false}</code>.)</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <p>Weekdays normally have 07:00–08:30 and 15:30–21:30. <em>Half-term, 30 Oct – 8 Nov, on 09:00–23:00</em>
@@ -1064,6 +1068,10 @@ unreachable); both rules were removed.</p>
 <tr>
 <td><code>DELETE /api/v1/calendars/{id}/overrides/{overrideId}</code></td>
 <td>Remove an override</td>
+</tr>
+<tr>
+<td><code>PUT /api/v1/calendars/{id}/overrides/{overrideId}/enabled</code></td>
+<td>Switch an override off or on (<code>{"enabled": false}</code>)</td>
 </tr>
 <tr>
 <td><code>GET /api/v1/calendars/{id}/allowed?from=&amp;days=</code></td>
