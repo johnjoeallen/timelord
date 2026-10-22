@@ -9,6 +9,37 @@
 
     <div th:replace="~{fragments/flash :: flash}"></div>
 
+    <div class="card mb-4" id="message-card">
+        <div class="card-header">Send a message</div>
+        <div class="card-body">
+            <form method="post" th:action="@{/devices/{id}/messages(id=${device.deviceId})}" class="row g-2 align-items-end">
+                <div class="col-md-3"><label class="form-label" for="mtitle">Title (optional)</label>
+                    <input class="form-control" id="mtitle" name="title" maxlength="100" placeholder="TimeLord"/></div>
+                <div class="col-md-5"><label class="form-label" for="mbody">Message</label>
+                    <input class="form-control" id="mbody" name="body" maxlength="500" required placeholder="Homework time, please wrap up"/></div>
+                <div class="col-6 col-md-2"><label class="form-label" for="mexp">Show for</label>
+                    <select class="form-select" id="mexp" name="expiresInMinutes">
+                        <option value="15">15 minutes</option>
+                        <option value="60">1 hour</option>
+                        <option value="240" selected>4 hours</option>
+                        <option value="1440">24 hours</option>
+                    </select></div>
+                <div class="col-6 col-md-2"><button class="btn btn-primary w-100" type="submit">Send</button></div>
+            </form>
+            <p class="text-muted small mt-2 mb-0">Shown to whoever is logged on. If the device is offline it is delivered when it reconnects, until it expires.</p>
+            <ul class="list-unstyled small mt-3 mb-0" th:if="${not #lists.isEmpty(messages)}">
+                <li th:each="m : ${messages}" class="mb-1">
+                    <span class="text-muted" th:text="${@timeFormat.format(m.createdAt, zone, 'd MMM HH:mm')}"></span>
+                    <strong th:if="${m.title}" th:text="${m.title} + ':'"></strong>
+                    <span th:text="${m.body}"></span>
+                    <span class="badge text-bg-success" th:if="${m.deliveredAt != null}">delivered</span>
+                    <span class="badge text-bg-secondary" th:if="${m.deliveredAt == null and m.expiresAt.isBefore(T(java.time.Instant).now())}">expired</span>
+                    <span class="badge text-bg-warning" th:if="${m.deliveredAt == null and !m.expiresAt.isBefore(T(java.time.Instant).now())}">waiting</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
     <div class="card mb-4" id="calendar-card">
         <div class="card-header">Calendar</div>
         <div class="card-body">

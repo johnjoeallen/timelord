@@ -8,6 +8,8 @@ import com.timelord.controller.calendar.CalendarService;
 import com.timelord.controller.calendar.OverrideRequest;
 import com.timelord.controller.common.ApiException;
 import com.timelord.controller.device.DeviceService;
+import com.timelord.controller.message.MessageRequest;
+import com.timelord.controller.message.MessageService;
 import com.timelord.controller.timezone.RequestZoneResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.DayOfWeek;
@@ -45,9 +47,12 @@ public class CalendarDashboardController {
     private final DeviceService deviceService;
     private final ScheduleChangeNotifier scheduleChanges;
     private final RequestZoneResolver zoneResolver;
+    private final MessageService messageService;
 
     public CalendarDashboardController(CalendarService calendarService, DeviceService deviceService,
-                                       ScheduleChangeNotifier scheduleChanges, RequestZoneResolver zoneResolver) {
+                                       ScheduleChangeNotifier scheduleChanges, RequestZoneResolver zoneResolver,
+                                       MessageService messageService) {
+        this.messageService = messageService;
         this.calendarService = calendarService;
         this.deviceService = deviceService;
         this.scheduleChanges = scheduleChanges;
@@ -234,6 +239,26 @@ public class CalendarDashboardController {
             calendarService.removeOverride(id, overrideId);
             scheduleChanges.allChanged();
         });
+    }
+
+    @PostMapping("/devices/{deviceId}/messages")
+    public String sendMessage(@PathVariable UUID deviceId, @RequestParam(required = false) String title,
+                              @RequestParam String body, @RequestParam(required = false) Integer expiresInMinutes,
+                              RedirectAttributes redirect) {
+        return run(redirect, "/devices/" + deviceId, "Message sent.",
+                () -> messageService.send(deviceId, new MessageRequest(title, body, expiresInMinutes)));
+    }
+
+    @PostMapping("/messages")
+    public String broadcastMessage(@RequestParam(required = false) String title, @RequestParam String body,
+                                   @RequestParam(required = false) Integer expiresInMinutes, RedirectAttributes redirect) {
+        try {
+            int count = messageService.sendToAll(new MessageRequest(title, body, expiresInMinutes));
+            redirect.addFlashAttribute("message", "Message sent to " + count + " device(s).");
+        } catch (ApiException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/";
     }
 
     @PostMapping("/devices/{deviceId}/delete")

@@ -7,6 +7,26 @@
     <h1 class="mb-4">Dashboard</h1>
     <div th:replace="~{fragments/flash :: flash}"></div>
 
+    <div class="card mb-4">
+        <div class="card-header">Message all devices</div>
+        <div class="card-body">
+            <form method="post" th:action="@{/messages}" class="row g-2 align-items-end">
+                <div class="col-md-3"><label class="form-label" for="atitle">Title (optional)</label>
+                    <input class="form-control" id="atitle" name="title" maxlength="100" placeholder="TimeLord"/></div>
+                <div class="col-md-5"><label class="form-label" for="abody">Message</label>
+                    <input class="form-control" id="abody" name="body" maxlength="500" required placeholder="Homework time, please wrap up"/></div>
+                <div class="col-6 col-md-2"><label class="form-label" for="aexp">Show for</label>
+                    <select class="form-select" id="aexp" name="expiresInMinutes">
+                        <option value="15">15 minutes</option>
+                        <option value="60">1 hour</option>
+                        <option value="240" selected>4 hours</option>
+                        <option value="1440">24 hours</option>
+                    </select></div>
+                <div class="col-6 col-md-2"><button class="btn btn-primary w-100" type="submit">Send</button></div>
+            </form>
+        </div>
+    </div>
+
     <h2 class="h4 mb-3">Devices</h2>
     <div class="row g-3 mb-4">
         <div class="col-md-6 col-lg-4" th:each="device : ${devices}">
