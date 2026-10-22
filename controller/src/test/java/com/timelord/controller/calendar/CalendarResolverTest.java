@@ -235,4 +235,48 @@ class CalendarResolverTest {
         assertThat(w).hasSize(1);
         assertThat(java.time.Duration.between(w.get(0).onAt(), w.get(0).offAt())).isEqualTo(java.time.Duration.ofHours(2));
     }
+
+    // ---- local wall time -> UTC instants (the agent only ever sees instants)
+
+    @Test
+    void offWindowEdgesAreUtcInstantsNotLocalTimes() {
+        // Dublin is UTC+1 on 2026-10-22 (summer time): on 08:00-17:55 local means off from 16:55Z.
+        List<CalendarRule> rules = List.of(row("08:00", "17:55", DayOfWeek.THURSDAY), row("18:00", "00:00", DayOfWeek.THURSDAY));
+
+        List<OffWindow> off = CalendarResolver.offWindows(ZONE, rules, List.of(), at("2026-10-22", "00:00"), at("2026-10-23", "00:00"));
+
+        OffWindow gap = off.stream().filter(w -> w.offAt().equals(Instant.parse("2026-10-22T16:55:00Z"))).findFirst().orElseThrow();
+        assertThat(gap.onAt()).isEqualTo(Instant.parse("2026-10-22T17:00:00Z"));
+    }
+
+    @Test
+    void theSameLocalTimeIsADifferentInstantAcrossTheOctoberChange() {
+        // Clocks go back at 02:00 on Sunday 2026-10-25: Thursday 17:55 is 16:55Z, the following Thursday 17:55Z.
+        CalendarRule r = row("08:00", "17:55", DayOfWeek.THURSDAY);
+
+        List<AllowedWindow> before = allowed(List.of(r), List.of(), "2026-10-22 00:00", "2026-10-22 23:59");
+        List<AllowedWindow> after = allowed(List.of(r), List.of(), "2026-10-29 00:00", "2026-10-29 23:59");
+
+        assertThat(before.get(0).offAt()).isEqualTo(Instant.parse("2026-10-22T16:55:00Z"));
+        assertThat(after.get(0).offAt()).isEqualTo(Instant.parse("2026-10-29T17:55:00Z"));
+    }
+
+    @Test
+    void aSaturdayNightWindowAcrossTheClockChangeUsesRealOffsets() {
+        // Sat 18:00 BST (17:00Z) to Sun 03:00 GMT (03:00Z): ten real hours, not nine.
+        List<CalendarRule> rules = List.of(row("18:00", "00:00", DayOfWeek.SATURDAY), row("00:00", "03:00", DayOfWeek.SUNDAY));
+
+        List<AllowedWindow> w = allowed(rules, List.of(), "2026-10-24 12:00", "2026-10-25 12:00");
+
+        assertThat(w).containsExactly(new AllowedWindow(Instant.parse("2026-10-24T17:00:00Z"), Instant.parse("2026-10-25T03:00:00Z")));
+    }
+
+    @Test
+    void anAmbiguousLocalTimeResolvesWithoutFailing() {
+        // 01:30 happens twice on 2026-10-25 in Dublin; resolution must not throw and must stay ordered.
+        List<AllowedWindow> w = allowed(List.of(row("01:30", "02:30", DayOfWeek.SUNDAY)), List.of(), "2026-10-25 00:00", "2026-10-25 23:59");
+
+        assertThat(w).hasSize(1);
+        assertThat(w.get(0).offAt()).isAfter(w.get(0).onAt());
+    }
 }

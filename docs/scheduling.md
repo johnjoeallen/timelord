@@ -1,13 +1,13 @@
-# Calendars and scheduling
+# Schedules
 
-A **calendar** tells a device when it may be **on**. You create named calendars in the dashboard,
+A **schedule** tells a device when it may be **on**. You create named schedules in the dashboard,
 assign each device to one, and the agent puts the device to sleep (or shuts it down) whenever the
-calendar says it should be off — that is, outside every on-window. Nothing wakes a sleeping device:
+schedule says it should be off — that is, outside every on-window. Nothing wakes a sleeping device:
 "on" only means *allowed to be on*.
 
 <figure markdown>
-  ![The Calendars page listing two calendars and a form to create another](images/calendars.png)
-  <figcaption>The Calendars page: each calendar's action, timezone and how many weekly rows and overrides it has.</figcaption>
+  ![The Schedules page listing two schedules and a form to create another](images/calendars.png)
+  <figcaption>The Schedules page: each schedule's action, timezone and how many weekly rows and overrides it has.</figcaption>
 </figure>
 
 !!! note "Developer preview"
@@ -16,17 +16,17 @@ calendar says it should be off — that is, outside every on-window. Nothing wak
     [Trying it safely](#trying-it-safely)).
 
 <figure markdown>
-  ![A calendar's page with weekly rows, holiday overrides and the resulting on-windows](images/calendar-detail.png)
-  <figcaption>The calendar editor: weekly rows (several on the same day), overrides that add time, and the resolved on-windows for the next 14 days.</figcaption>
+  ![A schedule's page with weekly rows, holiday overrides and the resulting on-windows](images/calendar-detail.png)
+  <figcaption>The schedule editor: weekly rows (several on the same day), overrides that add time, and the resolved on-windows for the next 14 days.</figcaption>
 </figure>
 
-## How a calendar works
+## How a schedule works
 
-A calendar has a **name**, a **timezone**, and an **action** taken at off time:
+A schedule has a **name**, a **timezone**, and an **action** taken at off time:
 
 | Action     | What the agent does |
 |------------|---------------------|
-| `SLEEP`    | Suspends the device (`SetSuspendState`, never hibernate) and keeps re-suspending it for as long as the calendar says off, if someone wakes it. |
+| `SLEEP`    | Suspends the device (`SetSuspendState`, never hibernate) and keeps re-suspending it for as long as the schedule says off, if someone wakes it. |
 | `SHUTDOWN` | Runs `shutdown.exe /s /t 30` — a 30-second on-screen warning, then power off. |
 
 ### Weekly rows (the base schedule)
@@ -56,18 +56,18 @@ Rules for the times:
   *Fri, on from 18:00, no off* and *Sat, no on from, off at 01:00* give one continuous window from
   Friday 18:00 to Saturday 01:00.
 - **Off for a while inside a day** is a gap between two rows (the Thursday example above).
-- **A day with no row is off all day** — but a calendar with **no rows at all** restricts nothing,
-  so a newly created, still-empty calendar doesn't keep a device asleep.
+- **A day with no row is off all day** — but a schedule with **no rows at all** restricts nothing,
+  so a newly created, still-empty schedule doesn't keep a device asleep.
 
-Each row on the calendar page shows its next window (for example *Next: Thu 22 Oct 18:30 → Thu 22
+Each row on the schedule page shows its next window (for example *Next: Thu 22 Oct 18:30 → Thu 22
 Oct 23:30*), and the page lists the combined on-windows for the next 14 days, so you can check what a
-calendar does before relying on it.
+schedule does before relying on it.
 
 !!! note "Earlier versions"
-    Earlier versions described a calendar as *off* times (one rule per day, an off and an on time,
-    with an inferred "after midnight"). On upgrade the controller converts existing calendars to
+    Earlier versions described a schedule as *off* times (one rule per day, an off and an on time,
+    with an inferred "after midnight"). On upgrade the controller converts existing schedules to
     on-windows automatically: weekly rules become the equivalent rows exactly. Overrides are
-    converted too, but they can no longer *narrow* a day (see below). A calendar whose old rules left
+    converted too, but they can no longer *narrow* a day (see below). A schedule whose old rules left
     no on-time at all ends up with no rows, which restricts nothing.
 
 ### Overrides (holidays and one-offs)
@@ -90,8 +90,8 @@ dashboard, leave "To" blank). Overrides stack.
 ### Allowing a device longer
 
 <figure markdown>
-  ![Device page cards for assigning a calendar and granting more time](images/device-calendar.png)
-  <figcaption>The device page: calendar assignment, upcoming off times and the extension buttons.</figcaption>
+  ![Device page cards for assigning a schedule and granting more time](images/device-calendar.png)
+  <figcaption>The device page: schedule assignment, upcoming off times and the extension buttons.</figcaption>
 </figure>
 
 On a device's page, **+15 min / +30 min / +1 hour** grant a temporary **extension**:
@@ -101,19 +101,19 @@ On a device's page, **+15 min / +30 min / +1 hour** grant a temporary **extensio
 - Each request may grant 1–240 minutes; the page shows "Extended until HH:MM" with a **Clear**
   button.
 
-An extension never edits the calendar. It is cleared if you assign the device a different
-calendar.
+An extension never edits the schedule. It is cleared if you assign the device a different
+schedule.
 
 ## How the device enforces it
 
-The controller resolves the calendar (rows, overrides and any extension) into **concrete off
-windows** — the gaps between the on-windows, as absolute start and end times for the next 7 days — and
+The controller resolves the schedule (rows, overrides and any extension) into **concrete off
+windows** — the gaps between the on-windows, as absolute start and end times for the next 28 days — and
 sends them to the agent with a **revision** that changes whenever they do. The agent therefore never
 has to understand rows or overrides; it only asks whether the time now falls inside an off window.
 
 - **Cached locally.** The latest schedule is saved as `schedule.json` next to `agent.toml`, so
   enforcement continues across restarts and while the controller is unreachable.
-- **Startup and resume.** The cached schedule can be stale: the calendar may have been edited, or
+- **Startup and resume.** The cached schedule can be stale: the schedule may have been edited, or
   the device granted more time, while it was off or asleep. So the agent does **not** enforce the
   cache the moment it starts. It waits until the controller has confirmed the schedule (in the
   registration or heartbeat response, or a long poll). If the controller stays unreachable for
@@ -122,10 +122,10 @@ has to understand rows or overrides; it only asks whether the time now falls ins
   notices (a wake-up much later than planned, such as a closed lid). The notifier is not told about
   upcoming actions from an unconfirmed cache either. In practice a device that boots inside a
   cached off window stays on for a few seconds while it checks in, then either goes back to sleep
-  (nothing changed) or stays on (the calendar or an extension now says it may).
+  (nothing changed) or stays on (the schedule or an extension now says it may).
 - **Changes arrive immediately.** Besides every heartbeat, the agent holds a long poll open to
   `GET /api/v1/agents/{id}/schedule?revision=…`. The controller answers the moment an extension,
-  assignment or calendar edit changes the revision, so "+30 minutes" takes effect within moments,
+  assignment or schedule edit changes the revision, so "+30 minutes" takes effect within moments,
   not at the next heartbeat. With no change the request simply returns after about 30 seconds and
   the agent asks again.
 - **Enforcement loop.** The agent acts when the current time is inside an off window, and
@@ -133,16 +133,16 @@ has to understand rows or overrides; it only asks whether the time now falls ins
   device woken mid-window is put back to sleep within about a minute. Each action is reported as
   `POWER_ACTION_REQUESTED` / `_COMPLETED` / `_FAILED` events.
 
-### Devices without a calendar
+### Devices without a schedule
 
-A device with no calendar assigned keeps the older hard-wired behaviour, which is **not
+A device with no schedule assigned keeps the older hard-wired behaviour, which is **not
 configurable from the controller**:
 
 - an unconditional sleep between **02:00 and 06:00** local time, checked every 5 minutes; and
 - the [offline fallback](agent.md#overnight-sleep-and-offline-fallback) (sleep between 01:00 and 08:30 while the
   controller is unreachable).
 
-Both stop applying as soon as the agent has a cached calendar schedule.
+Both stop applying as soon as the agent has a cached schedule.
 
 ## Admin API
 
@@ -150,7 +150,7 @@ All of these are unauthenticated in this preview — see the [security boundary]
 
 | Method and path | Purpose |
 |-----------------|---------|
-| `GET /api/v1/calendars` · `GET /api/v1/calendars/{id}` | List / read calendars (with rows and overrides) |
+| `GET /api/v1/calendars` · `GET /api/v1/calendars/{id}` | List / read schedules (with rows and overrides) |
 | `POST /api/v1/calendars` | Create |
 | `PUT /api/v1/calendars/{id}` | Replace name, timezone, action and the **whole set of weekly rows** (overrides untouched) |
 | `DELETE /api/v1/calendars/{id}` | Delete; devices using it lose their schedule |
@@ -160,9 +160,9 @@ All of these are unauthenticated in this preview — see the [security boundary]
 | `GET /api/v1/calendars/{id}/windows?from=&days=` | Preview the resolved off windows (what the agent is sent) |
 | `PUT /api/v1/devices/{id}/calendar` | Assign (`{"calendarId": "<uuid>"}`) or clear (`{"calendarId": null}`) |
 | `POST /api/v1/devices/{id}/extend` | Allow longer (`{"minutes": 30}`) |
-| `GET /api/v1/agents/{id}/schedule` | Agent long poll for schedule changes (`204` = no calendar) |
+| `GET /api/v1/agents/{id}/schedule` | Agent long poll for schedule changes (`204` = no schedule) |
 
-=== "Create a calendar"
+=== "Create a schedule"
 
     The JSON field for a row is still called `rules`; `startTime` / `endTime` may be left out
     (start or end of the day), and `00:00` as an end means midnight.
@@ -210,7 +210,7 @@ extending a device that has nothing to extend.
 
 ## Trying it safely
 
-1. Create a calendar with a window that ends about 20 minutes from now (say, *on from* blank, *off
+1. Create a schedule with a window that ends about 20 minutes from now (say, *on from* blank, *off
    at* 20 minutes ahead, for today's weekday) and the **Sleep** action, and assign it to a spare
    device. Remember the rest of that day, and every other day without a row, is then off.
 2. Watch the device sleep at the end of the window; wake it and confirm it is put back to sleep.

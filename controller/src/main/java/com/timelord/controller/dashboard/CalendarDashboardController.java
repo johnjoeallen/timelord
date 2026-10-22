@@ -176,7 +176,7 @@ public class CalendarDashboardController {
         form.rules = new ArrayList<>();
         try {
             CalendarDto created = calendarService.create(form.toRequest());
-            redirect.addFlashAttribute("message", "Calendar created. Add weekly rules below.");
+            redirect.addFlashAttribute("message", "Schedule created. Add weekly rows below.");
             return "redirect:/calendars/" + created.id();
         } catch (ApiException e) {
             redirect.addFlashAttribute("error", e.getMessage());
@@ -215,7 +215,7 @@ public class CalendarDashboardController {
 
     @PostMapping("/calendars/{id}")
     public String update(@PathVariable UUID id, @ModelAttribute CalendarForm form, RedirectAttributes redirect) {
-        return run(redirect, "/calendars/" + id, "Calendar saved.", () -> {
+        return run(redirect, "/calendars/" + id, "Schedule saved.", () -> {
             calendarService.update(id, form.toRequest());
             scheduleChanges.allChanged();
         });
@@ -223,7 +223,7 @@ public class CalendarDashboardController {
 
     @PostMapping("/calendars/{id}/delete")
     public String delete(@PathVariable UUID id, RedirectAttributes redirect) {
-        return run(redirect, "/calendars", "Calendar deleted.", () -> {
+        return run(redirect, "/calendars", "Schedule deleted.", () -> {
             calendarService.delete(id);
             scheduleChanges.allChanged();
         });
@@ -285,7 +285,7 @@ public class CalendarDashboardController {
     @PostMapping("/devices/{deviceId}/calendar")
     public String assign(@PathVariable UUID deviceId, @RequestParam(required = false) UUID calendarId,
                          RedirectAttributes redirect) {
-        return run(redirect, "/devices/" + deviceId, "Calendar updated.", () -> {
+        return run(redirect, "/devices/" + deviceId, "Schedule updated.", () -> {
             deviceService.assignCalendar(deviceId, calendarId);
             scheduleChanges.deviceChanged(deviceId);
         });

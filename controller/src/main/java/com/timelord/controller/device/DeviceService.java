@@ -148,7 +148,7 @@ public class DeviceService {
     public Device extend(UUID deviceId, int minutes) {
         Device device = requireDevice(deviceId);
         if (device.getCalendarId() == null) {
-            throw new ApiException(HttpStatus.CONFLICT, "NO_CALENDAR", "Device has no calendar assigned");
+            throw new ApiException(HttpStatus.CONFLICT, "NO_CALENDAR", "Device has no schedule assigned");
         }
         Instant now = Instant.now();
         OffWindow next = calendarService.effectiveWindows(device.getCalendarId(), device.getExtensionUntil(), Duration.ofDays(2))

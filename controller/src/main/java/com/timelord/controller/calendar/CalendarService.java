@@ -16,8 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CalendarService {
 
-    /** How far ahead the agent is told about off windows; it refreshes on every heartbeat. */
-    static final Duration AGENT_HORIZON = Duration.ofDays(7);
+    /**
+     * How far ahead the agent is told about off windows. Long enough that an agent that stays offline
+     * for weeks still enforces; the agent also refreshes on every heartbeat and must confirm the cache
+     * within 90 seconds of starting, so the response stays small (a few windows a day).
+     */
+    static final Duration AGENT_HORIZON = Duration.ofDays(28);
 
     private final CalendarRepository calendars;
     private final CalendarRuleRepository rules;
@@ -91,7 +95,7 @@ public class CalendarService {
         Calendar calendar = require(calendarId);
         CalendarOverride override = overrides.findByIdAndCalendarId(overrideId, calendarId)
                 .orElseThrow(() -> ApiException.notFound("OVERRIDE_NOT_FOUND",
-                        "No override " + overrideId + " on calendar " + calendarId));
+                        "No override " + overrideId + " on schedule " + calendarId));
         overrides.delete(override);
         return toDto(calendar);
     }
@@ -126,7 +130,9 @@ public class CalendarService {
             return null;
         }
         Instant now = Instant.now();
-        List<OffWindow> windows = applyExtension(resolve(calendar, now, now.plus(AGENT_HORIZON)), extensionUntil);
+        // The horizon ends on a UTC day boundary so the revision does not change just because time passed.
+        Instant horizon = now.truncatedTo(java.time.temporal.ChronoUnit.DAYS).plus(AGENT_HORIZON);
+        List<OffWindow> windows = applyExtension(resolve(calendar, now, horizon), extensionUntil);
         return new AgentSchedule(revision(calendar.getAction(), windows), calendar.getAction(),
                 calendar.getTimezone(), windows);
     }
@@ -207,6 +213,6 @@ public class CalendarService {
 
     private static ApiException nameTaken(String name) {
         return new ApiException(org.springframework.http.HttpStatus.CONFLICT, "CALENDAR_NAME_TAKEN",
-                "A calendar named '" + name + "' already exists");
+                "A schedule named '" + name + "' already exists");
     }
 }

@@ -2,7 +2,7 @@
 
 TimeLord tracks how Windows devices on your network are actually being used — who's logged in,
 for how long, and whether the machine is even reachable — shows it on a live dashboard, and can
-put devices to sleep or shut them down on a calendar you control, warning the person at the
+put devices to sleep or shut them down on a schedule you control, warning the person at the
 keyboard first.
 
 !!! danger "Developer preview — not for production use"
@@ -10,10 +10,10 @@ keyboard first.
     breaking changes between versions. Things worth knowing before you point it at real devices —
     details in [Before you deploy this](architecture.md#before-you-deploy-this):
 
-    - **It acts on devices.** A device with a [calendar](scheduling.md) is put to sleep or shut
+    - **It acts on devices.** A device with a [schedule](scheduling.md) is put to sleep or shut
       down at its off times. Session limits, forced breaks and connectivity rules are **not**
       implemented — the project's tagline still describes the eventual product.
-    - **Devices without a calendar still get put to sleep overnight.** A hard-wired sleep runs
+    - **Devices without a schedule still get put to sleep overnight.** A hard-wired sleep runs
       02:00–06:00 local time, and an agent that can't reach the controller at all also sleeps the
       device 01:00–08:30 — neither configurable from the controller.
     - **Every agent must reach the controller directly, on the same network(s).** Everything is
@@ -39,18 +39,18 @@ keyboard first.
 - **Login sessions** — a per-device history of login → logout spans, derived from the event log,
   distinct from "the agent was running." Starting the service with nobody logged in shows the
   machine online but produces no session at all.
-- **Calendars** — named weekly schedules of **on-windows**, several per day if you like (e.g. on
+- **Schedules** — named weekly schedules of **on-windows**, several per day if you like (e.g. on
   07:00–08:30 and 15:30–21:30 on school days), with dated **overrides** that add time for holidays and
   never modify the base schedule. The device is slept or shut down whenever it is outside every window.
-  Assign a calendar to each device; the agent keeps enforcing from a local cache even if the controller
-  is down. See [Calendars](scheduling.md).
+  Assign a schedule to each device; the agent keeps enforcing from a local cache even if the controller
+  is down. See [Schedules](scheduling.md).
 - **Allow longer** — one click (+15 / +30 / +60 minutes) lets a device stay on past its off time;
   the agent hears about it within moments via a long poll.
 - **Notifier and messages** — a small per-user program shows Windows toast warnings before a
   sleep or shutdown, and messages you send from the dashboard to one or all devices. See
   [Notifier](notifier.md).
 - **Dashboard** — a server-rendered admin UI: device list with live status, per-device detail
-  (network interfaces, current user, login history, calendar, messages), calendar management, a
+  (network interfaces, current user, login history, schedule, messages), schedule management, a
   searchable event log, and device deletion.
 
 ## Screenshots
@@ -80,15 +80,15 @@ keyboard first.
 </figure>
 
 <figure markdown>
-  ![A calendar's page with weekly rows, holiday overrides and the resulting on-windows](images/calendar-detail.png)
-  <figcaption>A calendar: weekly rows (several windows on the same day), dated overrides (half-term, a
+  ![A schedule's page with weekly rows, holiday overrides and the resulting on-windows](images/calendar-detail.png)
+  <figcaption>A schedule: weekly rows (several windows on the same day), dated overrides (half-term, a
   sleepover, the Christmas holidays) that only ever add time, and the on-windows it resolves to over
   the next 14 days.</figcaption>
 </figure>
 
 <figure markdown>
-  ![Device page cards for assigning a calendar, granting more time and sending messages](images/device-calendar.png)
-  <figcaption>On a device: the assigned calendar, its upcoming off times, and one-click +15 / +30 /
+  ![Device page cards for assigning a schedule, granting more time and sending messages](images/device-calendar.png)
+  <figcaption>On a device: the assigned schedule, its upcoming off times, and one-click +15 / +30 /
   +60 minute extensions (here, 30 minutes already granted).</figcaption>
 </figure>
 
@@ -126,10 +126,10 @@ session notifications when not running on Windows).
 
 | Component         | Path          | Language                    | What it does |
 |--------------------|---------------|------------------------------|----------------|
-| TimeLord Agent     | `agent/`      | Rust (Windows service)       | Tracks usage, reports it, enforces the calendar |
+| TimeLord Agent     | `agent/`      | Rust (Windows service)       | Tracks usage, reports it, enforces the schedule |
 | TimeLord Notifier  | `notifier/`   | Rust (per-user program)      | Toast warnings and messages for the logged-on user |
 | Shared IPC types   | `ipc/`        | Rust (library)               | Agent ↔ notifier pipe message types |
-| TimeLord Controller| `controller/`| Java 21 / Spring Boot        | Registration, heartbeats, events, calendars, messages, dashboard |
+| TimeLord Controller| `controller/`| Java 21 / Spring Boot        | Registration, heartbeats, events, schedules, messages, dashboard |
 | TimeLord Protocol  | `protocol/`  | JSON Schema                  | Not yet populated |
 
 ## Further reading
@@ -138,6 +138,6 @@ session notifications when not running on Windows).
   delivery and idempotency, security boundary, known limitations
 - [Agent](agent.md) — agent internals, CLI, configuration, local dev workflow
 - [Controller](controller.md) — controller internals, API, running tests
-- [Calendars](scheduling.md) — weekly rules, holiday overrides, extending a device, how the
+- [Schedules](scheduling.md) — weekly rules, holiday overrides, extending a device, how the
   agent enforces and caches the schedule
 - [Notifier](notifier.md) — toast warnings, sending messages, the local pipe

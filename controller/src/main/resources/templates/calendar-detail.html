@@ -21,7 +21,7 @@
                 that ends at midnight carries straight on into the next day's window if that starts at 00:00, so a late
                 night is two rows: Fri on from 18:00 (no off), Sat off at 01:00 (no on from).
                 To be off for a while inside a day, leave a gap: 00:00&ndash;16:15 and 16:30&ndash;00:00 is off from 16:15
-                to 16:30. A day with no row is off all day, but a calendar with no rows at all restricts nothing. The line
+                to 16:30. A day with no row is off all day, but a schedule with no rows at all restricts nothing. The line
                 under each row shows its next window. Clear a row's days to remove it.
             </p>
             <form method="post" th:action="@{/calendars/{id}(id=${calendar.id})}">
@@ -132,7 +132,7 @@
                     <td th:text="${@timeFormat.format(w.offAt, calendarZone, 'EEE d MMM HH:mm')}"></td>
                 </tr>
                 <tr th:if="${#lists.isEmpty(allowedWindows) and #lists.isEmpty(calendar.rules)}">
-                    <td colspan="2" class="text-muted text-center py-3">No rows yet: this calendar doesn't restrict anything, devices are always allowed on.</td>
+                    <td colspan="2" class="text-muted text-center py-3">No rows yet: this schedule doesn't restrict anything, devices are always allowed on.</td>
                 </tr>
                 <tr th:if="${#lists.isEmpty(allowedWindows) and not #lists.isEmpty(calendar.rules)}">
                     <td colspan="2" class="text-muted text-center py-3">Nothing is allowed in this period, so devices are off throughout.</td>
@@ -143,8 +143,8 @@
     </div>
 
     <form method="post" th:action="@{/calendars/{id}/delete(id=${calendar.id})}" class="mb-5"
-          onsubmit="return confirm('Delete this calendar? Devices using it will have no schedule.');">
-        <button class="btn btn-outline-danger" type="submit">Delete calendar</button>
+          onsubmit="return confirm('Delete this schedule? Devices using it will have no schedule.');">
+        <button class="btn btn-outline-danger" type="submit">Delete schedule</button>
     </form>
 </div>
 </body>

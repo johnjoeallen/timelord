@@ -8,7 +8,7 @@ published to GitHub Pages via `.github/workflows/docs.yml` on every push to `mai
 - [`index.md`](index.md) — site home page (overview, screenshots, what's implemented)
 - [`architecture.md`](architecture.md) — component diagram, discovery sequence, event
   delivery/idempotency, security boundary, known limitations
-- [`scheduling.md`](scheduling.md) — calendars, holiday overrides, extending a device, how the
+- [`scheduling.md`](scheduling.md) — schedules, holiday overrides, extending a device, how the
   agent enforces and caches the schedule, admin API
 - [`notifier.md`](notifier.md) — toast warnings, sending messages, the local pipe
 - [`agent.md`](agent.md), [`controller.md`](controller.md) — component internals

@@ -41,11 +41,11 @@
     </div>
 
     <div class="card mb-4" id="calendar-card">
-        <div class="card-header">Calendar</div>
+        <div class="card-header">Schedule</div>
         <div class="card-body">
             <form method="post" th:action="@{/devices/{id}/calendar(id=${device.deviceId})}" class="row g-2 align-items-end mb-3">
                 <div class="col-md-6">
-                    <label class="form-label" for="calendarId">Assigned calendar</label>
+                    <label class="form-label" for="calendarId">Assigned schedule</label>
                     <select class="form-select" id="calendarId" name="calendarId">
                         <option value="">None (no on/off schedule)</option>
                         <option th:each="c : ${calendars}" th:value="${c.id}" th:text="${c.name}"

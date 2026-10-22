@@ -4,10 +4,10 @@ TimeLord is aiming to become a centrally managed computer-usage policy platform 
 enforces schedules, session limits, mandatory breaks, connectivity requirements, and remote power
 controls across Windows devices. **It isn't that yet.**
 
-**Today it monitors devices and enforces on/off calendars.** A Windows agent tracks who's logged
+**Today it monitors devices and enforces on/off schedules.** A Windows agent tracks who's logged
 into a device and for how long, and a controller/dashboard shows it live — device online/offline
 status, whether someone is actually using it right now ("Active"), login session history, and
-network interfaces. You can also give each device a **calendar** (weekly on-windows, several per day
+network interfaces. You can also give each device a **schedule** (weekly on-windows, several per day
 if you like — say 08:30–10:30 and 18:30–23:30 — with dated overrides that add time for holidays and
 never change the base schedule); the agent sleeps or shuts the device down whenever it is outside the
 windows, even if the controller is down, and a per-user **notifier** warns the person at the keyboard beforehand and
@@ -23,9 +23,9 @@ the same content, nicer.
 > (no TLS, no request signing, no access control) and every agent must be able to reach the
 > controller directly on the same network(s) — there's no NAT traversal or relay. The admin API is
 > unauthenticated too, so anyone who can reach the controller can send messages, grant time and
-> delete devices. It's meant for a trusted local/dev network only. Devices **without a calendar**
+> delete devices. It's meant for a trusted local/dev network only. Devices **without a schedule**
 > are put to sleep 02:00–06:00 local time, and an agent that can't reach the controller also
-> sleeps its device 01:00–08:30 (neither configurable from the controller). Calendar sleep and
+> sleeps its device 01:00–08:30 (neither configurable from the controller). Schedule sleep and
 > shutdown, and the notifier's toasts, have had unit tests and compile checks but no end-to-end
 > testing on real machines. See
 > [Before you deploy this](docs/architecture.md#before-you-deploy-this) for the full list.
@@ -40,11 +40,11 @@ the same content, nicer.
 
 | Component            | Path          | Language                | Status                          |
 |-----------------------|---------------|--------------------------|----------------------------------|
-| TimeLord Agent        | `agent/`      | Rust (Windows service)   | Usage tracking + reporting, calendar enforcement (sleep/shutdown), local pipe for the notifier |
+| TimeLord Agent        | `agent/`      | Rust (Windows service)   | Usage tracking + reporting, schedule enforcement (sleep/shutdown), local pipe for the notifier |
 | TimeLord Notifier     | `notifier/`   | Rust (per-user program)  | Toast warnings before sleep/shutdown, admin messages (no countdown window or tray yet) |
 | Shared IPC types      | `ipc/`        | Rust (library)           | Agent ↔ notifier named-pipe messages |
-| TimeLord Controller    | `controller/` | Java 21 / Spring Boot    | Registration, events, status, calendars, extensions, messages, dashboard |
-| TimeLord Console       | (controller)  | Thymeleaf (server-rendered) | Dashboard, devices, calendars, messages, events |
+| TimeLord Controller    | `controller/` | Java 21 / Spring Boot    | Registration, events, status, schedules, extensions, messages, dashboard |
+| TimeLord Console       | (controller)  | Thymeleaf (server-rendered) | Dashboard, devices, schedules, messages, events |
 | TimeLord Protocol      | `protocol/`   | JSON Schema              | Not yet populated |
 
 ## Quick start
@@ -112,7 +112,7 @@ timelord/
 - [`docs/architecture.md`](docs/architecture.md) — what's implemented, component
   diagram, discovery sequence, event delivery/idempotency, security boundary, known
   limitations
-- [`docs/scheduling.md`](docs/scheduling.md) — calendars, holiday overrides, extending a device,
+- [`docs/scheduling.md`](docs/scheduling.md) — schedules, holiday overrides, extending a device,
   how the agent enforces and caches the schedule
 - [`docs/notifier.md`](docs/notifier.md) — toast warnings, sending messages, the local pipe
 - [`agent/README.md`](agent/README.md) — agent internals, CLI, local dev workflow

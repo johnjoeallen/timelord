@@ -6,8 +6,8 @@
 > stability guarantees between versions, and it is not meant for production
 > use. See [Before you deploy this](#before-you-deploy-this) below.
 
-> **It monitors, and it enforces calendars.** Beyond reporting what each
-> device is doing, a device assigned a [calendar](scheduling.md) is put to
+> **It monitors, and it enforces schedules.** Beyond reporting what each
+> device is doing, a device assigned a [schedule](scheduling.md) is put to
 > sleep or shut down at its off times, with on-screen warnings from a
 > [per-user notifier](notifier.md) and admin messages. There is still no
 > session-limit enforcement, mandatory-break logic, connectivity rules, or
@@ -16,7 +16,7 @@
 
 > **It is also deliberately unsecured.** Plain HTTP, no authentication, no
 > request signing, no access control — including on the admin API that
-> manages calendars, sends messages and deletes devices. It exists to prove
+> manages schedules, sends messages and deletes devices. It exists to prove
 > the shape of the system on a trusted local network, ahead of a later
 > security phase. See [Security boundary](#security-boundary) below before
 > running this anywhere else.
@@ -36,7 +36,7 @@
   puts on UDP discovery specifically (same broadcast domain, not just same
   routed network).
 - **The agent puts devices to sleep on its own schedule.** Two behaviours
-  apply to a device that has **no calendar** assigned, and neither can be
+  apply to a device that has **no schedule** assigned, and neither can be
   configured or disabled from the controller:
     - an unconditional sleep between **02:00 and 06:00 local time**, checked
       every 5 minutes (a stopgap hard-wired into the agent); and
@@ -47,10 +47,10 @@
 
   Changing the window, or turning the fallback off, means hand-editing that
   device's local `agent.toml` and restarting the service. Both are replaced
-  by the calendar once a device has one (the agent caches it, so this holds
+  by the schedule once a device has one (the agent caches it, so this holds
   while the controller is down too). See [Agent](agent.md#overnight-sleep-and-offline-fallback).
-- **A calendar sleeps or shuts the device down.** At its off times a device
-  with a [calendar](scheduling.md) is suspended or powered off (`shutdown.exe
+- **A schedule sleeps or shuts the device down.** At its off times a device
+  with a [schedule](scheduling.md) is suspended or powered off (`shutdown.exe
   /s /t 30`, a 30-second warning). Test on a spare machine first; the
   agent-side actions are covered by unit tests and compile checks only.
 
@@ -62,7 +62,7 @@ TimeLord has four moving pieces:
   when the device is actually in use (not just powered on — see
   `agent/README.md`), who's logged in, and every network adapter (name/MAC/
   address). Finds a controller (explicit URL or UDP discovery), registers, and
-  reports usage/lifecycle events and heartbeats. Caches its calendar schedule
+  reports usage/lifecycle events and heartbeats. Caches its schedule
   and enforces it (sleep or shutdown), and serves a local pipe to the notifier.
 - **TimeLord Notifier** (Rust) — a small program that runs in each logged-on
   user's session, polls the agent over a local pipe, and shows toast warnings
@@ -70,9 +70,9 @@ TimeLord has four moving pieces:
 - **TimeLord Controller** (Java 21 / Spring Boot) — the single source of truth.
   Accepts registration/heartbeats/events over HTTP, listens for UDP discovery
   requests, persists everything to PostgreSQL, computes each device's status,
-  resolves calendars into off windows, queues messages, and serves both the
+  resolves schedules into off windows, queues messages, and serves both the
   REST API and a server-rendered (Thymeleaf) admin dashboard.
-- **PostgreSQL** — durable storage for devices, events, heartbeats, calendars,
+- **PostgreSQL** — durable storage for devices, events, heartbeats, schedules,
   and messages.
 
 The agent never loses an event to a controller outage: every event is written
@@ -104,13 +104,13 @@ scheduled retry.
 - **Network interface inventory** — every adapter the OS reports (not just
   ones with a routable address), with name, MAC, and address(es), shown on
   the device detail page.
-- **Calendars** — named weekly on-windows (any number per day) with dated
-  overrides that only add time, assigned to devices. The controller resolves a calendar into concrete off windows
+- **Schedules** — named weekly on-windows (any number per day) with dated
+  overrides that only add time, assigned to devices. The controller resolves a schedule into concrete off windows
   (applying any extension) and sends them to the agent with a revision; the
   agent caches them in `schedule.json` and sleeps or shuts the device down
-  inside a window, even offline. See [Calendars](scheduling.md).
+  inside a window, even offline. See [Schedules](scheduling.md).
 - **Extensions** — a per-device "allow longer" grant (+15/30/60 min) that
-  delays the next off window without touching the calendar.
+  delays the next off window without touching the schedule.
 - **Push-style change delivery** — the agent long-polls the controller for
   schedule changes and messages, so an extension or a message takes effect in
   moments, not at the next heartbeat.
@@ -121,7 +121,7 @@ scheduled retry.
   pipe and shows toast warnings before a sleep/shutdown and any messages. See
   [Notifier](notifier.md).
 - **Admin dashboard** — device list with live status, per-device detail
-  (including calendar, extension and messages), calendar management, a
+  (including schedule, extension and messages), schedule management, a
   searchable/filterable event log, and device deletion (removes the device's
   events, heartbeats and messages; a still-running agent simply registers
   again).
@@ -129,7 +129,7 @@ scheduled retry.
 Not implemented: session-limit enforcement, mandatory breaks, connectivity
 requirements, immediate remote power commands (the only remote action is
 granting more time), a countdown window or tray icon in the notifier, or any
-policy engine beyond calendars — despite what the root README's tagline
+policy engine beyond schedules — despite what the root README's tagline
 aspires to.
 
 ## Component diagram
@@ -159,7 +159,7 @@ flowchart LR
         API["/api/v1/agents/*\nREST"]
         Disco["UDP discovery listener\n:45821"]
         Svc[Device / Event services]
-        Cal["Calendar resolver\nrules + overrides + extension"]
+        Cal["Schedule resolver\nrules + overrides + extension"]
         Msg[Message service]
         UI["Thymeleaf dashboard\n/, /devices, /calendars, /events"]
         API --> Svc
@@ -219,17 +219,17 @@ default.
 
 ## Schedule and message delivery
 
-Calendars and messages reach an agent two ways, and the second is what makes
+Schedules and messages reach an agent two ways, and the second is what makes
 changes take effect quickly:
 
 - **Heartbeat responses** (and registration) carry the device's current
-  schedule, resolved to concrete off windows for the next 7 days plus a
+  schedule, resolved to concrete off windows for the next 28 days plus a
   `revision` that changes whenever they do.
 - **Long polls.** The agent keeps `GET /api/v1/agents/{id}/schedule?revision=…`
   and `GET /api/v1/agents/{id}/messages?after=<seq>` open for up to ~30
   seconds each (own connections, so they never block heartbeats). The
   controller answers the moment the revision differs or a message is queued
-  for that device — an extension, assignment, calendar edit or new message —
+  for that device — an extension, assignment, schedule edit or new message —
   and otherwise returns after the timeout so the agent asks again.
 
 The agent caches both (`schedule.json`, `messages.json`) and keeps enforcing
@@ -259,7 +259,7 @@ This phase intentionally has:
 - No authentication of agents or administrators
 - No request signing or replay protection
 - No access control on any endpoint — including the admin endpoints that
-  create/edit calendars, assign them, grant extensions, send messages and
+  create/edit schedules, assign them, grant extensions, send messages and
   delete devices. Anyone who can reach the controller can do all of that.
 
 The one local control is the agent's notifier pipe: its access list lets
@@ -306,7 +306,7 @@ the event model:
   `GetLastInputInfo` for the interactive desktop; heartbeats currently send
   `idleSeconds: null`. The per-user notifier is the natural home for this
   but doesn't report idle time yet. See `agent/README.md`.
-- **Calendars wake nothing.** "On" means allowed to be on; a sleeping device
+- **Schedules wake nothing.** "On" means allowed to be on; a sleeping device
   stays asleep until someone wakes it (there is no Wake-on-LAN).
 - **Enforcement is only unit-tested.** The agent's sleep/shutdown and the
   notifier's toasts compile for Windows and their logic is tested, but they

@@ -2,7 +2,7 @@
 
 Central controller service (Java 21 / Spring Boot / PostgreSQL). Accepts agent registration,
 heartbeats, and events over plain HTTP (unauthenticated — see
-[Security boundary](architecture.md#security-boundary)), resolves calendars into off windows,
+[Security boundary](architecture.md#security-boundary)), resolves schedules into off windows,
 queues messages, and serves a Thymeleaf admin dashboard.
 
 ## Running
@@ -66,13 +66,13 @@ Flyway migrations: `src/main/resources/db/migration/`. Templates: `src/main/reso
 `DELETE /api/v1/devices/{id}` (also removes its events, heartbeats and messages),
 `/api/v1/devices/{id}/events`, `/api/v1/events`, `/api/v1/events/{id}`, plus
 `/api/v1/calendars/**`, `PUT /api/v1/devices/{id}/calendar`, `POST /api/v1/devices/{id}/extend`
-and `/api/v1/devices/{id}/messages`, `POST /api/v1/messages` (see [Calendars](scheduling.md#admin-api)
+and `/api/v1/devices/{id}/messages`, `POST /api/v1/messages` (see [Schedules](scheduling.md#admin-api)
 and [Notifier](notifier.md#sending-a-message)) · agent: `/api/v1/agents/register`,
 `/api/v1/agents/{id}/heartbeat`, `/api/v1/agents/{id}/events`, and the long polls
 `GET /api/v1/agents/{id}/schedule` and `GET /api/v1/agents/{id}/messages`.
 
 Heartbeat and registration responses also carry the device's resolved schedule (`schedule`, `null`
-without a calendar).
+without a schedule).
 
 Errors are a consistent JSON shape (`timestamp/status/code/message/details/correlationId`);
 device/event lookups return `404` with code `DEVICE_NOT_FOUND` / `EVENT_NOT_FOUND`.
@@ -80,9 +80,9 @@ device/event lookups return `404` with code `DEVICE_NOT_FOUND` / `EVENT_NOT_FOUN
 ## Web UI
 
 `/` (dashboard, with a "message all devices" form), `/devices` (filterable list),
-`/devices/{id}` (detail, login session history, calendar assignment and "allow longer" buttons,
+`/devices/{id}` (detail, login session history, schedule assignment and "allow longer" buttons,
 send-a-message with history, delete device), `/calendars` and `/calendars/{id}` (create and edit
-calendars, weekly rules, overrides, 14-day preview), `/events` (filterable, paginated). Bootstrap
+schedules, weekly rules, overrides, 14-day preview), `/events` (filterable, paginated). Bootstrap
 is bundled via WebJars — no external CDN.
 
 ## Testing

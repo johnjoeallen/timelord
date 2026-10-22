@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<div th:replace="~{fragments/head :: head('Calendars')}"></div>
+<div th:replace="~{fragments/head :: head('Schedules')}"></div>
 <body>
 <div th:replace="~{fragments/nav :: nav}"></div>
 <div class="container">
-    <h1 class="mb-4">Calendars</h1>
+    <h1 class="mb-4">Schedules</h1>
     <div th:replace="~{fragments/flash :: flash}"></div>
 
     <div class="row g-3 mb-4">
@@ -26,12 +26,12 @@
             </a>
         </div>
         <div class="col-12" th:if="${#lists.isEmpty(calendars)}">
-            <p class="text-muted text-center py-3">No calendars yet. Create one below, then assign it to a device.</p>
+            <p class="text-muted text-center py-3">No schedules yet. Create one below, then assign it to a device.</p>
         </div>
     </div>
 
     <div class="card mb-4">
-        <div class="card-header">New calendar</div>
+        <div class="card-header">New schedule</div>
         <div class="card-body">
             <form method="post" th:action="@{/calendars}" class="row g-3">
                 <div class="col-md-4">

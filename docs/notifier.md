@@ -12,7 +12,7 @@ schedule applies whether or not the notifier is running. The notifier only provi
 ## What the user sees
 
 **Warnings before sleep or shutdown.** As an off time approaches (from a
-[calendar](scheduling.md)), a Windows toast appears at 15 minutes, 5 minutes, 1 minute and 30
+[schedule](scheduling.md)), a Windows toast appears at 15 minutes, 5 minutes, 1 minute and 30
 seconds, e.g. *"This computer will go to sleep in 5 minutes — Scheduled: go to sleep at 22:30.
 Save your work."*
 

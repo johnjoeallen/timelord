@@ -3,8 +3,8 @@
 Windows service (Rust) that tracks device usage and reports it to a TimeLord Controller.
 
 > Unauthenticated plain HTTP to the controller. There is no session-limit or break enforcement
-> yet. The agent does enforce a calendar assigned by the controller (sleep or shutdown at off
-> times — see `../docs/scheduling.md`), and, for devices with no calendar, a hard-wired
+> yet. The agent does enforce a schedule assigned by the controller (sleep or shutdown at off
+> times — see `../docs/scheduling.md`), and, for devices with no schedule, a hard-wired
 > overnight sleep and an offline fallback (below). See `../docs/architecture.md` for the
 > security boundary.
 
@@ -17,12 +17,12 @@ Windows service (Rust) that tracks device usage and reports it to a TimeLord Con
    `USER_LOCK`, ... — the full list is in `src/protocol.rs::EventType`).
 4. Queues events locally (SQLite) so a controller outage never loses one — see
    `../docs/architecture.md#event-delivery-and-idempotency`.
-5. Receives its calendar (`../docs/scheduling.md`) as concrete off windows — in heartbeat
+5. Receives its schedule (`../docs/scheduling.md`) as concrete off windows — in heartbeat
    responses and via a long poll that delivers changes within moments — caches it in
    `schedule.json`, and puts the device to sleep or shuts it down inside an off window, also
    while the controller is unreachable (`schedule.rs`, `agent.rs::enforcement_loop`). At startup
    and after a sleep it first waits for the controller to confirm the cached schedule (up to 90
-   seconds, then it enforces the cache anyway), since a calendar edit or extension may have
+   seconds, then it enforces the cache anyway), since a schedule edit or extension may have
    happened while the device was off — see `schedule::enforcement_ready`.
 6. Long-polls for administrator messages, caches them in `messages.json`, and serves pending
    power actions and messages to the per-user notifier (`../notifier/`, `../docs/notifier.md`)
@@ -67,12 +67,12 @@ discovery_timeout_seconds = 5
 
 ### Overnight sleep and offline fallback
 
-Both of these apply **only to a device with no calendar** — once the agent has a cached calendar
-schedule they are skipped and the calendar governs.
+Both of these apply **only to a device with no schedule** — once the agent has a cached schedule
+schedule they are skipped and the schedule governs.
 
 **Hard-wired overnight sleep.** Between 02:00 and 06:00 local time the agent puts the device to
 sleep (checked every 5 minutes), whether or not the controller is reachable. The window is
-compiled in (`agent.rs::hard_sleep_loop`) — a stopgap until calendars cover every device — and
+compiled in (`agent.rs::hard_sleep_loop`) — a stopgap until schedules cover every device — and
 cannot be changed from `agent.toml` or the controller.
 
 **Offline fallback.** If the agent can't reach the controller at all (registration, heartbeats, and event delivery are
@@ -203,7 +203,7 @@ By default state lives under `C:\ProgramData\TimeLord\` (override with `TIMELORD
 state.db        Usage sessions (tracker.rs / store.rs)
 events.db       Local event queue pending controller delivery (queue.rs)
 agent.toml      Configuration
-schedule.json   Cached calendar schedule (schedule.rs); absent if no calendar
+schedule.json   Cached schedule (schedule.rs); absent if no schedule
 messages.json   Cached administrator messages + polling cursor (messages.rs)
 logs/           Daily-rolling structured logs
 ```

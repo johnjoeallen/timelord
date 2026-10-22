@@ -2,7 +2,7 @@
 
 Central controller service (Java 21 / Spring Boot / PostgreSQL). Accepts agent registration,
 heartbeats, and events over plain HTTP (unauthenticated — see the security warning in the root
-`README.md`), resolves calendars into off windows, queues messages, and serves a Thymeleaf admin
+`README.md`), resolves schedules into off windows, queues messages, and serves a Thymeleaf admin
 dashboard.
 
 ## Running
@@ -71,7 +71,7 @@ and `/api/v1/devices/{id}/messages`, `POST /api/v1/messages` (see `../docs/sched
 `GET /api/v1/agents/{id}/messages`.
 
 Heartbeat and registration responses also carry the device's resolved schedule (`schedule`,
-`null` without a calendar).
+`null` without a schedule).
 
 Errors are a consistent JSON shape (`timestamp/status/code/message/details/correlationId`);
 device/event lookups return `404` with code `DEVICE_NOT_FOUND` / `EVENT_NOT_FOUND`.
@@ -103,7 +103,7 @@ $ docker run --rm -v "$PWD":/build -w /build -v /var/run/docker.sock:/var/run/do
 ## Web UI
 
 `/` (dashboard, with a "message all devices" form), `/devices` (filterable list), `/devices/{id}`
-(detail, calendar assignment and "allow longer" buttons, send-a-message with history, delete
-device), `/calendars` and `/calendars/{id}` (create and edit calendars, weekly rules, overrides,
+(detail, schedule assignment and "allow longer" buttons, send-a-message with history, delete
+device), `/calendars` and `/calendars/{id}` (create and edit schedules, weekly rules, overrides,
 14-day preview), `/events` (filterable, paginated). Bootstrap is bundled via WebJars — no external
 CDN.
