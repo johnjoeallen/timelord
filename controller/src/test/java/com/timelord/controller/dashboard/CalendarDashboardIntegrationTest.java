@@ -103,4 +103,34 @@ class CalendarDashboardIntegrationTest extends AbstractIntegrationTest {
         post("/devices/" + deviceId + "/calendar", form("calendarId", ""));
         assertThat(restTemplate.getForObject("/devices/" + deviceId, String.class)).doesNotContain("Upcoming off times");
     }
+
+    @Test
+    void deletingDeviceRemovesItsHistory() {
+        UUID deviceId = UUID.randomUUID();
+        restTemplate.postForEntity("/api/v1/agents/register", new RegisterRequest(deviceId, "Old PC", "old-pc", "0.1.0",
+                "Windows 11", "10.0", "x86_64", List.of("192.168.1.80"),
+                List.of(new NetworkInterfaceInfo("Ethernet", "AA:BB:CC:DD:EE:03", List.of("192.168.1.80")))), Object.class);
+        restTemplate.postForEntity("/api/v1/agents/" + deviceId + "/heartbeat", new com.timelord.controller.agent.HeartbeatRequest(
+                UUID.randomUUID(), java.time.Instant.now(), "0.1.0", 1L, "RUNNING", null, null, null, null), Object.class);
+        restTemplate.postForEntity("/api/v1/agents/" + deviceId + "/events", java.util.Map.of("events", List.of(java.util.Map.of(
+                "eventId", UUID.randomUUID().toString(), "eventType", "AGENT_STARTED", "occurredAt", java.time.Instant.now().toString(),
+                "severity", "INFO", "source", "AGENT", "data", java.util.Map.of()))), Object.class);
+
+        assertThat(post("/devices/" + deviceId + "/delete", form()).getStatusCode()).isEqualTo(HttpStatus.FOUND);
+
+        assertThat(restTemplate.getForEntity("/api/v1/devices/" + deviceId, String.class).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(restTemplate.getForEntity("/api/v1/devices/" + deviceId + "/events", String.class).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void deleteApiRemovesDeviceAndMissingIs404() {
+        UUID deviceId = UUID.randomUUID();
+        restTemplate.postForEntity("/api/v1/agents/register", new RegisterRequest(deviceId, "Tmp", "tmp", "0.1.0",
+                "Windows 11", "10.0", "x86_64", List.of(), List.of()), Object.class);
+
+        assertThat(restTemplate.exchange("/api/v1/devices/" + deviceId, org.springframework.http.HttpMethod.DELETE, null, String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(restTemplate.exchange("/api/v1/devices/" + deviceId, org.springframework.http.HttpMethod.DELETE, null, String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
 }

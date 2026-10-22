@@ -11,6 +11,7 @@ import com.timelord.controller.calendar.OffWindow;
 import com.timelord.controller.config.AgentDefaultsProperties;
 import com.timelord.controller.config.DeviceProperties;
 import com.timelord.controller.discovery.ControllerIdentityService;
+import com.timelord.controller.event.DeviceEventRepository;
 import com.timelord.controller.event.DeviceHeartbeat;
 import com.timelord.controller.event.DeviceHeartbeatRepository;
 import com.timelord.controller.ws.DeviceUpdatesWebSocketHandler;
@@ -39,6 +40,7 @@ public class DeviceService {
     private final DeviceProperties deviceProperties;
     private final DeviceUpdatesWebSocketHandler deviceUpdates;
     private final CalendarService calendarService;
+    private final DeviceEventRepository eventRepository;
 
     public DeviceService(DeviceRepository deviceRepository,
                           DeviceHeartbeatRepository heartbeatRepository,
@@ -46,7 +48,8 @@ public class DeviceService {
                           AgentDefaultsProperties agentDefaults,
                           DeviceProperties deviceProperties,
                           DeviceUpdatesWebSocketHandler deviceUpdates,
-                          CalendarService calendarService) {
+                          CalendarService calendarService,
+                          DeviceEventRepository eventRepository) {
         this.deviceRepository = deviceRepository;
         this.heartbeatRepository = heartbeatRepository;
         this.controllerIdentityService = controllerIdentityService;
@@ -54,6 +57,7 @@ public class DeviceService {
         this.deviceProperties = deviceProperties;
         this.deviceUpdates = deviceUpdates;
         this.calendarService = calendarService;
+        this.eventRepository = eventRepository;
     }
 
     /** Idempotent by deviceId: repeated registration updates metadata rather than creating a new row. */
@@ -154,6 +158,22 @@ public class DeviceService {
         device.setExtensionUntil(base.plus(Duration.ofMinutes(minutes)));
         device.setUpdatedAt(now);
         return deviceRepository.save(device);
+    }
+
+    /**
+     * Removes the device and all of its events and heartbeats. A still-running agent will simply
+     * re-register (as a new row) on its next heartbeat, so uninstall or stop the agent first.
+     */
+    @Transactional
+    public void delete(UUID deviceId) {
+        Device device = requireDevice(deviceId);
+        int events = eventRepository.deleteAllByDeviceId(deviceId);
+        int heartbeats = heartbeatRepository.deleteAllByDeviceId(deviceId);
+        deviceRepository.delete(device);
+        deviceRepository.flush();
+        log.info("Device {} ({}) deleted along with {} event(s) and {} heartbeat(s)",
+                deviceId, device.getHostname(), events, heartbeats);
+        deviceUpdates.broadcastDeviceChanged(device, "DELETED");
     }
 
     @Transactional

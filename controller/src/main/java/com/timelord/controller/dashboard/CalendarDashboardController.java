@@ -236,6 +236,14 @@ public class CalendarDashboardController {
         });
     }
 
+    @PostMapping("/devices/{deviceId}/delete")
+    public String deleteDevice(@PathVariable UUID deviceId, RedirectAttributes redirect) {
+        return run(redirect, "/", "Device deleted.", () -> {
+            deviceService.delete(deviceId);
+            scheduleChanges.deviceChanged(deviceId);
+        });
+    }
+
     @PostMapping("/devices/{deviceId}/calendar")
     public String assign(@PathVariable UUID deviceId, @RequestParam(required = false) UUID calendarId,
                          RedirectAttributes redirect) {

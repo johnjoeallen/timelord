@@ -12,4 +12,8 @@ public interface DeviceHeartbeatRepository extends JpaRepository<DeviceHeartbeat
     @Modifying
     @Query("delete from DeviceHeartbeat h where h.receivedAt < :cutoff")
     int deleteByReceivedAtBefore(@Param("cutoff") Instant cutoff);
+
+    @Modifying
+    @Query("delete from DeviceHeartbeat h where h.deviceId = :deviceId")
+    int deleteAllByDeviceId(@Param("deviceId") UUID deviceId);
 }

@@ -8,6 +8,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface DeviceEventRepository extends JpaRepository<DeviceEvent, UUID>, JpaSpecificationExecutor<DeviceEvent> {
 
@@ -22,4 +25,8 @@ public interface DeviceEventRepository extends JpaRepository<DeviceEvent, UUID>,
     long countBySeverityAndOccurredAtAfter(EventSeverity severity, Instant since);
 
     long countByOccurredAtAfter(Instant since);
+
+    @Modifying
+    @Query("delete from DeviceEvent e where e.deviceId = :deviceId")
+    int deleteAllByDeviceId(@Param("deviceId") UUID deviceId);
 }
