@@ -537,6 +537,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#the-clock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The clock
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#devices-without-a-schedule" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -735,6 +746,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#the-clock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The clock
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#devices-without-a-schedule" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -862,7 +884,32 @@ timelord-agent test-event             Queue + attempt to deliver one synthetic e
 <span class="n">discovery_enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 <span class="n">discovery_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">45821</span>
 <span class="n">discovery_timeout_seconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span>
+
+<span class="k">[time]</span>
+<span class="n">ntp_enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">                   </span><span class="c1"># check the system clock against NTP; schedules use NTP time</span>
+<span class="n">ntp_servers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"time.cloudflare.com"</span><span class="p">,</span><span class="w"> </span><span class="s2">"time.windows.com"</span><span class="p">,</span><span class="w"> </span><span class="s2">"pool.ntp.org"</span><span class="p">]</span><span class="w">   </span><span class="c1"># the defaults</span>
 </code></pre></div>
+<h3 id="the-clock">The clock<a class="headerlink" href="#the-clock" title="Permanent link">&para;</a></h3>
+<p>A schedule is a list of absolute UTC times, so it is only as right as the time the agent compares it
+with, and Windows lets a user change the system clock. The agent therefore doesn't trust it: it
+measures the system clock against <strong>NTP servers</strong> (SNTP over UDP port 123) and enforces schedules,
+the notifier's countdowns and message expiry against <em>NTP-corrected time</em>.</p>
+<ul>
+<li>It measures at startup, every 15 minutes, after any sleep, and whenever it sees the system clock
+  jump (the system clock stops keeping pace with the agent's own timer). The median of the servers
+  that answer is used, so one wrong server can't move it.</li>
+<li>A system clock more than 30 seconds out is logged as a warning, for example <em>the system clock is
+  behind the real time; schedules use NTP time</em>, with the offset in seconds.</li>
+<li>At startup a cached schedule isn't enforced until the clock has been checked as well as the
+  schedule confirmed by the controller, or until the 90-second grace period passes if NTP can't be
+  reached.</li>
+<li>If NTP becomes unreachable the last measured offset is kept, so blocking NTP only freezes the
+  last measurement; a clock changed afterwards is still caught by the jump check once NTP is
+  reachable again. The agent needs outbound UDP 123 (or your own server in <code>ntp_servers</code>).</li>
+<li><code>ntp_enabled = false</code> switches this off and uses the system clock. <code>timelord-agent status</code> shows
+  which servers are configured.</li>
+</ul>
+<p>Event timestamps sent to the controller still use the system clock.</p>
 <h3 id="devices-without-a-schedule">Devices without a schedule<a class="headerlink" href="#devices-without-a-schedule" title="Permanent link">&para;</a></h3>
 <p>A device with no <a href="../scheduling/">schedule</a> assigned is <strong>unrestricted</strong>: the agent never puts it to
 sleep or shuts it down. Earlier versions slept such a device 02:00–06:00 and, while the controller
