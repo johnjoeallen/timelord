@@ -798,9 +798,8 @@ details in <a href="architecture/#before-you-deploy-this">Before you deploy this
 <li><strong>It acts on devices.</strong> A device with a <a href="scheduling/">schedule</a> is put to sleep or shut
   down at its off times. Session limits, forced breaks and connectivity rules are <strong>not</strong>
   implemented — the project's tagline still describes the eventual product.</li>
-<li><strong>Devices without a schedule still get put to sleep overnight.</strong> A hard-wired sleep runs
-  02:00–06:00 local time, and an agent that can't reach the controller at all also sleeps the
-  device 01:00–08:30 — neither configurable from the controller.</li>
+<li><strong>A device without a schedule is never slept or shut down.</strong> Only an assigned schedule acts
+  on a device.</li>
 <li><strong>Every agent must reach the controller directly, on the same network(s).</strong> Everything is
   unicast HTTP — no NAT traversal, relay, or cloud/VPN routing.</li>
 </ul>

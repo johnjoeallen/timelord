@@ -537,10 +537,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#overnight-sleep-and-offline-fallback" class="md-nav__link">
+  <a href="#devices-without-a-schedule" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overnight sleep and offline fallback
+        Devices without a schedule
       
     </span>
   </a>
@@ -735,10 +735,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#overnight-sleep-and-offline-fallback" class="md-nav__link">
+  <a href="#devices-without-a-schedule" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overnight sleep and offline fallback
+        Devices without a schedule
       
     </span>
   </a>
@@ -814,8 +814,8 @@
 <p class="admonition-title">Note</p>
 <p>Unauthenticated plain HTTP to the controller. There is no session-limit or break enforcement
 yet. The agent does enforce a <a href="../scheduling/">schedule</a>
-assigned by the controller (sleep or shutdown at off times), and — for devices with no
-schedule — a hard-wired overnight sleep and an offline fallback (below). See
+assigned by the controller (sleep or shutdown at off times); a device with no schedule is
+never put to sleep or shut down. See
 <a href="../architecture/#security-boundary">Security boundary</a>.</p>
 </div>
 <h2 id="what-it-does">What it does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
@@ -856,9 +856,6 @@ timelord-agent test-event             Queue + attempt to deliver one synthetic e
 <span class="n">device_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">""</span><span class="w">                     </span><span class="c1"># defaults to the hostname if empty</span>
 <span class="n">heartbeat_interval_seconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">30</span>
 <span class="n">event_retry_interval_seconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span>
-<span class="n">offline_fallback_enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">      </span><span class="c1"># sleep the device on the schedule below when offline</span>
-<span class="n">offline_fallback_start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"01:00"</span><span class="w">     </span><span class="c1"># "HH:MM", local time; invalid/missing falls back to this default</span>
-<span class="n">offline_fallback_end</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"08:30"</span>
 
 <span class="k">[controller]</span>
 <span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">""</span><span class="w">                             </span><span class="c1"># e.g. "http://192.168.1.20:8080"</span>
@@ -866,30 +863,13 @@ timelord-agent test-event             Queue + attempt to deliver one synthetic e
 <span class="n">discovery_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">45821</span>
 <span class="n">discovery_timeout_seconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span>
 </code></pre></div>
-<h3 id="overnight-sleep-and-offline-fallback">Overnight sleep and offline fallback<a class="headerlink" href="#overnight-sleep-and-offline-fallback" title="Permanent link">&para;</a></h3>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Both of these apply <strong>only to a device with no schedule</strong>. As soon as the agent has a cached
-schedule they are skipped and the <a href="../scheduling/">schedule</a> governs.</p>
-</div>
-<p><strong>Hard-wired overnight sleep.</strong> Between <strong>02:00 and 06:00</strong> local time the agent puts the device
-to sleep (checked every 5 minutes), whether or not the controller is reachable. The window is
-compiled in — a stopgap until schedules cover every device — and cannot be changed from
-<code>agent.toml</code> or the controller.</p>
-<p><strong>Offline fallback.</strong> If the agent can't reach the controller at all (registration, heartbeats, and event delivery are
-all failing), it falls back to a local safety schedule: every 5 minutes, if still disconnected and
-local time falls within <code>offline_fallback_start</code>-<code>offline_fallback_end</code> (wrapping past midnight is
-supported, e.g. <code>22:00</code>-<code>06:00</code>), it puts the device to sleep (<code>SetSuspendState</code>, not hibernate — a
-shutdown never happens). This only runs while disconnected — once the controller is reachable
-again this stops immediately. <code>POWER_ACTION_REQUESTED</code>/<code>_COMPLETED</code>/<code>_FAILED</code> events are queued
-locally and delivered once connectivity returns, so the outage and the fallback action it
-triggered are both visible on the dashboard afterward.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>There is no way to configure this per-device from the controller/dashboard, or via
-environment variable/CLI flag, yet — the only way to change or disable it is hand-editing that
-device's local <code>agent.toml</code> (the <code>offline_fallback_*</code> keys above) and restarting the service.</p>
-</div>
+<h3 id="devices-without-a-schedule">Devices without a schedule<a class="headerlink" href="#devices-without-a-schedule" title="Permanent link">&para;</a></h3>
+<p>A device with no <a href="../scheduling/">schedule</a> assigned is <strong>unrestricted</strong>: the agent never puts it to
+sleep or shuts it down. Earlier versions slept such a device 02:00–06:00 and, while the controller
+was unreachable, 01:00–08:30. Both are gone, and any <code>offline_fallback_*</code> keys left in <code>agent.toml</code>
+are ignored.</p>
+<p>An assigned schedule keeps being enforced from the agent's cached copy while the controller is
+unreachable, so losing the network doesn't lift it.</p>
 <p>Precedence is <strong>CLI flags &gt; environment variables &gt; <code>agent.toml</code> &gt; defaults</strong>, unit tested for
 every combination. Environment overrides:</p>
 <div class="highlight"><pre><span></span><code>TIMELORD_CONTROLLER_URL

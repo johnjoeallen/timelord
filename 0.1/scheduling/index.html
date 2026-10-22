@@ -1016,14 +1016,9 @@ has to understand rows or overrides; it only asks whether the time now falls ins
   <code>POWER_ACTION_REQUESTED</code> / <code>_COMPLETED</code> / <code>_FAILED</code> events.</li>
 </ul>
 <h3 id="devices-without-a-schedule">Devices without a schedule<a class="headerlink" href="#devices-without-a-schedule" title="Permanent link">&para;</a></h3>
-<p>A device with no schedule assigned keeps the older hard-wired behaviour, which is <strong>not
-configurable from the controller</strong>:</p>
-<ul>
-<li>an unconditional sleep between <strong>02:00 and 06:00</strong> local time, checked every 5 minutes; and</li>
-<li>the <a href="../agent/#overnight-sleep-and-offline-fallback">offline fallback</a> (sleep between 01:00 and 08:30 while the
-  controller is unreachable).</li>
-</ul>
-<p>Both stop applying as soon as the agent has a cached schedule.</p>
+<p>A device with no schedule assigned is <strong>unrestricted</strong>: the agent never puts it to sleep or shuts it
+down. Earlier versions slept such a device 02:00–06:00 (and 01:00–08:30 while the controller was
+unreachable); both rules were removed.</p>
 <h2 id="admin-api">Admin API<a class="headerlink" href="#admin-api" title="Permanent link">&para;</a></h2>
 <p>All of these are unauthenticated in this preview — see the <a href="../architecture/#security-boundary">security boundary</a>.</p>
 <table>
