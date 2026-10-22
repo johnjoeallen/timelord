@@ -1,7 +1,7 @@
-package com.timelord.controller.calendar;
+package com.timelord.controller.schedule;
 
 /** What the agent does to the device when an off window begins. */
-public enum CalendarAction {
+public enum ScheduleAction {
     SLEEP,
     SHUTDOWN
 }

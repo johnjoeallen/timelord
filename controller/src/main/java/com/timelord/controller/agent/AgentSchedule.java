@@ -1,7 +1,7 @@
 package com.timelord.controller.agent;
 
-import com.timelord.controller.calendar.CalendarAction;
-import com.timelord.controller.calendar.OffWindow;
+import com.timelord.controller.schedule.ScheduleAction;
+import com.timelord.controller.schedule.OffWindow;
 import java.util.List;
 
 /**
@@ -13,7 +13,7 @@ import java.util.List;
  */
 public record AgentSchedule(
         String revision,
-        CalendarAction action,
+        ScheduleAction action,
         String timezone,
         List<OffWindow> windows
 ) {

@@ -150,7 +150,7 @@ flowchart LR
         Svc[Device / Event services]
         Cal["Schedule resolver\nrules + overrides + extension"]
         Msg[Message service]
-        UI["Thymeleaf dashboard\n/, /devices, /calendars, /events"]
+        UI["Thymeleaf dashboard\n/, /devices, /schedules, /events"]
         API --> Svc
         API --> Cal
         API --> Msg

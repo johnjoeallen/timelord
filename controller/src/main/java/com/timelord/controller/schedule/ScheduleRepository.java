@@ -1,9 +1,9 @@
-package com.timelord.controller.calendar;
+package com.timelord.controller.schedule;
 
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface CalendarRepository extends JpaRepository<Calendar, UUID> {
+public interface ScheduleRepository extends JpaRepository<Schedule, UUID> {
 
     boolean existsByNameIgnoreCase(String name);
 

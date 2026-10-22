@@ -120,7 +120,7 @@ impl ControllerClient {
     }
 
     /// Long-polls for schedule changes: returns as soon as the controller's schedule differs from
-    /// `revision`, or the current one after `wait` with no change. `None` means no calendar is assigned.
+    /// `revision`, or the current one after `wait` with no change. `None` means no schedule is assigned.
     pub async fn poll_schedule(
         &self,
         device_id: Uuid,

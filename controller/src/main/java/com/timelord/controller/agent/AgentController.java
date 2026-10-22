@@ -70,7 +70,7 @@ public class AgentController {
     /**
      * Long-poll for schedule changes. Returns immediately if the agent's {@code revision} is stale,
      * otherwise parks up to {@code waitSeconds} and returns as soon as something changes (or the
-     * current schedule on timeout). 204 means the device has no calendar.
+     * current schedule on timeout). 204 means the device has no schedule.
      */
     @GetMapping("/{deviceId}/schedule")
     public DeferredResult<ResponseEntity<AgentSchedule>> schedule(@PathVariable UUID deviceId,

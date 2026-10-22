@@ -1,4 +1,4 @@
-package com.timelord.controller.calendar;
+package com.timelord.controller.schedule;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -6,10 +6,10 @@ import com.timelord.controller.agent.AgentSchedule;
 import com.timelord.controller.agent.HeartbeatRequest;
 import com.timelord.controller.agent.HeartbeatResponse;
 import com.timelord.controller.agent.RegisterRequest;
-import com.timelord.controller.calendar.CalendarDto.Rule;
+import com.timelord.controller.schedule.ScheduleDto.Rule;
 import com.timelord.controller.common.ApiError;
 import com.timelord.controller.device.DeviceController;
-import com.timelord.controller.device.DeviceController.CalendarAssignment;
+import com.timelord.controller.device.DeviceController.ScheduleAssignment;
 import com.timelord.controller.device.DeviceDetail;
 import com.timelord.controller.device.NetworkInterfaceInfo;
 import com.timelord.controller.support.AbstractIntegrationTest;
@@ -25,11 +25,11 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-class CalendarApiIntegrationTest extends AbstractIntegrationTest {
+class ScheduleApiIntegrationTest extends AbstractIntegrationTest {
 
     /** Allowed 06:30 to 22:30 every day, so there is an off window every night. */
-    private CalendarRequest request(String name) {
-        return new CalendarRequest(name, "Europe/Dublin", CalendarAction.SLEEP, List.of(
+    private ScheduleRequest request(String name) {
+        return new ScheduleRequest(name, "Europe/Dublin", ScheduleAction.SLEEP, List.of(
                 new Rule(List.of(DayOfWeek.values()), LocalTime.of(6, 30), LocalTime.of(22, 30))));
     }
 
@@ -47,116 +47,116 @@ class CalendarApiIntegrationTest extends AbstractIntegrationTest {
                 HeartbeatResponse.class);
     }
 
-    private void assign(UUID deviceId, UUID calendarId) {
-        restTemplate.exchange("/api/v1/devices/" + deviceId + "/calendar", HttpMethod.PUT,
-                new HttpEntity<>(new CalendarAssignment(calendarId)), DeviceDetail.class);
+    private void assign(UUID deviceId, UUID scheduleId) {
+        restTemplate.exchange("/api/v1/devices/" + deviceId + "/schedule", HttpMethod.PUT,
+                new HttpEntity<>(new ScheduleAssignment(scheduleId)), DeviceDetail.class);
     }
 
     @Test
     void anOverrideCanBeDisabledThroughTheApi() {
-        CalendarDto created = restTemplate.postForObject("/api/v1/calendars", request("Toggle " + UUID.randomUUID()), CalendarDto.class);
-        CalendarDto withOverride = restTemplate.postForObject("/api/v1/calendars/" + created.id() + "/overrides",
+        ScheduleDto created = restTemplate.postForObject("/api/v1/schedules", request("Toggle " + UUID.randomUUID()), ScheduleDto.class);
+        ScheduleDto withOverride = restTemplate.postForObject("/api/v1/schedules/" + created.id() + "/overrides",
                 new OverrideRequest("Holiday", java.time.LocalDate.parse("2030-02-01"), java.time.LocalDate.parse("2030-02-03"),
-                        LocalTime.of(8, 0), LocalTime.of(23, 0)), CalendarDto.class);
+                        LocalTime.of(8, 0), LocalTime.of(23, 0)), ScheduleDto.class);
         UUID overrideId = withOverride.overrides().get(0).id();
         assertThat(withOverride.overrides().get(0).enabled()).isTrue();
 
-        CalendarDto off = restTemplate.exchange("/api/v1/calendars/" + created.id() + "/overrides/" + overrideId + "/enabled",
-                HttpMethod.PUT, new HttpEntity<>(new EnabledRequest(false)), CalendarDto.class).getBody();
+        ScheduleDto off = restTemplate.exchange("/api/v1/schedules/" + created.id() + "/overrides/" + overrideId + "/enabled",
+                HttpMethod.PUT, new HttpEntity<>(new EnabledRequest(false)), ScheduleDto.class).getBody();
 
         assertThat(off.overrides().get(0).enabled()).isFalse();
-        assertThat(restTemplate.exchange("/api/v1/calendars/" + created.id() + "/overrides/" + UUID.randomUUID() + "/enabled",
+        assertThat(restTemplate.exchange("/api/v1/schedules/" + created.id() + "/overrides/" + UUID.randomUUID() + "/enabled",
                 HttpMethod.PUT, new HttpEntity<>(new EnabledRequest(true)), String.class).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @Test
-    void deviceWithoutCalendarGetsNoSchedule() {
+    void deviceWithoutScheduleGetsNoSchedule() {
         assertThat(heartbeat(registerDevice()).schedule()).isNull();
     }
 
     @Test
-    void assignedCalendarIsSentToAgentAndOverridesLeaveBaseUntouched() {
-        CalendarDto calendar = restTemplate.postForObject("/api/v1/calendars", request("School nights"), CalendarDto.class);
+    void assignedScheduleIsSentToAgentAndOverridesLeaveBaseUntouched() {
+        ScheduleDto schedule = restTemplate.postForObject("/api/v1/schedules", request("School nights"), ScheduleDto.class);
         UUID deviceId = registerDevice();
 
-        DeviceDetail assigned = restTemplate.exchange("/api/v1/devices/" + deviceId + "/calendar", HttpMethod.PUT,
-                new HttpEntity<>(new CalendarAssignment(calendar.id())), DeviceDetail.class).getBody();
-        assertThat(assigned.calendarId()).isEqualTo(calendar.id());
+        DeviceDetail assigned = restTemplate.exchange("/api/v1/devices/" + deviceId + "/schedule", HttpMethod.PUT,
+                new HttpEntity<>(new ScheduleAssignment(schedule.id())), DeviceDetail.class).getBody();
+        assertThat(assigned.scheduleId()).isEqualTo(schedule.id());
 
         HeartbeatResponse before = heartbeat(deviceId);
-        assertThat(before.schedule().action()).isEqualTo(CalendarAction.SLEEP);
+        assertThat(before.schedule().action()).isEqualTo(ScheduleAction.SLEEP);
         assertThat(before.schedule().windows()).hasSizeGreaterThanOrEqualTo(7);
 
         LocalDate today = LocalDate.now();
-        CalendarDto withOverride = restTemplate.postForObject("/api/v1/calendars/" + calendar.id() + "/overrides",
+        ScheduleDto withOverride = restTemplate.postForObject("/api/v1/schedules/" + schedule.id() + "/overrides",
                 new OverrideRequest("Holiday", today, today.plusDays(30), LocalTime.of(6, 30), LocalTime.MIDNIGHT),
-                CalendarDto.class);
+                ScheduleDto.class);
         assertThat(withOverride.overrides()).hasSize(1);
-        assertThat(withOverride.rules()).isEqualTo(calendar.rules());
+        assertThat(withOverride.rules()).isEqualTo(schedule.rules());
 
-        ResponseEntity<CalendarDto> removed = restTemplate.exchange(
-                "/api/v1/calendars/" + calendar.id() + "/overrides/" + withOverride.overrides().get(0).id(),
-                HttpMethod.DELETE, null, CalendarDto.class);
+        ResponseEntity<ScheduleDto> removed = restTemplate.exchange(
+                "/api/v1/schedules/" + schedule.id() + "/overrides/" + withOverride.overrides().get(0).id(),
+                HttpMethod.DELETE, null, ScheduleDto.class);
         assertThat(removed.getBody().overrides()).isEmpty();
-        assertThat(removed.getBody().rules()).isEqualTo(calendar.rules());
+        assertThat(removed.getBody().rules()).isEqualTo(schedule.rules());
     }
 
     @Test
-    void invalidCalendarsAreRejected() {
-        CalendarRequest badZone = new CalendarRequest("Bad zone " + UUID.randomUUID(), "Mars/Olympus", CalendarAction.SLEEP, List.of());
-        assertThat(restTemplate.postForEntity("/api/v1/calendars", badZone, ApiError.class).getStatusCode())
+    void invalidSchedulesAreRejected() {
+        ScheduleRequest badZone = new ScheduleRequest("Bad zone " + UUID.randomUUID(), "Mars/Olympus", ScheduleAction.SLEEP, List.of());
+        assertThat(restTemplate.postForEntity("/api/v1/schedules", badZone, ApiError.class).getStatusCode())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
 
-        CalendarRequest noDays = new CalendarRequest("No days " + UUID.randomUUID(), "Europe/Dublin", CalendarAction.SLEEP, List.of(
+        ScheduleRequest noDays = new ScheduleRequest("No days " + UUID.randomUUID(), "Europe/Dublin", ScheduleAction.SLEEP, List.of(
                 new Rule(List.of(), LocalTime.of(8, 0), LocalTime.of(9, 0))));
-        assertThat(restTemplate.postForEntity("/api/v1/calendars", noDays, ApiError.class).getStatusCode())
+        assertThat(restTemplate.postForEntity("/api/v1/schedules", noDays, ApiError.class).getStatusCode())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
 
         // A window can't run past midnight: 18:30 -> 01:00 is rejected, 18:30 -> 00:00 is fine.
-        CalendarRequest pastMidnight = new CalendarRequest("Past midnight " + UUID.randomUUID(), "Europe/Dublin", CalendarAction.SLEEP,
+        ScheduleRequest pastMidnight = new ScheduleRequest("Past midnight " + UUID.randomUUID(), "Europe/Dublin", ScheduleAction.SLEEP,
                 List.of(new Rule(List.of(DayOfWeek.FRIDAY), LocalTime.of(18, 30), LocalTime.of(1, 0))));
-        assertThat(restTemplate.postForEntity("/api/v1/calendars", pastMidnight, ApiError.class).getStatusCode())
+        assertThat(restTemplate.postForEntity("/api/v1/schedules", pastMidnight, ApiError.class).getStatusCode())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
-        CalendarRequest toMidnight = new CalendarRequest("To midnight " + UUID.randomUUID(), "Europe/Dublin", CalendarAction.SLEEP,
+        ScheduleRequest toMidnight = new ScheduleRequest("To midnight " + UUID.randomUUID(), "Europe/Dublin", ScheduleAction.SLEEP,
                 List.of(new Rule(List.of(DayOfWeek.FRIDAY), LocalTime.of(18, 30), LocalTime.MIDNIGHT)));
-        assertThat(restTemplate.postForEntity("/api/v1/calendars", toMidnight, CalendarDto.class).getStatusCode())
+        assertThat(restTemplate.postForEntity("/api/v1/schedules", toMidnight, ScheduleDto.class).getStatusCode())
                 .isEqualTo(HttpStatus.CREATED);
 
-        CalendarDto calendar = restTemplate.postForObject("/api/v1/calendars", request("Bad override " + UUID.randomUUID()), CalendarDto.class);
-        assertThat(restTemplate.postForEntity("/api/v1/calendars/" + calendar.id() + "/overrides",
+        ScheduleDto schedule = restTemplate.postForObject("/api/v1/schedules", request("Bad override " + UUID.randomUUID()), ScheduleDto.class);
+        assertThat(restTemplate.postForEntity("/api/v1/schedules/" + schedule.id() + "/overrides",
                 new OverrideRequest(null, LocalDate.now(), LocalDate.now(), LocalTime.of(18, 30), LocalTime.of(1, 0)), ApiError.class)
                 .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         LocalDate day = LocalDate.now();
-        assertThat(restTemplate.postForEntity("/api/v1/calendars/" + calendar.id() + "/overrides",
+        assertThat(restTemplate.postForEntity("/api/v1/schedules/" + schedule.id() + "/overrides",
                 new OverrideRequest(null, day, day.minusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 0)), ApiError.class)
                 .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test
     void duplicateNameIsConflict() {
-        CalendarRequest r = request("Unique " + UUID.randomUUID());
-        restTemplate.postForEntity("/api/v1/calendars", r, CalendarDto.class);
-        assertThat(restTemplate.postForEntity("/api/v1/calendars", r, ApiError.class).getStatusCode())
+        ScheduleRequest r = request("Unique " + UUID.randomUUID());
+        restTemplate.postForEntity("/api/v1/schedules", r, ScheduleDto.class);
+        assertThat(restTemplate.postForEntity("/api/v1/schedules", r, ApiError.class).getStatusCode())
                 .isEqualTo(HttpStatus.CONFLICT);
     }
 
     @Test
-    void deletingCalendarClearsDeviceAssignment() {
-        CalendarDto calendar = restTemplate.postForObject("/api/v1/calendars", request("Temp " + UUID.randomUUID()), CalendarDto.class);
+    void deletingScheduleClearsDeviceAssignment() {
+        ScheduleDto schedule = restTemplate.postForObject("/api/v1/schedules", request("Temp " + UUID.randomUUID()), ScheduleDto.class);
         UUID deviceId = registerDevice();
-        assign(deviceId, calendar.id());
+        assign(deviceId, schedule.id());
 
-        restTemplate.delete("/api/v1/calendars/" + calendar.id());
+        restTemplate.delete("/api/v1/schedules/" + schedule.id());
 
-        assertThat(restTemplate.getForObject("/api/v1/devices/" + deviceId, DeviceDetail.class).calendarId()).isNull();
+        assertThat(restTemplate.getForObject("/api/v1/devices/" + deviceId, DeviceDetail.class).scheduleId()).isNull();
         assertThat(heartbeat(deviceId).schedule()).isNull();
     }
 
     @Test
     void extendingDelaysNextWindowAndWakesLongPollingAgent() throws Exception {
-        CalendarDto calendar = restTemplate.postForObject("/api/v1/calendars", request("Extend " + UUID.randomUUID()), CalendarDto.class);
+        ScheduleDto schedule = restTemplate.postForObject("/api/v1/schedules", request("Extend " + UUID.randomUUID()), ScheduleDto.class);
         UUID deviceId = registerDevice();
-        assign(deviceId, calendar.id());
+        assign(deviceId, schedule.id());
         AgentSchedule before = heartbeat(deviceId).schedule();
 
         // Agent parks a long-poll holding its current revision...
@@ -175,16 +175,16 @@ class CalendarApiIntegrationTest extends AbstractIntegrationTest {
         // Either the in-progress off window now starts 30 min from now, or the next one starts 30 min later.
         assertThat(first.offAt()).isAfter(originalFirst.offAt());
         assertThat(first.onAt()).isEqualTo(originalFirst.onAt());
-        // Base calendar is unchanged.
-        assertThat(restTemplate.getForObject("/api/v1/calendars/" + calendar.id(), CalendarDto.class).rules())
-                .isEqualTo(calendar.rules());
+        // Base schedule is unchanged.
+        assertThat(restTemplate.getForObject("/api/v1/schedules/" + schedule.id(), ScheduleDto.class).rules())
+                .isEqualTo(schedule.rules());
     }
 
     @Test
     void longPollWithCurrentRevisionTimesOutWithSameSchedule() {
-        CalendarDto calendar = restTemplate.postForObject("/api/v1/calendars", request("Poll " + UUID.randomUUID()), CalendarDto.class);
+        ScheduleDto schedule = restTemplate.postForObject("/api/v1/schedules", request("Poll " + UUID.randomUUID()), ScheduleDto.class);
         UUID deviceId = registerDevice();
-        assign(deviceId, calendar.id());
+        assign(deviceId, schedule.id());
         AgentSchedule current = heartbeat(deviceId).schedule();
 
         AgentSchedule polled = restTemplate.getForObject(
@@ -194,7 +194,7 @@ class CalendarApiIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void extendWithoutCalendarIsConflict() {
+    void extendWithoutScheduleIsConflict() {
         UUID deviceId = registerDevice();
         assertThat(restTemplate.postForEntity("/api/v1/devices/" + deviceId + "/extend",
                 new DeviceController.ExtendRequest(30), ApiError.class).getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
@@ -205,48 +205,48 @@ class CalendarApiIntegrationTest extends AbstractIntegrationTest {
     /** 2030-01-07 is a Monday; Europe/Dublin is UTC+0 in January, so local times equal the instants. */
     private static final String MONDAY = "from=2030-01-07T00:00:00Z&days=1";
 
-    private CalendarDto twoWindowsOnMonday(String name) {
-        return restTemplate.postForObject("/api/v1/calendars", new CalendarRequest(name, "Europe/Dublin", CalendarAction.SLEEP, List.of(
+    private ScheduleDto twoWindowsOnMonday(String name) {
+        return restTemplate.postForObject("/api/v1/schedules", new ScheduleRequest(name, "Europe/Dublin", ScheduleAction.SLEEP, List.of(
                 new Rule(List.of(DayOfWeek.MONDAY), LocalTime.of(8, 30), LocalTime.of(10, 30)),
-                new Rule(List.of(DayOfWeek.MONDAY), LocalTime.of(18, 30), LocalTime.of(23, 30)))), CalendarDto.class);
+                new Rule(List.of(DayOfWeek.MONDAY), LocalTime.of(18, 30), LocalTime.of(23, 30)))), ScheduleDto.class);
     }
 
     @Test
     void severalRowsCoveringTheSameDayAreAcceptedAndBothApply() {
-        CalendarDto calendar = twoWindowsOnMonday("Two windows " + UUID.randomUUID());
-        assertThat(calendar.rules()).hasSize(2);
+        ScheduleDto schedule = twoWindowsOnMonday("Two windows " + UUID.randomUUID());
+        assertThat(schedule.rules()).hasSize(2);
 
-        AllowedWindow[] allowed = restTemplate.getForObject("/api/v1/calendars/" + calendar.id() + "/allowed?" + MONDAY, AllowedWindow[].class);
+        AllowedWindow[] allowed = restTemplate.getForObject("/api/v1/schedules/" + schedule.id() + "/allowed?" + MONDAY, AllowedWindow[].class);
 
         assertThat(allowed).containsExactly(
                 new AllowedWindow(Instant.parse("2030-01-07T08:30:00Z"), Instant.parse("2030-01-07T10:30:00Z")),
                 new AllowedWindow(Instant.parse("2030-01-07T18:30:00Z"), Instant.parse("2030-01-07T23:30:00Z")));
-        OffWindow[] off = restTemplate.getForObject("/api/v1/calendars/" + calendar.id() + "/windows?" + MONDAY, OffWindow[].class);
+        OffWindow[] off = restTemplate.getForObject("/api/v1/schedules/" + schedule.id() + "/windows?" + MONDAY, OffWindow[].class);
         assertThat(off).contains(new OffWindow(Instant.parse("2030-01-07T10:30:00Z"), Instant.parse("2030-01-07T18:30:00Z")));
     }
 
     @Test
     void anOverrideExtendsTheEveningButCannotShortenIt() {
-        CalendarDto calendar = twoWindowsOnMonday("Override " + UUID.randomUUID());
-        String base = "/api/v1/calendars/" + calendar.id();
+        ScheduleDto schedule = twoWindowsOnMonday("Override " + UUID.randomUUID());
+        String base = "/api/v1/schedules/" + schedule.id();
 
         // Inside an existing window: no change.
         restTemplate.postForObject(base + "/overrides", new OverrideRequest("Narrow", LocalDate.parse("2030-01-07"),
-                LocalDate.parse("2030-01-07"), LocalTime.of(19, 0), LocalTime.of(20, 0)), CalendarDto.class);
+                LocalDate.parse("2030-01-07"), LocalTime.of(19, 0), LocalTime.of(20, 0)), ScheduleDto.class);
         assertThat(restTemplate.getForObject(base + "/allowed?" + MONDAY, AllowedWindow[].class)).hasSize(2);
 
         // Running late: extends the evening window from 23:30 to midnight.
         restTemplate.postForObject(base + "/overrides", new OverrideRequest("Late", LocalDate.parse("2030-01-07"),
-                LocalDate.parse("2030-01-07"), LocalTime.of(23, 30), LocalTime.MIDNIGHT), CalendarDto.class);
+                LocalDate.parse("2030-01-07"), LocalTime.of(23, 30), LocalTime.MIDNIGHT), ScheduleDto.class);
         AllowedWindow[] allowed = restTemplate.getForObject(base + "/allowed?from=2030-01-07T12:00:00Z&days=1", AllowedWindow[].class);
         assertThat(allowed).containsExactly(
                 new AllowedWindow(Instant.parse("2030-01-07T18:30:00Z"), Instant.parse("2030-01-08T00:00:00Z")));
     }
 
     @Test
-    void aCalendarWithNoRowsRestrictsNothingEvenWhenAssigned() {
-        CalendarDto empty = restTemplate.postForObject("/api/v1/calendars",
-                new CalendarRequest("Empty " + UUID.randomUUID(), "Europe/Dublin", CalendarAction.SLEEP, List.of()), CalendarDto.class);
+    void aScheduleWithNoRowsRestrictsNothingEvenWhenAssigned() {
+        ScheduleDto empty = restTemplate.postForObject("/api/v1/schedules",
+                new ScheduleRequest("Empty " + UUID.randomUUID(), "Europe/Dublin", ScheduleAction.SLEEP, List.of()), ScheduleDto.class);
         UUID deviceId = registerDevice();
         assign(deviceId, empty.id());
 
@@ -261,46 +261,46 @@ class CalendarApiIntegrationTest extends AbstractIntegrationTest {
     @Test
     void aLateNightIsFridayOnFrom18WithNoOffAndSaturdayOffAt01WithNoOn() {
         // 2030-01-04 is a Friday.
-        CalendarDto calendar = restTemplate.postForObject("/api/v1/calendars", new CalendarRequest("Late " + UUID.randomUUID(),
-                "Europe/Dublin", CalendarAction.SLEEP, List.of(
+        ScheduleDto schedule = restTemplate.postForObject("/api/v1/schedules", new ScheduleRequest("Late " + UUID.randomUUID(),
+                "Europe/Dublin", ScheduleAction.SLEEP, List.of(
                 new Rule(List.of(DayOfWeek.FRIDAY), LocalTime.of(18, 0), null),
-                new Rule(List.of(DayOfWeek.SATURDAY), null, LocalTime.of(1, 0)))), CalendarDto.class);
+                new Rule(List.of(DayOfWeek.SATURDAY), null, LocalTime.of(1, 0)))), ScheduleDto.class);
 
         // Stored explicitly: Friday 18:00-00:00 and Saturday 00:00-01:00.
-        assertThat(calendar.rules()).extracting(Rule::startTime, Rule::endTime).containsExactlyInAnyOrder(
+        assertThat(schedule.rules()).extracting(Rule::startTime, Rule::endTime).containsExactlyInAnyOrder(
                 org.assertj.core.groups.Tuple.tuple(LocalTime.of(18, 0), LocalTime.MIDNIGHT),
                 org.assertj.core.groups.Tuple.tuple(LocalTime.MIDNIGHT, LocalTime.of(1, 0)));
         AllowedWindow[] allowed = restTemplate.getForObject(
-                "/api/v1/calendars/" + calendar.id() + "/allowed?from=2030-01-04T00:00:00Z&days=2", AllowedWindow[].class);
+                "/api/v1/schedules/" + schedule.id() + "/allowed?from=2030-01-04T00:00:00Z&days=2", AllowedWindow[].class);
         assertThat(allowed).containsExactly(
                 new AllowedWindow(Instant.parse("2030-01-04T18:00:00Z"), Instant.parse("2030-01-05T01:00:00Z")));
     }
 
     @Test
     void aRowWithNoTimesAtAllIsTheWholeDayAndABlankOverrideToo() {
-        CalendarDto calendar = restTemplate.postForObject("/api/v1/calendars", new CalendarRequest("All day " + UUID.randomUUID(),
-                "Europe/Dublin", CalendarAction.SLEEP, List.of(new Rule(List.of(DayOfWeek.SATURDAY), null, null))), CalendarDto.class);
-        assertThat(calendar.rules().get(0).startTime()).isEqualTo(LocalTime.MIDNIGHT);
-        assertThat(calendar.rules().get(0).endTime()).isEqualTo(LocalTime.MIDNIGHT);
+        ScheduleDto schedule = restTemplate.postForObject("/api/v1/schedules", new ScheduleRequest("All day " + UUID.randomUUID(),
+                "Europe/Dublin", ScheduleAction.SLEEP, List.of(new Rule(List.of(DayOfWeek.SATURDAY), null, null))), ScheduleDto.class);
+        assertThat(schedule.rules().get(0).startTime()).isEqualTo(LocalTime.MIDNIGHT);
+        assertThat(schedule.rules().get(0).endTime()).isEqualTo(LocalTime.MIDNIGHT);
 
         // 2030-01-05 is a Saturday.
         AllowedWindow[] sat = restTemplate.getForObject(
-                "/api/v1/calendars/" + calendar.id() + "/allowed?from=2030-01-05T00:00:00Z&days=1", AllowedWindow[].class);
+                "/api/v1/schedules/" + schedule.id() + "/allowed?from=2030-01-05T00:00:00Z&days=1", AllowedWindow[].class);
         assertThat(sat).containsExactly(new AllowedWindow(Instant.parse("2030-01-05T00:00:00Z"), Instant.parse("2030-01-06T00:00:00Z")));
 
-        CalendarDto withOverride = restTemplate.postForObject("/api/v1/calendars/" + calendar.id() + "/overrides",
-                new OverrideRequest("Sunday too", LocalDate.parse("2030-01-06"), LocalDate.parse("2030-01-06"), null, null), CalendarDto.class);
+        ScheduleDto withOverride = restTemplate.postForObject("/api/v1/schedules/" + schedule.id() + "/overrides",
+                new OverrideRequest("Sunday too", LocalDate.parse("2030-01-06"), LocalDate.parse("2030-01-06"), null, null), ScheduleDto.class);
         assertThat(withOverride.overrides().get(0).startTime()).isEqualTo(LocalTime.MIDNIGHT);
-        assertThat(restTemplate.getForObject("/api/v1/calendars/" + calendar.id() + "/allowed?from=2030-01-05T00:00:00Z&days=2",
+        assertThat(restTemplate.getForObject("/api/v1/schedules/" + schedule.id() + "/allowed?from=2030-01-05T00:00:00Z&days=2",
                 AllowedWindow[].class)).containsExactly(
                 new AllowedWindow(Instant.parse("2030-01-05T00:00:00Z"), Instant.parse("2030-01-07T00:00:00Z")));
     }
 
     @Test
     void anExplicitWindowThatRunsPastMidnightIsStillRefused() {
-        CalendarRequest bad = new CalendarRequest("Past " + UUID.randomUUID(), "Europe/Dublin", CalendarAction.SLEEP,
+        ScheduleRequest bad = new ScheduleRequest("Past " + UUID.randomUUID(), "Europe/Dublin", ScheduleAction.SLEEP,
                 List.of(new Rule(List.of(DayOfWeek.FRIDAY), LocalTime.of(18, 0), LocalTime.of(1, 0))));
-        ResponseEntity<ApiError> response = restTemplate.postForEntity("/api/v1/calendars", bad, ApiError.class);
+        ResponseEntity<ApiError> response = restTemplate.postForEntity("/api/v1/schedules", bad, ApiError.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody().message()).contains("add a row for the next day");
     }

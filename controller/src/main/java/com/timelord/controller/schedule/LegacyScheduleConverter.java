@@ -1,4 +1,4 @@
-package com.timelord.controller.calendar;
+package com.timelord.controller.schedule;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
@@ -18,12 +18,12 @@ import java.util.Set;
  * <p>The weekly rules are converted exactly: the old rules define when the device was off during a
  * repeating week, and the new rows are the gaps between those off spans.
  */
-public final class LegacyCalendarConverter {
+public final class LegacyScheduleConverter {
 
     private static final int DAY = 24 * 60;
     private static final int WEEK = 7 * DAY;
 
-    private LegacyCalendarConverter() {
+    private LegacyScheduleConverter() {
     }
 
     /** One old rule: off at {@code off} on each of {@code days}, on again at the first {@code on} after that. */

@@ -1,8 +1,8 @@
 package db.migration;
 
-import com.timelord.controller.calendar.LegacyCalendarConverter;
-import com.timelord.controller.calendar.LegacyCalendarConverter.LegacyRule;
-import com.timelord.controller.calendar.LegacyCalendarConverter.Row;
+import com.timelord.controller.schedule.LegacyScheduleConverter;
+import com.timelord.controller.schedule.LegacyScheduleConverter.LegacyRule;
+import com.timelord.controller.schedule.LegacyScheduleConverter.Row;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
  * Converts calendars from the "off window" model (days + off time + on time, one rule per day) to
  * allowed ("on") windows (days + start time + end time, any number of rows per day, overrides add
  * windows rather than replacing them, and every window stays within one day). Weekly rules are
- * converted exactly via {@link LegacyCalendarConverter}; each override becomes the equivalent added
+ * converted exactly via {@link LegacyScheduleConverter}; each override becomes the equivalent added
  * window(s), split at midnight where they crossed it.
  *
  * <p>Two things cannot carry over: an override can no longer <em>narrow</em> a day, and a calendar
@@ -69,7 +69,7 @@ public class V5__OnWindows extends BaseJavaMigration {
             }
         }
         for (Map.Entry<UUID, List<LegacyRule>> entry : byCalendar.entrySet()) {
-            List<Row> rows = LegacyCalendarConverter.toAllowedRows(entry.getValue());
+            List<Row> rows = LegacyScheduleConverter.toAllowedRows(entry.getValue());
             if (rows.isEmpty()) {
                 log.warn("Calendar {} left no allowed time under the old rules; it now has no rows and restricts nothing", entry.getKey());
             }
@@ -111,16 +111,16 @@ public class V5__OnWindows extends BaseJavaMigration {
                 // The old override took the device off at `off` and back on at `on`; the allowed time it
                 // implied starts at `on` (on the day the device came back) and lasts until the next `off`,
                 // split at midnight so each added window stays within a day.
-                int shift = LegacyCalendarConverter.onDayShift(o.off(), o.on());
-                List<LegacyCalendarConverter.OverrideWindow> windows = LegacyCalendarConverter.overrideWindows(o.off(), o.on());
-                LegacyCalendarConverter.OverrideWindow first = windows.get(0);
+                int shift = LegacyScheduleConverter.onDayShift(o.off(), o.on());
+                List<LegacyScheduleConverter.OverrideWindow> windows = LegacyScheduleConverter.overrideWindows(o.off(), o.on());
+                LegacyScheduleConverter.OverrideWindow first = windows.get(0);
                 update.setDate(1, Date.valueOf(o.start().plusDays(shift + first.dayOffset())));
                 update.setDate(2, Date.valueOf(o.end().plusDays(shift + first.dayOffset())));
                 update.setTime(3, Time.valueOf(first.start()));
                 update.setTime(4, Time.valueOf(first.end()));
                 update.setObject(5, o.id());
                 update.addBatch();
-                for (LegacyCalendarConverter.OverrideWindow extra : windows.subList(1, windows.size())) {
+                for (LegacyScheduleConverter.OverrideWindow extra : windows.subList(1, windows.size())) {
                     insert.setObject(1, UUID.randomUUID());
                     insert.setDate(2, Date.valueOf(o.start().plusDays(shift + extra.dayOffset())));
                     insert.setDate(3, Date.valueOf(o.end().plusDays(shift + extra.dayOffset())));

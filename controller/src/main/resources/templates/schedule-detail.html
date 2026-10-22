@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<div th:replace="~{fragments/head :: head(${calendar.name})}"></div>
+<div th:replace="~{fragments/head :: head(${schedule.name})}"></div>
 <body>
 <div th:replace="~{fragments/nav :: nav}"></div>
 <div class="container">
-    <h1 class="mb-1" th:text="${calendar.name}"></h1>
-    <p class="text-muted"><a th:href="@{/calendars}">&larr; All schedules</a></p>
+    <h1 class="mb-1" th:text="${schedule.name}"></h1>
+    <p class="text-muted"><a th:href="@{/schedules}">&larr; All schedules</a></p>
     <div th:replace="~{fragments/flash :: flash}"></div>
 
     <div class="card mb-4">
@@ -27,22 +27,22 @@
                 empty). <strong>&minus;</strong> disables a row, which keeps it but ignores it; <strong>&minus;</strong> on a disabled
                 row deletes it. Nothing changes until you press Save schedule.
             </p>
-            <form method="post" th:action="@{/calendars/{id}(id=${calendar.id})}">
+            <form method="post" th:action="@{/schedules/{id}(id=${schedule.id})}">
                 <div class="row g-3 mb-3">
                     <div class="col-md-4">
                         <label class="form-label" for="name">Name</label>
-                        <input class="form-control" id="name" name="name" th:value="${calendar.name}" required/>
+                        <input class="form-control" id="name" name="name" th:value="${schedule.name}" required/>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label" for="timezone">Timezone</label>
-                        <input class="form-control" id="timezone" name="timezone" list="tzlist" th:value="${calendar.timezone}" required/>
+                        <input class="form-control" id="timezone" name="timezone" list="tzlist" th:value="${schedule.timezone}" required/>
                         <datalist id="tzlist"><option th:each="z : ${timezones}" th:value="${z}"></option></datalist>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label" for="action">At off time</label>
                         <select class="form-select" id="action" name="action">
-                            <option value="SLEEP" th:selected="${calendar.action.name() == 'SLEEP'}">Sleep the device</option>
-                            <option value="SHUTDOWN" th:selected="${calendar.action.name() == 'SHUTDOWN'}">Shut the device down</option>
+                            <option value="SLEEP" th:selected="${schedule.action.name() == 'SLEEP'}">Sleep the device</option>
+                            <option value="SHUTDOWN" th:selected="${schedule.action.name() == 'SHUTDOWN'}">Shut the device down</option>
                         </select>
                     </div>
                 </div>
@@ -165,11 +165,11 @@
                 <strong>Disable</strong> keeps an override but stops it adding time, so you can switch a holiday off and
                 back on again (<strong>Enable</strong>) without re-entering it.
             </p>
-            <div class="table-responsive" th:if="${not #lists.isEmpty(calendar.overrides)}">
+            <div class="table-responsive" th:if="${not #lists.isEmpty(schedule.overrides)}">
                 <table class="table table-sm align-middle">
                     <thead><tr><th>Name</th><th>From</th><th>To</th><th>On from</th><th>Off at</th><th></th></tr></thead>
                     <tbody>
-                    <tr th:each="o : ${calendar.overrides}"
+                    <tr th:each="o : ${schedule.overrides}"
                         th:classappend="${o.endDate.isBefore(today) or not o.enabled} ? 'text-muted'">
                         <td><span th:text="${o.name} ?: '–'"></span>
                             <span class="badge text-bg-secondary ms-1" th:unless="${o.enabled}">disabled</span></td>
@@ -179,13 +179,13 @@
                         <td th:text="${#temporals.format(o.endTime, 'HH:mm')}"></td>
                         <td class="text-end text-nowrap">
                             <form method="post" class="d-inline"
-                                  th:action="@{/calendars/{id}/overrides/{oid}/enabled(id=${calendar.id},oid=${o.id})}">
+                                  th:action="@{/schedules/{id}/overrides/{oid}/enabled(id=${schedule.id},oid=${o.id})}">
                                 <input type="hidden" name="enabled" th:value="${not o.enabled}"/>
                                 <button class="btn btn-sm btn-outline-secondary" type="submit"
                                         th:text="${o.enabled} ? 'Disable' : 'Enable'"></button>
                             </form>
                             <form method="post" class="d-inline"
-                                  th:action="@{/calendars/{id}/overrides/{oid}/delete(id=${calendar.id},oid=${o.id})}">
+                                  th:action="@{/schedules/{id}/overrides/{oid}/delete(id=${schedule.id},oid=${o.id})}">
                                 <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button>
                             </form>
                         </td>
@@ -193,7 +193,7 @@
                     </tbody>
                 </table>
             </div>
-            <form method="post" th:action="@{/calendars/{id}/overrides(id=${calendar.id})}" class="row g-2 align-items-end">
+            <form method="post" th:action="@{/schedules/{id}/overrides(id=${schedule.id})}" class="row g-2 align-items-end">
                 <div class="col-md-3"><label class="form-label" for="oname">Name</label>
                     <input class="form-control" id="oname" name="name" placeholder="Christmas"/></div>
                 <div class="col-6 col-md-2"><label class="form-label" for="ostart">From</label>
@@ -210,14 +210,14 @@
     </div>
 
     <div class="card mb-4">
-        <div class="card-header">Allowed in the next 14 days <span class="text-muted small" th:text="'(' + ${calendar.timezone} + ')'"></span></div>
+        <div class="card-header">Allowed in the next 14 days <span class="text-muted small" th:text="'(' + ${schedule.timezone} + ')'"></span></div>
         <div class="table-responsive">
             <table class="table table-sm mb-0">
                 <thead><tr><th>On from</th><th>Off at</th></tr></thead>
                 <tbody>
                 <tr th:each="w : ${allowedWindows}">
-                    <td th:text="${@timeFormat.format(w.onAt, calendarZone, 'EEE d MMM HH:mm')}"></td>
-                    <td th:text="${@timeFormat.format(w.offAt, calendarZone, 'EEE d MMM HH:mm')}"></td>
+                    <td th:text="${@timeFormat.format(w.onAt, scheduleZone, 'EEE d MMM HH:mm')}"></td>
+                    <td th:text="${@timeFormat.format(w.offAt, scheduleZone, 'EEE d MMM HH:mm')}"></td>
                 </tr>
                 <tr th:if="${#lists.isEmpty(allowedWindows) and not hasActiveRows}">
                     <td colspan="2" class="text-muted text-center py-3">No rows yet: this schedule doesn't restrict anything, devices are always allowed on.</td>
@@ -230,7 +230,7 @@
         </div>
     </div>
 
-    <form method="post" th:action="@{/calendars/{id}/delete(id=${calendar.id})}" class="mb-5"
+    <form method="post" th:action="@{/schedules/{id}/delete(id=${schedule.id})}" class="mb-5"
           onsubmit="return confirm('Delete this schedule? Devices using it will have no schedule.');">
         <button class="btn btn-outline-danger" type="submit">Delete schedule</button>
     </form>

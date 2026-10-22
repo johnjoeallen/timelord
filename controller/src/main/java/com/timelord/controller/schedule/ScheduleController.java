@@ -1,4 +1,4 @@
-package com.timelord.controller.calendar;
+package com.timelord.controller.schedule;
 
 import com.timelord.controller.agent.ScheduleChangeNotifier;
 import jakarta.validation.Valid;
@@ -18,36 +18,36 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/calendars")
-public class CalendarController {
+@RequestMapping("/api/v1/schedules")
+public class ScheduleController {
 
-    private final CalendarService service;
+    private final ScheduleService service;
     private final ScheduleChangeNotifier scheduleChanges;
 
-    public CalendarController(CalendarService service, ScheduleChangeNotifier scheduleChanges) {
+    public ScheduleController(ScheduleService service, ScheduleChangeNotifier scheduleChanges) {
         this.service = service;
         this.scheduleChanges = scheduleChanges;
     }
 
     @GetMapping
-    public List<CalendarDto> list() {
+    public List<ScheduleDto> list() {
         return service.list();
     }
 
     @GetMapping("/{id}")
-    public CalendarDto get(@PathVariable UUID id) {
+    public ScheduleDto get(@PathVariable UUID id) {
         return service.get(id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public CalendarDto create(@Valid @RequestBody CalendarRequest request) {
+    public ScheduleDto create(@Valid @RequestBody ScheduleRequest request) {
         return service.create(request);
     }
 
     @PutMapping("/{id}")
-    public CalendarDto update(@PathVariable UUID id, @Valid @RequestBody CalendarRequest request) {
-        CalendarDto dto = service.update(id, request);
+    public ScheduleDto update(@PathVariable UUID id, @Valid @RequestBody ScheduleRequest request) {
+        ScheduleDto dto = service.update(id, request);
         scheduleChanges.allChanged();
         return dto;
     }
@@ -61,29 +61,29 @@ public class CalendarController {
 
     @PostMapping("/{id}/overrides")
     @ResponseStatus(HttpStatus.CREATED)
-    public CalendarDto addOverride(@PathVariable UUID id, @Valid @RequestBody OverrideRequest request) {
-        CalendarDto dto = service.addOverride(id, request);
+    public ScheduleDto addOverride(@PathVariable UUID id, @Valid @RequestBody OverrideRequest request) {
+        ScheduleDto dto = service.addOverride(id, request);
         scheduleChanges.allChanged();
         return dto;
     }
 
     @DeleteMapping("/{id}/overrides/{overrideId}")
-    public CalendarDto removeOverride(@PathVariable UUID id, @PathVariable UUID overrideId) {
-        CalendarDto dto = service.removeOverride(id, overrideId);
+    public ScheduleDto removeOverride(@PathVariable UUID id, @PathVariable UUID overrideId) {
+        ScheduleDto dto = service.removeOverride(id, overrideId);
         scheduleChanges.allChanged();
         return dto;
     }
 
     /** Body {@code {"enabled": false}} keeps the override but stops it adding time; {@code true} turns it back on. */
     @PutMapping("/{id}/overrides/{overrideId}/enabled")
-    public CalendarDto setOverrideEnabled(@PathVariable UUID id, @PathVariable UUID overrideId,
+    public ScheduleDto setOverrideEnabled(@PathVariable UUID id, @PathVariable UUID overrideId,
                                           @Valid @RequestBody EnabledRequest request) {
-        CalendarDto dto = service.setOverrideEnabled(id, overrideId, request.enabled());
+        ScheduleDto dto = service.setOverrideEnabled(id, overrideId, request.enabled());
         scheduleChanges.allChanged();
         return dto;
     }
 
-    /** The concrete allowed ("on") windows the calendar resolves to. */
+    /** The concrete allowed ("on") windows the schedule resolves to. */
     @GetMapping("/{id}/allowed")
     public List<AllowedWindow> allowed(@PathVariable UUID id,
                                        @RequestParam(required = false) Instant from,
@@ -91,7 +91,7 @@ public class CalendarController {
         return service.allowed(id, from != null ? from : Instant.now(), Math.min(Math.max(days, 1), 366));
     }
 
-    /** The concrete off windows (what the agent enforces) the calendar resolves to. */
+    /** The concrete off windows (what the agent enforces) the schedule resolves to. */
     @GetMapping("/{id}/windows")
     public List<OffWindow> windows(@PathVariable UUID id,
                                    @RequestParam(required = false) Instant from,

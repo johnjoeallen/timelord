@@ -59,17 +59,17 @@ public class DeviceController {
         scheduleChanges.deviceChanged(deviceId);
     }
 
-    /** Body {@code {"calendarId": "<uuid>"}} assigns a calendar; {@code {"calendarId": null}} clears it. */
-    @PutMapping("/{deviceId}/calendar")
-    public DeviceDetail assignCalendar(@PathVariable UUID deviceId, @RequestBody CalendarAssignment assignment) {
-        DeviceDetail detail = DeviceDetail.from(deviceService.assignCalendar(deviceId, assignment.calendarId()));
+    /** Body {@code {"scheduleId": "<uuid>"}} assigns a schedule; {@code {"scheduleId": null}} clears it. */
+    @PutMapping("/{deviceId}/schedule")
+    public DeviceDetail assignSchedule(@PathVariable UUID deviceId, @RequestBody ScheduleAssignment assignment) {
+        DeviceDetail detail = DeviceDetail.from(deviceService.assignSchedule(deviceId, assignment.scheduleId()));
         scheduleChanges.deviceChanged(deviceId);
         return detail;
     }
 
     /**
-     * Lets the device stay on {@code minutes} longer than its calendar allows (e.g. "another 30 mins").
-     * The agent is told immediately via its schedule long-poll; the calendar is not modified.
+     * Lets the device stay on {@code minutes} longer than its schedule allows (e.g. "another 30 mins").
+     * The agent is told immediately via its schedule long-poll; the schedule is not modified.
      */
     @PostMapping("/{deviceId}/extend")
     public DeviceDetail extend(@PathVariable UUID deviceId, @RequestBody ExtendRequest request) {
@@ -84,7 +84,7 @@ public class DeviceController {
     public record ExtendRequest(int minutes) {
     }
 
-    public record CalendarAssignment(UUID calendarId) {
+    public record ScheduleAssignment(UUID scheduleId) {
     }
 
     @GetMapping("/{deviceId}/events")

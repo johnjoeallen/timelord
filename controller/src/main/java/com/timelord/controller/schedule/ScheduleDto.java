@@ -1,4 +1,4 @@
-package com.timelord.controller.calendar;
+package com.timelord.controller.schedule;
 
 import java.time.DayOfWeek;
 import java.time.Instant;
@@ -7,11 +7,11 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
-public record CalendarDto(
+public record ScheduleDto(
         UUID id,
         String name,
         String timezone,
-        CalendarAction action,
+        ScheduleAction action,
         List<Rule> rules,
         List<Override> overrides,
         Instant createdAt,
@@ -35,21 +35,21 @@ public record CalendarDto(
             this(days, startTime, endTime, true);
         }
 
-        static Rule from(CalendarRule r) {
+        static Rule from(ScheduleRule r) {
             return new Rule(r.getDays(), r.getStartTime(), r.getEndTime(), r.isEnabled());
         }
     }
 
     public record Override(UUID id, String name, LocalDate startDate, LocalDate endDate,
                            LocalTime startTime, LocalTime endTime, boolean enabled) {
-        static Override from(CalendarOverride o) {
+        static Override from(ScheduleOverride o) {
             return new Override(o.getId(), o.getName(), o.getStartDate(), o.getEndDate(), o.getStartTime(),
                     o.getEndTime(), o.isEnabled());
         }
     }
 
-    static CalendarDto from(Calendar c, List<CalendarRule> rules, List<CalendarOverride> overrides) {
-        return new CalendarDto(c.getId(), c.getName(), c.getTimezone(), c.getAction(),
+    static ScheduleDto from(Schedule c, List<ScheduleRule> rules, List<ScheduleOverride> overrides) {
+        return new ScheduleDto(c.getId(), c.getName(), c.getTimezone(), c.getAction(),
                 rules.stream().map(Rule::from).toList(),
                 overrides.stream().map(Override::from).toList(),
                 c.getCreatedAt(), c.getUpdatedAt());

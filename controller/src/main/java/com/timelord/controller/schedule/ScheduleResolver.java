@@ -1,4 +1,4 @@
-package com.timelord.controller.calendar;
+package com.timelord.controller.schedule;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -11,10 +11,10 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Turns a calendar's rows and overrides into concrete times. Pure and stateless so the rules are easy
+ * Turns a schedule's rows and overrides into concrete times. Pure and stateless so the rules are easy
  * to test.
  *
- * <p>A calendar is a set of <em>allowed</em> ("on") windows; everything outside them is off. Each day is
+ * <p>A schedule is a set of <em>allowed</em> ("on") windows; everything outside them is off. Each day is
  * its own midnight-to-midnight line: a row contributes a window on every day it ticks, from its start time
  * to its end time within that day, where an end of 00:00 means midnight at the end of the day (so
  * 00:00 to 00:00 is the whole day). Windows never wrap: a window that ends at midnight simply meets the
@@ -22,30 +22,30 @@ import java.util.Optional;
  * may cover the same day. Overrides are layered on afterwards: each adds the same kind of window for
  * every date in its range. All windows are unioned, so an override can extend a day but never narrow it.
  *
- * <p>A calendar with no rows restricts nothing, so a freshly created, still-empty calendar does not
+ * <p>A schedule with no rows restricts nothing, so a freshly created, still-empty schedule does not
  * keep a device asleep.
  */
-public final class CalendarResolver {
+public final class ScheduleResolver {
 
-    private CalendarResolver() {
+    private ScheduleResolver() {
     }
 
     /** The allowed windows that overlap [from, to), earliest first, with touching or overlapping ones merged. */
-    public static List<AllowedWindow> allowedWindows(ZoneId zone, List<CalendarRule> rules,
-                                                     List<CalendarOverride> overrides, Instant from, Instant to) {
-        rules = rules.stream().filter(CalendarRule::isEnabled).toList();
-        overrides = overrides.stream().filter(CalendarOverride::isEnabled).toList();
+    public static List<AllowedWindow> allowedWindows(ZoneId zone, List<ScheduleRule> rules,
+                                                     List<ScheduleOverride> overrides, Instant from, Instant to) {
+        rules = rules.stream().filter(ScheduleRule::isEnabled).toList();
+        overrides = overrides.stream().filter(ScheduleOverride::isEnabled).toList();
         List<AllowedWindow> windows = new ArrayList<>();
         // Windows stay inside their day, so one day back is enough to catch one still running at `from`.
         LocalDate first = from.atZone(zone).toLocalDate().minusDays(1);
         LocalDate last = to.atZone(zone).toLocalDate();
         for (LocalDate day = first; !day.isAfter(last); day = day.plusDays(1)) {
-            for (CalendarRule rule : rules) {
+            for (ScheduleRule rule : rules) {
                 if (rule.getDays().contains(day.getDayOfWeek())) {
                     window(zone, day, rule.getStartTime(), rule.getEndTime()).ifPresent(windows::add);
                 }
             }
-            for (CalendarOverride override : overrides) {
+            for (ScheduleOverride override : overrides) {
                 if (!day.isBefore(override.getStartDate()) && !day.isAfter(override.getEndDate())) {
                     window(zone, day, override.getStartTime(), override.getEndTime()).ifPresent(windows::add);
                 }
@@ -56,14 +56,14 @@ public final class CalendarResolver {
 
     /**
      * The spans overlapping [from, to) in which the device must be off: the gaps between the allowed
-     * windows. Empty for a calendar with no rows. The first gap begins no earlier than local midnight of
+     * windows. Empty for a schedule with no rows. The first gap begins no earlier than local midnight of
      * the day before {@code from} and the last ends at local midnight after {@code to}, so the answer
      * only changes when something real does (not on every call).
      */
-    public static List<OffWindow> offWindows(ZoneId zone, List<CalendarRule> rules, List<CalendarOverride> overrides,
+    public static List<OffWindow> offWindows(ZoneId zone, List<ScheduleRule> rules, List<ScheduleOverride> overrides,
                                              Instant from, Instant to) {
-        // Disabled rows count for nothing, so a calendar whose rows are all disabled restricts nothing.
-        if (rules.stream().noneMatch(CalendarRule::isEnabled)) {
+        // Disabled rows count for nothing, so a schedule whose rows are all disabled restricts nothing.
+        if (rules.stream().noneMatch(ScheduleRule::isEnabled)) {
             return List.of();
         }
         Instant rangeStart = from.atZone(zone).toLocalDate().minusDays(1).atStartOfDay(zone).toInstant();

@@ -1,6 +1,6 @@
 package com.timelord.controller.dashboard;
 
-import com.timelord.controller.calendar.CalendarService;
+import com.timelord.controller.schedule.ScheduleService;
 import com.timelord.controller.message.MessageService;
 import com.timelord.controller.device.Device;
 import com.timelord.controller.device.DeviceDetail;
@@ -35,13 +35,13 @@ public class DashboardController {
     private final EventService eventService;
     private final DeviceSessionService sessionService;
     private final RequestZoneResolver zoneResolver;
-    private final CalendarService calendarService;
+    private final ScheduleService scheduleService;
     private final MessageService messageService;
 
     public DashboardController(DeviceService deviceService, EventService eventService,
                                 DeviceSessionService sessionService, RequestZoneResolver zoneResolver,
-                                CalendarService calendarService, MessageService messageService) {
-        this.calendarService = calendarService;
+                                ScheduleService scheduleService, MessageService messageService) {
+        this.scheduleService = scheduleService;
         this.messageService = messageService;
         this.deviceService = deviceService;
         this.eventService = eventService;
@@ -71,13 +71,13 @@ public class DashboardController {
         Device device = deviceService.requireDevice(deviceId);
         model.addAttribute("device", DeviceDetail.from(device));
         model.addAttribute("sessions", sessionService.sessionsFor(device));
-        model.addAttribute("calendars", calendarService.list());
+        model.addAttribute("schedules", scheduleService.list());
         model.addAttribute("messages", messageService.recent(deviceId));
         model.addAttribute("extensionUntil", device.getExtensionUntil() != null
                 && device.getExtensionUntil().isAfter(java.time.Instant.now()) ? device.getExtensionUntil() : null);
-        if (device.getCalendarId() != null) {
-            model.addAttribute("calendarWindows", calendarService
-                    .effectiveWindows(device.getCalendarId(), device.getExtensionUntil(), java.time.Duration.ofDays(3))
+        if (device.getScheduleId() != null) {
+            model.addAttribute("scheduleWindows", scheduleService
+                    .effectiveWindows(device.getScheduleId(), device.getExtensionUntil(), java.time.Duration.ofDays(3))
                     .stream().limit(3).toList());
         }
         return "device-detail";

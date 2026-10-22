@@ -122,7 +122,7 @@ impl Agent {
         self.clock.now()
     }
 
-    /// The currently cached schedule, if the device has a calendar.
+    /// The currently cached schedule, if the device has a schedule.
     pub fn schedule(&self) -> Option<Schedule> {
         self.schedule.lock().unwrap().clone()
     }
@@ -135,7 +135,7 @@ impl Agent {
             .map(|s| s.revision.clone())
     }
 
-    /// Records that the controller has just confirmed the schedule (including "no calendar"), so the
+    /// Records that the controller has just confirmed the schedule (including "no schedule"), so the
     /// cache is now safe to enforce. Wakes the enforcement loop if it was holding back.
     fn mark_schedule_synced(&self) {
         let mut sync = self.schedule_sync.lock().unwrap();
@@ -181,7 +181,7 @@ impl Agent {
         self.enforcement_view(SCHEDULE_SYNC_GRACE).0
     }
 
-    /// Adopts a schedule from the controller (`None` = calendar removed), persists it, and wakes the
+    /// Adopts a schedule from the controller (`None` = schedule removed), persists it, and wakes the
     /// enforcement loop. A no-op if nothing changed.
     fn apply_schedule(&self, incoming: Option<Schedule>) {
         {
@@ -203,7 +203,7 @@ impl Agent {
                     "schedule updated"
                 );
             }
-            None => info!("schedule updated: no calendar assigned"),
+            None => info!("schedule updated: no schedule assigned"),
         }
         if let Err(err) = schedule::save(&self.schedule_path, incoming.as_ref()) {
             warn!(?err, "failed to cache schedule locally");
@@ -535,7 +535,7 @@ async fn deliver_due_batch(agent: &Arc<Agent>, client: &Arc<Mutex<(ControllerCli
     }
 }
 
-/// Long-polls the controller for schedule changes so an extension (or calendar edit) reaches the agent
+/// Long-polls the controller for schedule changes so an extension (or schedule edit) reaches the agent
 /// within moments rather than at the next heartbeat. Uses its own client so a parked request never
 /// holds the heartbeat loop's lock.
 pub async fn schedule_poll_loop(agent: Arc<Agent>, client: Arc<Mutex<(ControllerClient, Uuid)>>) {
@@ -673,7 +673,7 @@ pub async fn clock_sync_loop(agent: Arc<Agent>) {
     }
 }
 
-/// Enforces the cached calendar schedule, including while the controller is unreachable: whenever
+/// Enforces the cached schedule schedule, including while the controller is unreachable: whenever
 /// `now` is inside an off window, performs the schedule's action (sleep or shutdown). Wakes on a
 /// schedule change, the next window start, or [`ENFORCEMENT_MAX_WAIT`], whichever is soonest.
 pub async fn enforcement_loop(agent: Arc<Agent>) {
@@ -682,7 +682,7 @@ pub async fn enforcement_loop(agent: Arc<Agent>) {
     loop {
         let now = agent.now();
         let mut wait = ENFORCEMENT_MAX_WAIT;
-        // At startup (and after any sleep) the cache may predate a calendar edit or an extension, so
+        // At startup (and after any sleep) the cache may predate a schedule edit or an extension, so
         // it is only enforced once the controller has confirmed it, or the controller stays silent.
         let (schedule, held_for) = agent.enforcement_view(SCHEDULE_SYNC_GRACE);
         if let Some(hold) = held_for {
@@ -694,7 +694,7 @@ pub async fn enforcement_loop(agent: Arc<Agent>) {
                 enforce(&agent, &schedule, &mut last_shutdown_request).await;
                 if schedule.action == schedule::PowerAction::Sleep {
                     // We just slept and have resumed: whatever changed meanwhile must be fetched first.
-                    agent.invalidate_schedule_sync("resumed after calendar sleep");
+                    agent.invalidate_schedule_sync("resumed after schedule sleep");
                 }
             } else if let Some(next) = schedule.next_off_at(now) {
                 wait = wait.min((next - now).to_std().unwrap_or(Duration::ZERO));
@@ -727,46 +727,46 @@ async fn enforce(
     let action = schedule.action.event_name();
     match schedule.action {
         schedule::PowerAction::Sleep => {
-            info!("within calendar off window; suspending device");
+            info!("within schedule off window; suspending device");
             agent
                 .enqueue(events::power_action_requested(
                     action,
-                    "calendar off window",
+                    "schedule off window",
                 ))
                 .await;
             // SetSuspendState blocks until resume, so it must not run on a Tokio worker thread.
             match tokio::task::spawn_blocking(platform::suspend).await {
                 Ok(Ok(())) => agent.enqueue(events::power_action_completed(action)).await,
                 Ok(Err(err)) => {
-                    warn!(?err, "calendar suspend failed");
+                    warn!(?err, "schedule suspend failed");
                     agent
                         .enqueue(events::power_action_failed(action, &err.to_string()))
                         .await;
                 }
-                Err(err) => error!(?err, "calendar suspend task panicked"),
+                Err(err) => error!(?err, "schedule suspend task panicked"),
             }
         }
         schedule::PowerAction::Shutdown => {
             if last_shutdown_request.is_some_and(|t| t.elapsed() < SHUTDOWN_COOLDOWN) {
                 return;
             }
-            info!("within calendar off window; shutting device down");
+            info!("within schedule off window; shutting device down");
             agent
                 .enqueue(events::power_action_requested(
                     action,
-                    "calendar off window",
+                    "schedule off window",
                 ))
                 .await;
             *last_shutdown_request = Some(tokio::time::Instant::now());
             match tokio::task::spawn_blocking(platform::shutdown).await {
                 Ok(Ok(())) => agent.enqueue(events::power_action_completed(action)).await,
                 Ok(Err(err)) => {
-                    warn!(?err, "calendar shutdown failed");
+                    warn!(?err, "schedule shutdown failed");
                     agent
                         .enqueue(events::power_action_failed(action, &err.to_string()))
                         .await;
                 }
-                Err(err) => error!(?err, "calendar shutdown task panicked"),
+                Err(err) => error!(?err, "schedule shutdown task panicked"),
             }
             // Flush now: the machine may be gone before the next delivery tick.
             agent.request_flush();
@@ -1005,7 +1005,7 @@ mod tests {
         let (enforceable, held_for) = agent.enforcement_view(Duration::from_secs(90));
         assert!(
             enforceable.is_none(),
-            "but not enforced yet: it may predate a calendar edit or extension"
+            "but not enforced yet: it may predate a schedule edit or extension"
         );
         assert!(held_for.is_some());
 
@@ -1049,7 +1049,7 @@ mod tests {
     }
 
     #[test]
-    fn a_controller_saying_no_calendar_also_counts_as_confirmation_and_clears_the_cache() {
+    fn a_controller_saying_no_schedule_also_counts_as_confirmation_and_clears_the_cache() {
         let dir = tempfile::tempdir().unwrap();
         let agent = agent_with_cached_schedule(dir.path(), vec![open_window()]);
 

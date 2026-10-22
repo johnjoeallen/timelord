@@ -8,8 +8,8 @@
     <div th:replace="~{fragments/flash :: flash}"></div>
 
     <div class="row g-3 mb-4">
-        <div class="col-md-6 col-lg-4" th:each="c : ${calendars}">
-            <a class="text-decoration-none text-body" th:href="@{/calendars/{id}(id=${c.id})}">
+        <div class="col-md-6 col-lg-4" th:each="c : ${schedules}">
+            <a class="text-decoration-none text-body" th:href="@{/schedules/{id}(id=${c.id})}">
                 <div class="card device-card h-100">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-2">
@@ -25,7 +25,7 @@
                 </div>
             </a>
         </div>
-        <div class="col-12" th:if="${#lists.isEmpty(calendars)}">
+        <div class="col-12" th:if="${#lists.isEmpty(schedules)}">
             <p class="text-muted text-center py-3">No schedules yet. Create one below, then assign it to a device.</p>
         </div>
     </div>
@@ -33,7 +33,7 @@
     <div class="card mb-4">
         <div class="card-header">New schedule</div>
         <div class="card-body">
-            <form method="post" th:action="@{/calendars}" class="row g-3">
+            <form method="post" th:action="@{/schedules}" class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label" for="name">Name</label>
                     <input class="form-control" id="name" name="name" required maxlength="200" placeholder="School kids"/>

@@ -1,4 +1,4 @@
-package com.timelord.controller.calendar;
+package com.timelord.controller.schedule;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,19 +11,19 @@ import java.util.UUID;
 
 /**
  * Adds an allowed window ({@code startTime} to {@code endTime} within the day, same meaning as for a
- * {@link CalendarRule}) on every date in [{@code startDate}, {@code endDate}] (inclusive; a single
+ * {@link ScheduleRule}) on every date in [{@code startDate}, {@code endDate}] (inclusive; a single
  * day has the same start and end). It is unioned with the weekly rows, so an override can extend a
  * day but never shorten it. A disabled override is kept but adds nothing.
  */
 @Entity
-@Table(name = "calendar_override")
-public class CalendarOverride {
+@Table(name = "schedule_override")
+public class ScheduleOverride {
 
     @Id
     private UUID id;
 
-    @Column(name = "calendar_id", nullable = false)
-    private UUID calendarId;
+    @Column(name = "schedule_id", nullable = false)
+    private UUID scheduleId;
 
     private String name;
 
@@ -45,13 +45,13 @@ public class CalendarOverride {
     @Column(nullable = false)
     private boolean enabled = true;
 
-    protected CalendarOverride() {
+    protected ScheduleOverride() {
     }
 
-    public CalendarOverride(UUID id, UUID calendarId, String name, LocalDate startDate, LocalDate endDate,
+    public ScheduleOverride(UUID id, UUID scheduleId, String name, LocalDate startDate, LocalDate endDate,
                             LocalTime startTime, LocalTime endTime, Instant createdAt) {
         this.id = id;
-        this.calendarId = calendarId;
+        this.scheduleId = scheduleId;
         this.name = name;
         this.startDate = startDate;
         this.endDate = endDate;
@@ -64,8 +64,8 @@ public class CalendarOverride {
         return id;
     }
 
-    public UUID getCalendarId() {
-        return calendarId;
+    public UUID getScheduleId() {
+        return scheduleId;
     }
 
     public String getName() {

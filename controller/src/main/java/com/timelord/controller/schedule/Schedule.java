@@ -1,4 +1,4 @@
-package com.timelord.controller.calendar;
+package com.timelord.controller.schedule;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -10,8 +10,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "calendar")
-public class Calendar {
+@Table(name = "schedule")
+public class Schedule {
 
     @Id
     private UUID id;
@@ -24,7 +24,7 @@ public class Calendar {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private CalendarAction action;
+    private ScheduleAction action;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -32,10 +32,10 @@ public class Calendar {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    protected Calendar() {
+    protected Schedule() {
     }
 
-    public Calendar(UUID id) {
+    public Schedule(UUID id) {
         this.id = id;
     }
 
@@ -59,11 +59,11 @@ public class Calendar {
         this.timezone = timezone;
     }
 
-    public CalendarAction getAction() {
+    public ScheduleAction getAction() {
         return action;
     }
 
-    public void setAction(CalendarAction action) {
+    public void setAction(ScheduleAction action) {
         this.action = action;
     }
 

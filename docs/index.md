@@ -79,14 +79,14 @@ keyboard first.
 </figure>
 
 <figure markdown>
-  ![A schedule's page with weekly rows, holiday overrides and the resulting on-windows](images/calendar-detail.png)
+  ![A schedule's page with weekly rows, holiday overrides and the resulting on-windows](images/schedule-detail.png)
   <figcaption>A schedule: weekly rows (several windows on the same day), dated overrides (half-term, a
   sleepover, the Christmas holidays) that only ever add time, and the on-windows it resolves to over
   the next 14 days.</figcaption>
 </figure>
 
 <figure markdown>
-  ![Device page cards for assigning a schedule, granting more time and sending messages](images/device-calendar.png)
+  ![Device page cards for assigning a schedule, granting more time and sending messages](images/device-schedule.png)
   <figcaption>On a device: the assigned schedule, its upcoming off times, and one-click +15 / +30 /
   +60 minute extensions (here, 30 minutes already granted).</figcaption>
 </figure>

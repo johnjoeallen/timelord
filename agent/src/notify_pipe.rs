@@ -3,7 +3,7 @@
 //!
 //! The service holds no notification state: every request recomputes the
 //! answer from the currently cached [`Schedule`], so an extension or a
-//! calendar change is reflected on the notifier's very next poll.
+//! schedule change is reflected on the notifier's very next poll.
 
 use chrono::{DateTime, Duration, Utc};
 use timelord_ipc::{Action, Message, PendingAction, Reason, Request, Response, HORIZON_SECONDS};

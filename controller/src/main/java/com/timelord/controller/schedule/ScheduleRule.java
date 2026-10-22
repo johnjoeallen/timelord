@@ -1,4 +1,4 @@
-package com.timelord.controller.calendar;
+package com.timelord.controller.schedule;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -19,14 +19,14 @@ import org.hibernate.type.SqlTypes;
  * number of rows may cover the same day; their windows are unioned. A disabled row is ignored.
  */
 @Entity
-@Table(name = "calendar_rule")
-public class CalendarRule {
+@Table(name = "schedule_rule")
+public class ScheduleRule {
 
     @Id
     private UUID id;
 
-    @Column(name = "calendar_id", nullable = false)
-    private UUID calendarId;
+    @Column(name = "schedule_id", nullable = false)
+    private UUID scheduleId;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
@@ -41,17 +41,17 @@ public class CalendarRule {
     @Column(nullable = false)
     private boolean enabled = true;
 
-    protected CalendarRule() {
+    protected ScheduleRule() {
     }
 
-    public CalendarRule(UUID id, UUID calendarId, List<DayOfWeek> days, LocalTime startTime, LocalTime endTime) {
-        this(id, calendarId, days, startTime, endTime, true);
+    public ScheduleRule(UUID id, UUID scheduleId, List<DayOfWeek> days, LocalTime startTime, LocalTime endTime) {
+        this(id, scheduleId, days, startTime, endTime, true);
     }
 
-    public CalendarRule(UUID id, UUID calendarId, List<DayOfWeek> days, LocalTime startTime, LocalTime endTime,
+    public ScheduleRule(UUID id, UUID scheduleId, List<DayOfWeek> days, LocalTime startTime, LocalTime endTime,
                         boolean enabled) {
         this.id = id;
-        this.calendarId = calendarId;
+        this.scheduleId = scheduleId;
         this.days = new ArrayList<>(days);
         this.startTime = startTime;
         this.endTime = endTime;
@@ -62,8 +62,8 @@ public class CalendarRule {
         return id;
     }
 
-    public UUID getCalendarId() {
-        return calendarId;
+    public UUID getScheduleId() {
+        return scheduleId;
     }
 
     public List<DayOfWeek> getDays() {

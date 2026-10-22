@@ -1,4 +1,4 @@
-package com.timelord.controller.calendar;
+package com.timelord.controller.schedule;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-class CalendarResolverTest {
+class ScheduleResolverTest {
 
     private static final ZoneId ZONE = ZoneId.of("Europe/Dublin");
     private static final UUID CAL = UUID.randomUUID();
@@ -24,17 +24,17 @@ class CalendarResolverTest {
         return ZonedDateTime.of(LocalDate.parse(date), LocalTime.parse(time), ZONE).toInstant();
     }
 
-    private static CalendarRule row(String start, String end, DayOfWeek... days) {
-        return new CalendarRule(UUID.randomUUID(), CAL, Arrays.asList(days), LocalTime.parse(start), LocalTime.parse(end));
+    private static ScheduleRule row(String start, String end, DayOfWeek... days) {
+        return new ScheduleRule(UUID.randomUUID(), CAL, Arrays.asList(days), LocalTime.parse(start), LocalTime.parse(end));
     }
 
-    private static CalendarOverride override(String from, String to, String start, String end) {
-        return new CalendarOverride(UUID.randomUUID(), CAL, null, LocalDate.parse(from), LocalDate.parse(to),
+    private static ScheduleOverride override(String from, String to, String start, String end) {
+        return new ScheduleOverride(UUID.randomUUID(), CAL, null, LocalDate.parse(from), LocalDate.parse(to),
                 LocalTime.parse(start), LocalTime.parse(end), Instant.EPOCH);
     }
 
-    private static List<AllowedWindow> allowed(List<CalendarRule> rules, List<CalendarOverride> overrides, String from, String to) {
-        return CalendarResolver.allowedWindows(ZONE, rules, overrides, at(from.substring(0, 10), from.substring(11)),
+    private static List<AllowedWindow> allowed(List<ScheduleRule> rules, List<ScheduleOverride> overrides, String from, String to) {
+        return ScheduleResolver.allowedWindows(ZONE, rules, overrides, at(from.substring(0, 10), from.substring(11)),
                 at(to.substring(0, 10), to.substring(11)));
     }
 
@@ -46,7 +46,7 @@ class CalendarResolverTest {
 
     @Test
     void severalRowsOnTheSameDayEachGiveAWindow() {
-        List<CalendarRule> rules = List.of(
+        List<ScheduleRule> rules = List.of(
                 row("08:30", "10:30", DayOfWeek.MONDAY),
                 row("18:30", "23:30", DayOfWeek.MONDAY));
 
@@ -59,11 +59,11 @@ class CalendarResolverTest {
 
     @Test
     void theDeviceIsOffBetweenAndOutsideTheWindows() {
-        List<CalendarRule> rules = List.of(
+        List<ScheduleRule> rules = List.of(
                 row("08:30", "10:30", EVERY_DAY),
                 row("18:30", "23:30", EVERY_DAY));
 
-        List<OffWindow> off = CalendarResolver.offWindows(ZONE, rules, List.of(), at("2026-10-26", "12:00"), at("2026-10-26", "13:00"));
+        List<OffWindow> off = ScheduleResolver.offWindows(ZONE, rules, List.of(), at("2026-10-26", "12:00"), at("2026-10-26", "13:00"));
 
         // The gap containing midday, between the two windows.
         assertThat(off).containsExactly(new OffWindow(at("2026-10-26", "10:30"), at("2026-10-26", "18:30")));
@@ -71,18 +71,18 @@ class CalendarResolverTest {
 
     @Test
     void overnightGapRunsFromTheLastWindowOfOneDayToTheFirstOfTheNext() {
-        List<CalendarRule> rules = List.of(
+        List<ScheduleRule> rules = List.of(
                 row("08:30", "10:30", EVERY_DAY),
                 row("18:30", "23:30", EVERY_DAY));
 
-        List<OffWindow> off = CalendarResolver.offWindows(ZONE, rules, List.of(), at("2026-10-26", "23:45"), at("2026-10-27", "07:00"));
+        List<OffWindow> off = ScheduleResolver.offWindows(ZONE, rules, List.of(), at("2026-10-26", "23:45"), at("2026-10-27", "07:00"));
 
         assertThat(off).containsExactly(new OffWindow(at("2026-10-26", "23:30"), at("2026-10-27", "08:30")));
     }
 
     @Test
     void touchingAndOverlappingRowsMergeIntoOneWindow() {
-        List<CalendarRule> rules = List.of(
+        List<ScheduleRule> rules = List.of(
                 row("08:00", "12:00", DayOfWeek.MONDAY),
                 row("12:00", "13:00", DayOfWeek.MONDAY),
                 row("12:30", "14:00", DayOfWeek.MONDAY));
@@ -97,10 +97,10 @@ class CalendarResolverTest {
     void anOffWindowInsideADayIsTwoOnWindowsAroundIt() {
         // "Off 16:15, on 16:30" on a Thursday: on midnight..16:15, off, on again 16:30..midnight.
         // 2026-10-22 is a Thursday.
-        List<CalendarRule> rules = List.of(row("00:00", "16:15", DayOfWeek.THURSDAY), row("16:30", "00:00", DayOfWeek.THURSDAY));
+        List<ScheduleRule> rules = List.of(row("00:00", "16:15", DayOfWeek.THURSDAY), row("16:30", "00:00", DayOfWeek.THURSDAY));
 
         List<AllowedWindow> allowed = allowed(rules, List.of(), "2026-10-22 00:00", "2026-10-22 23:59");
-        List<OffWindow> off = CalendarResolver.offWindows(ZONE, rules, List.of(), at("2026-10-22", "09:00"), at("2026-10-22", "20:00"));
+        List<OffWindow> off = ScheduleResolver.offWindows(ZONE, rules, List.of(), at("2026-10-22", "09:00"), at("2026-10-22", "20:00"));
 
         assertThat(allowed).containsExactly(on("2026-10-22", "00:00", "2026-10-22", "16:15"), on("2026-10-22", "16:30", "2026-10-23", "00:00"));
         assertThat(off).contains(new OffWindow(at("2026-10-22", "16:15"), at("2026-10-22", "16:30")));
@@ -109,12 +109,12 @@ class CalendarResolverTest {
     @Test
     void aWindowEndingAtMidnightMeetsTheNextDaysWindowStartingAtMidnight() {
         // Friday evening 18:30..midnight, Saturday small hours 00:00..01:00: one continuous window.
-        List<CalendarRule> rules = List.of(row("18:30", "00:00", DayOfWeek.FRIDAY), row("00:00", "01:00", DayOfWeek.SATURDAY));
+        List<ScheduleRule> rules = List.of(row("18:30", "00:00", DayOfWeek.FRIDAY), row("00:00", "01:00", DayOfWeek.SATURDAY));
 
         assertThat(allowed(rules, List.of(), "2026-10-23 12:00", "2026-10-24 12:00"))
                 .containsExactly(on("2026-10-23", "18:30", "2026-10-24", "01:00"));
         // ...and no gap at midnight, so nothing to sleep for between them.
-        assertThat(CalendarResolver.offWindows(ZONE, rules, List.of(), at("2026-10-23", "20:00"), at("2026-10-24", "00:30")))
+        assertThat(ScheduleResolver.offWindows(ZONE, rules, List.of(), at("2026-10-23", "20:00"), at("2026-10-24", "00:30")))
                 .noneMatch(g -> g.offAt().isBefore(at("2026-10-24", "00:30")) && g.onAt().isAfter(at("2026-10-23", "23:00")));
     }
 
@@ -128,10 +128,10 @@ class CalendarResolverTest {
 
     @Test
     void aWindowThatWouldRunPastMidnightIsNotAWindow() {
-        assertThat(CalendarResolver.isValidWindow(LocalTime.of(18, 30), LocalTime.of(1, 0))).isFalse();
-        assertThat(CalendarResolver.isValidWindow(LocalTime.of(8, 0), LocalTime.of(8, 0))).isFalse();
-        assertThat(CalendarResolver.isValidWindow(LocalTime.of(8, 0), LocalTime.of(9, 0))).isTrue();
-        assertThat(CalendarResolver.isValidWindow(LocalTime.of(18, 30), LocalTime.MIDNIGHT)).isTrue();
+        assertThat(ScheduleResolver.isValidWindow(LocalTime.of(18, 30), LocalTime.of(1, 0))).isFalse();
+        assertThat(ScheduleResolver.isValidWindow(LocalTime.of(8, 0), LocalTime.of(8, 0))).isFalse();
+        assertThat(ScheduleResolver.isValidWindow(LocalTime.of(8, 0), LocalTime.of(9, 0))).isTrue();
+        assertThat(ScheduleResolver.isValidWindow(LocalTime.of(18, 30), LocalTime.MIDNIGHT)).isTrue();
         assertThat(allowed(List.of(row("18:30", "01:00", DayOfWeek.FRIDAY)), List.of(), "2026-10-23 00:00", "2026-10-24 23:59")).isEmpty();
     }
 
@@ -146,10 +146,10 @@ class CalendarResolverTest {
     @Test
     void aDayWithNoRowIsOffAllDayWhenOtherDaysHaveRows() {
         // Only weekdays have rows; look at a Saturday.
-        List<CalendarRule> weekdays = List.of(row("08:00", "20:00",
+        List<ScheduleRule> weekdays = List.of(row("08:00", "20:00",
                 DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY));
 
-        List<OffWindow> off = CalendarResolver.offWindows(ZONE, weekdays, List.of(), at("2026-10-24", "12:00"), at("2026-10-27", "00:00"));
+        List<OffWindow> off = ScheduleResolver.offWindows(ZONE, weekdays, List.of(), at("2026-10-24", "12:00"), at("2026-10-27", "00:00"));
 
         // Friday 20:00 until Monday 08:00.
         assertThat(off).hasSizeGreaterThanOrEqualTo(1);
@@ -158,10 +158,10 @@ class CalendarResolverTest {
     }
 
     @Test
-    void aCalendarWithNoRowsRestrictsNothing() {
-        assertThat(CalendarResolver.offWindows(ZONE, List.of(), List.of(), at("2026-10-26", "00:00"), at("2026-10-30", "00:00"))).isEmpty();
+    void aScheduleWithNoRowsRestrictsNothing() {
+        assertThat(ScheduleResolver.offWindows(ZONE, List.of(), List.of(), at("2026-10-26", "00:00"), at("2026-10-30", "00:00"))).isEmpty();
         // Even with an override: there is nothing for it to extend.
-        assertThat(CalendarResolver.offWindows(ZONE, List.of(), List.of(override("2026-10-26", "2026-10-27", "08:00", "09:00")),
+        assertThat(ScheduleResolver.offWindows(ZONE, List.of(), List.of(override("2026-10-26", "2026-10-27", "08:00", "09:00")),
                 at("2026-10-26", "00:00"), at("2026-10-30", "00:00"))).isEmpty();
     }
 
@@ -169,9 +169,9 @@ class CalendarResolverTest {
 
     @Test
     void anOverrideCanExtendAWindow() {
-        List<CalendarRule> rules = List.of(row("18:30", "23:30", EVERY_DAY));
+        List<ScheduleRule> rules = List.of(row("18:30", "23:30", EVERY_DAY));
         // Christmas Eve runs late: add 23:30..midnight, then 00:00..01:00 on the 25th (a window can't wrap).
-        List<CalendarOverride> late = List.of(override("2026-12-24", "2026-12-24", "23:30", "00:00"),
+        List<ScheduleOverride> late = List.of(override("2026-12-24", "2026-12-24", "23:30", "00:00"),
                 override("2026-12-25", "2026-12-25", "00:00", "01:00"));
 
         List<AllowedWindow> w = allowed(rules, late, "2026-12-24 12:00", "2026-12-25 12:00");
@@ -181,8 +181,8 @@ class CalendarResolverTest {
 
     @Test
     void anOverrideInsideAnExistingWindowChangesNothing() {
-        List<CalendarRule> rules = List.of(row("18:30", "23:30", EVERY_DAY));
-        CalendarOverride narrower = override("2026-10-26", "2026-10-26", "19:00", "20:00");
+        List<ScheduleRule> rules = List.of(row("18:30", "23:30", EVERY_DAY));
+        ScheduleOverride narrower = override("2026-10-26", "2026-10-26", "19:00", "20:00");
 
         assertThat(allowed(rules, List.of(narrower), "2026-10-26 00:00", "2026-10-26 23:59"))
                 .isEqualTo(allowed(rules, List.of(), "2026-10-26 00:00", "2026-10-26 23:59"));
@@ -190,8 +190,8 @@ class CalendarResolverTest {
 
     @Test
     void anOverrideCanAddAWindowWhereTheWeeklyRowsHaveNone() {
-        List<CalendarRule> weekdays = List.of(row("08:00", "20:00", DayOfWeek.MONDAY));
-        CalendarOverride bonus = override("2026-10-27", "2026-10-27", "10:00", "12:00");
+        List<ScheduleRule> weekdays = List.of(row("08:00", "20:00", DayOfWeek.MONDAY));
+        ScheduleOverride bonus = override("2026-10-27", "2026-10-27", "10:00", "12:00");
 
         List<AllowedWindow> w = allowed(weekdays, List.of(bonus), "2026-10-26 00:00", "2026-10-27 23:59");
 
@@ -200,8 +200,8 @@ class CalendarResolverTest {
 
     @Test
     void overridesStackAndEachCoversItsOwnDateRange() {
-        List<CalendarRule> rules = List.of(row("18:00", "20:00", EVERY_DAY));
-        List<CalendarOverride> overrides = List.of(
+        List<ScheduleRule> rules = List.of(row("18:00", "20:00", EVERY_DAY));
+        List<ScheduleOverride> overrides = List.of(
                 override("2026-10-26", "2026-10-28", "08:00", "09:00"),
                 override("2026-10-27", "2026-10-27", "12:00", "13:00"));
 
@@ -217,10 +217,10 @@ class CalendarResolverTest {
 
     @Test
     void offWindowsStartAtAStableInstantNotAtTheQueryTime() {
-        List<CalendarRule> rules = List.of(row("08:00", "20:00", EVERY_DAY));
+        List<ScheduleRule> rules = List.of(row("08:00", "20:00", EVERY_DAY));
 
-        List<OffWindow> early = CalendarResolver.offWindows(ZONE, rules, List.of(), at("2026-10-26", "03:00"), at("2026-10-27", "00:00"));
-        List<OffWindow> later = CalendarResolver.offWindows(ZONE, rules, List.of(), at("2026-10-26", "05:00"), at("2026-10-27", "00:00"));
+        List<OffWindow> early = ScheduleResolver.offWindows(ZONE, rules, List.of(), at("2026-10-26", "03:00"), at("2026-10-27", "00:00"));
+        List<OffWindow> later = ScheduleResolver.offWindows(ZONE, rules, List.of(), at("2026-10-26", "05:00"), at("2026-10-27", "00:00"));
 
         // Same answer for the same day, otherwise the agent's revision would change on every poll.
         assertThat(early).isEqualTo(later);
@@ -241,9 +241,9 @@ class CalendarResolverTest {
     @Test
     void offWindowEdgesAreUtcInstantsNotLocalTimes() {
         // Dublin is UTC+1 on 2026-10-22 (summer time): on 08:00-17:55 local means off from 16:55Z.
-        List<CalendarRule> rules = List.of(row("08:00", "17:55", DayOfWeek.THURSDAY), row("18:00", "00:00", DayOfWeek.THURSDAY));
+        List<ScheduleRule> rules = List.of(row("08:00", "17:55", DayOfWeek.THURSDAY), row("18:00", "00:00", DayOfWeek.THURSDAY));
 
-        List<OffWindow> off = CalendarResolver.offWindows(ZONE, rules, List.of(), at("2026-10-22", "00:00"), at("2026-10-23", "00:00"));
+        List<OffWindow> off = ScheduleResolver.offWindows(ZONE, rules, List.of(), at("2026-10-22", "00:00"), at("2026-10-23", "00:00"));
 
         OffWindow gap = off.stream().filter(w -> w.offAt().equals(Instant.parse("2026-10-22T16:55:00Z"))).findFirst().orElseThrow();
         assertThat(gap.onAt()).isEqualTo(Instant.parse("2026-10-22T17:00:00Z"));
@@ -252,7 +252,7 @@ class CalendarResolverTest {
     @Test
     void theSameLocalTimeIsADifferentInstantAcrossTheOctoberChange() {
         // Clocks go back at 02:00 on Sunday 2026-10-25: Thursday 17:55 is 16:55Z, the following Thursday 17:55Z.
-        CalendarRule r = row("08:00", "17:55", DayOfWeek.THURSDAY);
+        ScheduleRule r = row("08:00", "17:55", DayOfWeek.THURSDAY);
 
         List<AllowedWindow> before = allowed(List.of(r), List.of(), "2026-10-22 00:00", "2026-10-22 23:59");
         List<AllowedWindow> after = allowed(List.of(r), List.of(), "2026-10-29 00:00", "2026-10-29 23:59");
@@ -264,7 +264,7 @@ class CalendarResolverTest {
     @Test
     void aSaturdayNightWindowAcrossTheClockChangeUsesRealOffsets() {
         // Sat 18:00 BST (17:00Z) to Sun 03:00 GMT (03:00Z): ten real hours, not nine.
-        List<CalendarRule> rules = List.of(row("18:00", "00:00", DayOfWeek.SATURDAY), row("00:00", "03:00", DayOfWeek.SUNDAY));
+        List<ScheduleRule> rules = List.of(row("18:00", "00:00", DayOfWeek.SATURDAY), row("00:00", "03:00", DayOfWeek.SUNDAY));
 
         List<AllowedWindow> w = allowed(rules, List.of(), "2026-10-24 12:00", "2026-10-25 12:00");
 
@@ -283,9 +283,9 @@ class CalendarResolverTest {
     @Test
     void thursdayWithTwoRowsSleepsOnlyInTheGapBetweenThem() {
         // Thu 22 Oct 2026 (UTC+1): on 16:55-17:55 and 18:35-23:00 local; asleep 17:55-18:35 and outside both.
-        List<CalendarRule> rules = List.of(row("16:55", "17:55", DayOfWeek.THURSDAY), row("18:35", "23:00", DayOfWeek.THURSDAY));
+        List<ScheduleRule> rules = List.of(row("16:55", "17:55", DayOfWeek.THURSDAY), row("18:35", "23:00", DayOfWeek.THURSDAY));
 
-        List<OffWindow> off = CalendarResolver.offWindows(ZONE, rules, List.of(), at("2026-10-22", "12:00"), at("2026-10-22", "23:30"));
+        List<OffWindow> off = ScheduleResolver.offWindows(ZONE, rules, List.of(), at("2026-10-22", "12:00"), at("2026-10-22", "23:30"));
 
         assertThat(off).contains(new OffWindow(Instant.parse("2026-10-22T16:55:00Z"), Instant.parse("2026-10-22T17:35:00Z")));
         assertThat(off).doesNotContain(new OffWindow(Instant.parse("2026-10-22T15:55:00Z"), Instant.parse("2026-10-22T22:00:00Z")));
@@ -295,7 +295,7 @@ class CalendarResolverTest {
 
     @Test
     void aDisabledRowGivesNoWindow() {
-        CalendarRule off = new CalendarRule(UUID.randomUUID(), CAL, List.of(DayOfWeek.MONDAY), LocalTime.of(18, 30),
+        ScheduleRule off = new ScheduleRule(UUID.randomUUID(), CAL, List.of(DayOfWeek.MONDAY), LocalTime.of(18, 30),
                 LocalTime.of(23, 30), false);
 
         List<AllowedWindow> w = allowed(List.of(row("08:30", "10:30", DayOfWeek.MONDAY), off), List.of(), "2026-10-26 00:00", "2026-10-26 23:59");
@@ -305,7 +305,7 @@ class CalendarResolverTest {
 
     @Test
     void aDisabledOverrideAddsNothing() {
-        CalendarOverride off = new CalendarOverride(UUID.randomUUID(), CAL, null, LocalDate.parse("2026-10-26"),
+        ScheduleOverride off = new ScheduleOverride(UUID.randomUUID(), CAL, null, LocalDate.parse("2026-10-26"),
                 LocalDate.parse("2026-10-26"), LocalTime.of(20, 0), LocalTime.of(23, 0), Instant.EPOCH);
         off.setEnabled(false);
 
@@ -315,10 +315,10 @@ class CalendarResolverTest {
     }
 
     @Test
-    void aCalendarWhoseRowsAreAllDisabledRestrictsNothing() {
-        CalendarRule off = new CalendarRule(UUID.randomUUID(), CAL, List.of(EVERY_DAY), LocalTime.of(8, 0),
+    void aScheduleWhoseRowsAreAllDisabledRestrictsNothing() {
+        ScheduleRule off = new ScheduleRule(UUID.randomUUID(), CAL, List.of(EVERY_DAY), LocalTime.of(8, 0),
                 LocalTime.of(9, 0), false);
 
-        assertThat(CalendarResolver.offWindows(ZONE, List.of(off), List.of(), at("2026-10-26", "00:00"), at("2026-10-28", "00:00"))).isEmpty();
+        assertThat(ScheduleResolver.offWindows(ZONE, List.of(off), List.of(), at("2026-10-26", "00:00"), at("2026-10-28", "00:00"))).isEmpty();
     }
 }

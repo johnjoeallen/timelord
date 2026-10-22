@@ -1,6 +1,6 @@
 //! The controller-resolved on/off schedule the agent enforces.
 //!
-//! The controller turns calendars, overrides and extensions into concrete
+//! The controller turns schedules, overrides and extensions into concrete
 //! off windows; the agent only has to answer "is `now` inside one?". The
 //! last schedule received is cached on disk so enforcement keeps working
 //! while the controller is unreachable.
@@ -64,7 +64,7 @@ impl Schedule {
 
 /// Whether the cached schedule may be enforced yet.
 ///
-/// The cache can be stale: a calendar edit or an extension may have happened while the device was
+/// The cache can be stale: a schedule edit or an extension may have happened while the device was
 /// off or asleep. So enforcement waits until a controller response has confirmed the schedule
 /// since startup (or since resuming from sleep). If the controller stays unreachable for
 /// `grace`, the cache is enforced anyway, so an offline device is still governed.

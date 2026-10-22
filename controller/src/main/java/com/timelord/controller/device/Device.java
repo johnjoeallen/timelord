@@ -64,8 +64,8 @@ public class Device {
     @Column(name = "idle_seconds")
     private Long idleSeconds;
 
-    @Column(name = "calendar_id")
-    private UUID calendarId;
+    @Column(name = "schedule_id")
+    private UUID scheduleId;
 
     @Column(name = "extension_until")
     private Instant extensionUntil;
@@ -243,12 +243,12 @@ public class Device {
         this.idleSeconds = idleSeconds;
     }
 
-    public UUID getCalendarId() {
-        return calendarId;
+    public UUID getScheduleId() {
+        return scheduleId;
     }
 
-    public void setCalendarId(UUID calendarId) {
-        this.calendarId = calendarId;
+    public void setScheduleId(UUID scheduleId) {
+        this.scheduleId = scheduleId;
     }
 
     public Instant getExtensionUntil() {

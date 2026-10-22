@@ -6,7 +6,7 @@ schedule says it should be off — that is, outside every on-window. Nothing wak
 "on" only means *allowed to be on*.
 
 <figure markdown>
-  ![The Schedules page listing two schedules and a form to create another](images/calendars.png)
+  ![The Schedules page listing two schedules and a form to create another](images/schedules.png)
   <figcaption>The Schedules page: each schedule's action, timezone and how many weekly rows and overrides it has.</figcaption>
 </figure>
 
@@ -16,7 +16,7 @@ schedule says it should be off — that is, outside every on-window. Nothing wak
     [Trying it safely](#trying-it-safely)).
 
 <figure markdown>
-  ![A schedule's page with weekly rows, holiday overrides and the resulting on-windows](images/calendar-detail.png)
+  ![A schedule's page with weekly rows, holiday overrides and the resulting on-windows](images/schedule-detail.png)
   <figcaption>The schedule editor: weekly rows (several on the same day, <strong>+</strong>/<strong>−</strong> to add, disable or delete, a dimmed disabled row), overrides that add time (one is disabled), and the resolved on-windows for the next 14 days.</figcaption>
 </figure>
 
@@ -92,7 +92,7 @@ dashboard, leave "To" blank). Overrides stack.
 
 Each override has **Disable** and **Remove** buttons. *Disable* keeps the override but stops it adding
 any time, exactly as if it were gone, and *Enable* turns it back on; use it to switch a holiday off and
-on again without re-entering it. (In the API: `PUT /api/v1/calendars/{id}/overrides/{overrideId}/enabled`
+on again without re-entering it. (In the API: `PUT /api/v1/schedules/{id}/overrides/{overrideId}/enabled`
 with `{"enabled": false}`.)
 
 !!! example
@@ -105,7 +105,7 @@ with `{"enabled": false}`.)
 ### Allowing a device longer
 
 <figure markdown>
-  ![Device page cards for assigning a schedule and granting more time](images/device-calendar.png)
+  ![Device page cards for assigning a schedule and granting more time](images/device-schedule.png)
   <figcaption>The device page: schedule assignment, upcoming off times and the extension buttons.</figcaption>
 </figure>
 
@@ -162,16 +162,16 @@ All of these are unauthenticated in this preview — see the [security boundary]
 
 | Method and path | Purpose |
 |-----------------|---------|
-| `GET /api/v1/calendars` · `GET /api/v1/calendars/{id}` | List / read schedules (with rows and overrides) |
-| `POST /api/v1/calendars` | Create |
-| `PUT /api/v1/calendars/{id}` | Replace name, timezone, action and the **whole set of weekly rows** (overrides untouched) |
-| `DELETE /api/v1/calendars/{id}` | Delete; devices using it lose their schedule |
-| `POST /api/v1/calendars/{id}/overrides` | Add an override |
-| `DELETE /api/v1/calendars/{id}/overrides/{overrideId}` | Remove an override |
-| `PUT /api/v1/calendars/{id}/overrides/{overrideId}/enabled` | Switch an override off or on (`{"enabled": false}`) |
-| `GET /api/v1/calendars/{id}/allowed?from=&days=` | Preview the resolved on-windows (what the dashboard's table shows) |
-| `GET /api/v1/calendars/{id}/windows?from=&days=` | Preview the resolved off windows (what the agent is sent) |
-| `PUT /api/v1/devices/{id}/calendar` | Assign (`{"calendarId": "<uuid>"}`) or clear (`{"calendarId": null}`) |
+| `GET /api/v1/schedules` · `GET /api/v1/schedules/{id}` | List / read schedules (with rows and overrides) |
+| `POST /api/v1/schedules` | Create |
+| `PUT /api/v1/schedules/{id}` | Replace name, timezone, action and the **whole set of weekly rows** (overrides untouched) |
+| `DELETE /api/v1/schedules/{id}` | Delete; devices using it lose their schedule |
+| `POST /api/v1/schedules/{id}/overrides` | Add an override |
+| `DELETE /api/v1/schedules/{id}/overrides/{overrideId}` | Remove an override |
+| `PUT /api/v1/schedules/{id}/overrides/{overrideId}/enabled` | Switch an override off or on (`{"enabled": false}`) |
+| `GET /api/v1/schedules/{id}/allowed?from=&days=` | Preview the resolved on-windows (what the dashboard's table shows) |
+| `GET /api/v1/schedules/{id}/windows?from=&days=` | Preview the resolved off windows (what the agent is sent) |
+| `PUT /api/v1/devices/{id}/schedule` | Assign (`{"scheduleId": "<uuid>"}`) or clear (`{"scheduleId": null}`) |
 | `POST /api/v1/devices/{id}/extend` | Allow longer (`{"minutes": 30}`) |
 | `GET /api/v1/agents/{id}/schedule` | Agent long poll for schedule changes (`204` = no schedule) |
 
@@ -182,7 +182,7 @@ All of these are unauthenticated in this preview — see the [security boundary]
     but ignores it (default `true`).
 
     ```console
-    $ curl -X POST http://localhost:9099/api/v1/calendars \
+    $ curl -X POST http://localhost:9099/api/v1/schedules \
         -H 'Content-Type: application/json' -d '{
           "name": "School days",
           "timezone": "Europe/Dublin",
@@ -200,7 +200,7 @@ All of these are unauthenticated in this preview — see the [security boundary]
 === "Add a holiday override"
 
     ```console
-    $ curl -X POST http://localhost:9099/api/v1/calendars/$CALENDAR_ID/overrides \
+    $ curl -X POST http://localhost:9099/api/v1/schedules/$SCHEDULE_ID/overrides \
         -H 'Content-Type: application/json' -d '{
           "name": "Christmas",
           "startDate": "2026-12-19",
@@ -219,7 +219,7 @@ All of these are unauthenticated in this preview — see the [security boundary]
 Validation errors come back in the usual [error shape](controller.md#api), for example
 `INVALID_TIMEZONE`, `INVALID_RULE` (no days, or an Off at that is not after On from — a window
 can't run past midnight, add a row for the next day), `INVALID_OVERRIDE` (the same, or an end date
-before the start date), `CALENDAR_NAME_TAKEN` (`409`), and `NO_CALENDAR` / `NO_OFF_WINDOW` (`409`) when
+before the start date), `SCHEDULE_NAME_TAKEN` (`409`), and `NO_SCHEDULE` / `NO_OFF_WINDOW` (`409`) when
 extending a device that has nothing to extend.
 
 ## Trying it safely

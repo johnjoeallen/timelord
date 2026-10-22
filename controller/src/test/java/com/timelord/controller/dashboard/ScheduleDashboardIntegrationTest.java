@@ -3,7 +3,7 @@ package com.timelord.controller.dashboard;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.timelord.controller.agent.RegisterRequest;
-import com.timelord.controller.calendar.CalendarDto;
+import com.timelord.controller.schedule.ScheduleDto;
 import com.timelord.controller.device.NetworkInterfaceInfo;
 import com.timelord.controller.support.AbstractIntegrationTest;
 import java.util.List;
@@ -17,7 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
-class CalendarDashboardIntegrationTest extends AbstractIntegrationTest {
+class ScheduleDashboardIntegrationTest extends AbstractIntegrationTest {
 
     private ResponseEntity<String> post(String path, MultiValueMap<String, String> form) {
         HttpHeaders headers = new HttpHeaders();
@@ -40,16 +40,16 @@ class CalendarDashboardIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void createEditAndOverrideCalendarThroughForms() {
-        assertThat(restTemplate.getForEntity("/calendars", String.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+    void createEditAndOverrideScheduleThroughForms() {
+        assertThat(restTemplate.getForEntity("/schedules", String.class).getStatusCode()).isEqualTo(HttpStatus.OK);
 
         String name = "Kids " + UUID.randomUUID();
-        ResponseEntity<String> created = post("/calendars", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP"));
+        ResponseEntity<String> created = post("/schedules", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP"));
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.FOUND);
         UUID id = idFromRedirect(created);
 
         // Two rows covering the same weekdays, plus a blank spare row that must be ignored.
-        ResponseEntity<String> saved = post("/calendars/" + id, form(
+        ResponseEntity<String> saved = post("/schedules/" + id, form(
                 "name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
                 "rules[0].days", "MONDAY", "rules[0].days", "TUESDAY", "rules[0].days", "WEDNESDAY",
                 "rules[0].days", "THURSDAY", "rules[0].days", "FRIDAY",
@@ -60,78 +60,78 @@ class CalendarDashboardIntegrationTest extends AbstractIntegrationTest {
                 "rules[2].startTime", "", "rules[2].endTime", ""));
         assertThat(saved.getStatusCode()).isEqualTo(HttpStatus.FOUND);
 
-        CalendarDto calendar = restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class);
-        assertThat(calendar.rules()).hasSize(2);
+        ScheduleDto schedule = restTemplate.getForObject("/api/v1/schedules/" + id, ScheduleDto.class);
+        assertThat(schedule.rules()).hasSize(2);
 
         // Single-day override: no end date.
-        ResponseEntity<String> override = post("/calendars/" + id + "/overrides",
+        ResponseEntity<String> override = post("/schedules/" + id + "/overrides",
                 form("name", "Party", "startDate", "2030-12-24", "endDate", "", "startTime", "23:30", "endTime", "00:00"));
         assertThat(override.getStatusCode()).isEqualTo(HttpStatus.FOUND);
-        calendar = restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class);
-        assertThat(calendar.overrides()).hasSize(1);
-        assertThat(calendar.overrides().get(0).endDate()).isEqualTo(calendar.overrides().get(0).startDate());
+        schedule = restTemplate.getForObject("/api/v1/schedules/" + id, ScheduleDto.class);
+        assertThat(schedule.overrides()).hasSize(1);
+        assertThat(schedule.overrides().get(0).endDate()).isEqualTo(schedule.overrides().get(0).startDate());
 
-        String page = restTemplate.getForObject("/calendars/" + id, String.class);
+        String page = restTemplate.getForObject("/schedules/" + id, String.class);
         assertThat(page).contains(name).contains("Party").contains("08:30").contains("18:30")
                 .contains("Allowed in the next 14 days").contains("Next: ");
 
-        post("/calendars/" + id + "/overrides/" + calendar.overrides().get(0).id() + "/delete", form());
-        assertThat(restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class).overrides()).isEmpty();
+        post("/schedules/" + id + "/overrides/" + schedule.overrides().get(0).id() + "/delete", form());
+        assertThat(restTemplate.getForObject("/api/v1/schedules/" + id, ScheduleDto.class).overrides()).isEmpty();
     }
 
     @Test
     void rowsCanBeDisabledAndAreKeptButIgnored() {
         String name = "Toggle " + UUID.randomUUID();
-        UUID id = idFromRedirect(post("/calendars", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));
+        UUID id = idFromRedirect(post("/schedules", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));
 
-        post("/calendars/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
+        post("/schedules/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
                 "rules[0].enabled", "true", "rules[0].days", "MONDAY", "rules[0].startTime", "08:00", "rules[0].endTime", "10:00",
                 "rules[1].enabled", "false", "rules[1].days", "MONDAY", "rules[1].startTime", "18:00", "rules[1].endTime", "20:00",
                 "rules[2].enabled", "true", "rules[2].startTime", "", "rules[2].endTime", ""));
 
-        CalendarDto calendar = restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class);
-        assertThat(calendar.rules()).hasSize(2);
-        assertThat(calendar.rules()).extracting(CalendarDto.Rule::enabled).containsExactlyInAnyOrder(true, false);
+        ScheduleDto schedule = restTemplate.getForObject("/api/v1/schedules/" + id, ScheduleDto.class);
+        assertThat(schedule.rules()).hasSize(2);
+        assertThat(schedule.rules()).extracting(ScheduleDto.Rule::enabled).containsExactlyInAnyOrder(true, false);
 
-        String page = restTemplate.getForObject("/calendars/" + id, String.class);
+        String page = restTemplate.getForObject("/schedules/" + id, String.class);
         assertThat(page).contains("rule-disabled");
         // Exactly one entry row, always at the bottom.
         assertThat(page.split("class=\"rule-row rule-blank", -1)).hasSize(2);
         // The disabled 18:00 row gives no window.
-        assertThat(restTemplate.getForObject("/api/v1/calendars/" + id + "/allowed?days=14", String.class)).doesNotContain("18:00");
+        assertThat(restTemplate.getForObject("/api/v1/schedules/" + id + "/allowed?days=14", String.class)).doesNotContain("18:00");
     }
 
     @Test
     void anOverrideCanBeDisabledAndEnabledAgain() {
         String name = "OverrideToggle " + UUID.randomUUID();
-        UUID id = idFromRedirect(post("/calendars", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));
-        post("/calendars/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
+        UUID id = idFromRedirect(post("/schedules", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));
+        post("/schedules/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
                 "rules[0].days", "MONDAY", "rules[0].startTime", "08:00", "rules[0].endTime", "10:00"));
-        post("/calendars/" + id + "/overrides", form("name", "Trip", "startDate", "2030-05-06", "endDate", "",
+        post("/schedules/" + id + "/overrides", form("name", "Trip", "startDate", "2030-05-06", "endDate", "",
                 "startTime", "18:00", "endTime", "22:00"));
-        UUID overrideId = restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class).overrides().get(0).id();
+        UUID overrideId = restTemplate.getForObject("/api/v1/schedules/" + id, ScheduleDto.class).overrides().get(0).id();
 
-        post("/calendars/" + id + "/overrides/" + overrideId + "/enabled", form("enabled", "false"));
+        post("/schedules/" + id + "/overrides/" + overrideId + "/enabled", form("enabled", "false"));
 
-        CalendarDto disabled = restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class);
+        ScheduleDto disabled = restTemplate.getForObject("/api/v1/schedules/" + id, ScheduleDto.class);
         assertThat(disabled.overrides()).hasSize(1);
         assertThat(disabled.overrides().get(0).enabled()).isFalse();
-        assertThat(restTemplate.getForObject("/calendars/" + id, String.class)).contains("disabled").contains("Enable");
+        assertThat(restTemplate.getForObject("/schedules/" + id, String.class)).contains("disabled").contains("Enable");
 
-        post("/calendars/" + id + "/overrides/" + overrideId + "/enabled", form("enabled", "true"));
+        post("/schedules/" + id + "/overrides/" + overrideId + "/enabled", form("enabled", "true"));
 
-        assertThat(restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class).overrides().get(0).enabled()).isTrue();
+        assertThat(restTemplate.getForObject("/api/v1/schedules/" + id, ScheduleDto.class).overrides().get(0).enabled()).isTrue();
     }
 
     @Test
     void aRowWithTimesButNoDaysIsRefusedNotDropped() {
         String name = "NoDays " + UUID.randomUUID();
-        UUID id = idFromRedirect(post("/calendars", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));
+        UUID id = idFromRedirect(post("/schedules", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));
 
-        post("/calendars/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
+        post("/schedules/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
                 "rules[0].startTime", "08:00", "rules[0].endTime", "10:00"));
 
-        assertThat(restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class).rules()).isEmpty();
+        assertThat(restTemplate.getForObject("/api/v1/schedules/" + id, ScheduleDto.class).rules()).isEmpty();
     }
 
     @Test
@@ -141,13 +141,13 @@ class CalendarDashboardIntegrationTest extends AbstractIntegrationTest {
                 "Windows 11", "10.0", "x86_64", List.of("192.168.1.70"),
                 List.of(new NetworkInterfaceInfo("Ethernet", "AA:BB:CC:DD:EE:02", List.of("192.168.1.70")))), Object.class);
         String name = "Nightly " + UUID.randomUUID();
-        UUID calendarId = idFromRedirect(post("/calendars", form("name", name, "timezone", "Europe/Dublin", "action", "SHUTDOWN")));
-        post("/calendars/" + calendarId, form("name", name, "timezone", "Europe/Dublin", "action", "SHUTDOWN",
+        UUID scheduleId = idFromRedirect(post("/schedules", form("name", name, "timezone", "Europe/Dublin", "action", "SHUTDOWN")));
+        post("/schedules/" + scheduleId, form("name", name, "timezone", "Europe/Dublin", "action", "SHUTDOWN",
                 "rules[0].days", "MONDAY", "rules[0].days", "TUESDAY", "rules[0].days", "WEDNESDAY", "rules[0].days", "THURSDAY",
                 "rules[0].days", "FRIDAY", "rules[0].days", "SATURDAY", "rules[0].days", "SUNDAY",
                 "rules[0].startTime", "06:30", "rules[0].endTime", "22:30"));
 
-        assertThat(post("/devices/" + deviceId + "/calendar", form("calendarId", calendarId.toString())).getStatusCode())
+        assertThat(post("/devices/" + deviceId + "/schedule", form("scheduleId", scheduleId.toString())).getStatusCode())
                 .isEqualTo(HttpStatus.FOUND);
         assertThat(post("/devices/" + deviceId + "/extend", form("minutes", "30")).getStatusCode()).isEqualTo(HttpStatus.FOUND);
 
@@ -157,7 +157,7 @@ class CalendarDashboardIntegrationTest extends AbstractIntegrationTest {
         post("/devices/" + deviceId + "/extend/clear", form());
         assertThat(restTemplate.getForObject("/devices/" + deviceId, String.class)).doesNotContain("Extended until");
 
-        post("/devices/" + deviceId + "/calendar", form("calendarId", ""));
+        post("/devices/" + deviceId + "/schedule", form("scheduleId", ""));
         assertThat(restTemplate.getForObject("/devices/" + deviceId, String.class)).doesNotContain("Upcoming off times");
     }
 
@@ -194,47 +194,47 @@ class CalendarDashboardIntegrationTest extends AbstractIntegrationTest {
     @Test
     void offWindowWithinADayAsTwoRowsAndAMidnightEndThroughForms() {
         String name = "Thursday " + UUID.randomUUID();
-        UUID id = idFromRedirect(post("/calendars", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));
+        UUID id = idFromRedirect(post("/schedules", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));
         // "Off 16:15, on 16:30" on Thursdays: on 00:00-16:15 and on 16:30-midnight (00:00 as the end means midnight).
-        post("/calendars/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
+        post("/schedules/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
                 "rules[0].days", "THURSDAY", "rules[0].startTime", "00:00", "rules[0].endTime", "16:15",
                 "rules[1].days", "THURSDAY", "rules[1].startTime", "16:30", "rules[1].endTime", "00:00"));
-        assertThat(restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class).rules()).hasSize(2);
+        assertThat(restTemplate.getForObject("/api/v1/schedules/" + id, ScheduleDto.class).rules()).hasSize(2);
 
         // 2030-01-10 is a Thursday (UTC+0 in January in Dublin).
-        var off = restTemplate.getForObject("/api/v1/calendars/" + id + "/windows?from=2030-01-10T09:00:00Z&days=1",
-                com.timelord.controller.calendar.OffWindow[].class);
+        var off = restTemplate.getForObject("/api/v1/schedules/" + id + "/windows?from=2030-01-10T09:00:00Z&days=1",
+                com.timelord.controller.schedule.OffWindow[].class);
         assertThat(off).anySatisfy(w -> {
             assertThat(w.offAt()).isEqualTo(java.time.Instant.parse("2030-01-10T16:15:00Z"));
             assertThat(w.onAt()).isEqualTo(java.time.Instant.parse("2030-01-10T16:30:00Z"));
         });
 
         // A row that would run past midnight is refused with a message, not saved.
-        ResponseEntity<String> refused = post("/calendars/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
+        ResponseEntity<String> refused = post("/schedules/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
                 "rules[0].days", "FRIDAY", "rules[0].startTime", "18:30", "rules[0].endTime", "01:00"));
         assertThat(refused.getStatusCode()).isEqualTo(HttpStatus.FOUND);
-        assertThat(restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class).rules()).hasSize(2);
+        assertThat(restTemplate.getForObject("/api/v1/schedules/" + id, ScheduleDto.class).rules()).hasSize(2);
     }
 
     @Test
     void blankFormTimesDefaultToTheStartAndEndOfTheDay() {
         String name = "Blanks " + UUID.randomUUID();
-        UUID id = idFromRedirect(post("/calendars", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));
+        UUID id = idFromRedirect(post("/schedules", form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP")));
         // Friday: on from 18:00, off at left blank. Saturday: on from left blank, off at 01:00.
-        post("/calendars/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
+        post("/schedules/" + id, form("name", name, "timezone", "Europe/Dublin", "action", "SLEEP",
                 "rules[0].days", "FRIDAY", "rules[0].startTime", "18:00", "rules[0].endTime", "",
                 "rules[1].days", "SATURDAY", "rules[1].startTime", "", "rules[1].endTime", "01:00",
                 "rules[2].days", "SUNDAY", "rules[2].startTime", "", "rules[2].endTime", ""));
 
-        CalendarDto calendar = restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class);
+        ScheduleDto schedule = restTemplate.getForObject("/api/v1/schedules/" + id, ScheduleDto.class);
 
-        assertThat(calendar.rules()).extracting(CalendarDto.Rule::startTime, CalendarDto.Rule::endTime).containsExactlyInAnyOrder(
+        assertThat(schedule.rules()).extracting(ScheduleDto.Rule::startTime, ScheduleDto.Rule::endTime).containsExactlyInAnyOrder(
                 org.assertj.core.groups.Tuple.tuple(java.time.LocalTime.of(18, 0), java.time.LocalTime.MIDNIGHT),
                 org.assertj.core.groups.Tuple.tuple(java.time.LocalTime.MIDNIGHT, java.time.LocalTime.of(1, 0)),
                 org.assertj.core.groups.Tuple.tuple(java.time.LocalTime.MIDNIGHT, java.time.LocalTime.MIDNIGHT));
 
         // An override with both times blank is a whole extra day.
-        post("/calendars/" + id + "/overrides", form("name", "Open day", "startDate", "2030-02-04", "endDate", "", "startTime", "", "endTime", ""));
-        assertThat(restTemplate.getForObject("/api/v1/calendars/" + id, CalendarDto.class).overrides()).hasSize(1);
+        post("/schedules/" + id + "/overrides", form("name", "Open day", "startDate", "2030-02-04", "endDate", "", "startTime", "", "endTime", ""));
+        assertThat(restTemplate.getForObject("/api/v1/schedules/" + id, ScheduleDto.class).overrides()).hasSize(1);
     }
 }

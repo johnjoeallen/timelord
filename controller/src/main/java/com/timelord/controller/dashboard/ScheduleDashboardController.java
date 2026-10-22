@@ -1,19 +1,19 @@
 package com.timelord.controller.dashboard;
 
 import com.timelord.controller.agent.ScheduleChangeNotifier;
-import com.timelord.controller.calendar.CalendarAction;
-import com.timelord.controller.calendar.CalendarDto;
-import com.timelord.controller.calendar.CalendarRequest;
-import com.timelord.controller.calendar.CalendarService;
-import com.timelord.controller.calendar.OverrideRequest;
+import com.timelord.controller.schedule.ScheduleAction;
+import com.timelord.controller.schedule.ScheduleDto;
+import com.timelord.controller.schedule.ScheduleRequest;
+import com.timelord.controller.schedule.ScheduleService;
+import com.timelord.controller.schedule.OverrideRequest;
 import com.timelord.controller.common.ApiException;
 import com.timelord.controller.device.DeviceService;
 import com.timelord.controller.message.MessageRequest;
 import com.timelord.controller.message.MessageService;
 import com.timelord.controller.timezone.RequestZoneResolver;
 import com.timelord.controller.timezone.TimeFormat;
-import com.timelord.controller.calendar.CalendarResolver;
-import com.timelord.controller.calendar.CalendarRule;
+import com.timelord.controller.schedule.ScheduleResolver;
+import com.timelord.controller.schedule.ScheduleRule;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.DayOfWeek;
 import java.time.Duration;
@@ -36,29 +36,29 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
- * Server-rendered calendar management. Plain form posts with redirect-after-post
- * (no client-side JS), delegating all validation to {@link CalendarService}.
+ * Server-rendered schedule management. Plain form posts with redirect-after-post
+ * (no client-side JS), delegating all validation to {@link ScheduleService}.
  */
 @Controller
-public class CalendarDashboardController {
+public class ScheduleDashboardController {
 
     /** The entry row kept below the existing rows; the page's + button commits it and adds a fresh one. */
     private static final int SPARE_RULE_ROWS = 1;
     private static final int PREVIEW_DAYS = 14;
 
-    private final CalendarService calendarService;
+    private final ScheduleService scheduleService;
     private final DeviceService deviceService;
     private final ScheduleChangeNotifier scheduleChanges;
     private final RequestZoneResolver zoneResolver;
     private final MessageService messageService;
     private final TimeFormat timeFormat;
 
-    public CalendarDashboardController(CalendarService calendarService, DeviceService deviceService,
+    public ScheduleDashboardController(ScheduleService scheduleService, DeviceService deviceService,
                                        ScheduleChangeNotifier scheduleChanges, RequestZoneResolver zoneResolver,
                                        MessageService messageService, TimeFormat timeFormat) {
         this.messageService = messageService;
         this.timeFormat = timeFormat;
-        this.calendarService = calendarService;
+        this.scheduleService = scheduleService;
         this.deviceService = deviceService;
         this.scheduleChanges = scheduleChanges;
         this.zoneResolver = zoneResolver;
@@ -126,10 +126,10 @@ public class CalendarDashboardController {
         }
     }
 
-    public static class CalendarForm {
+    public static class ScheduleForm {
         private String name;
         private String timezone;
-        private CalendarAction action = CalendarAction.SLEEP;
+        private ScheduleAction action = ScheduleAction.SLEEP;
         private List<RuleForm> rules = new ArrayList<>();
 
         public String getName() {
@@ -148,11 +148,11 @@ public class CalendarDashboardController {
             this.timezone = timezone;
         }
 
-        public CalendarAction getAction() {
+        public ScheduleAction getAction() {
             return action;
         }
 
-        public void setAction(CalendarAction action) {
+        public void setAction(ScheduleAction action) {
             this.action = action;
         }
 
@@ -164,90 +164,90 @@ public class CalendarDashboardController {
             this.rules = rules;
         }
 
-        CalendarRequest toRequest() {
-            List<CalendarDto.Rule> out = new ArrayList<>();
+        ScheduleRequest toRequest() {
+            List<ScheduleDto.Rule> out = new ArrayList<>();
             for (RuleForm r : rules) {
                 if (r.isBlank()) {
                     continue;
                 }
                 // A row with times but no days is passed on so the save is refused, not silently dropped.
                 List<DayOfWeek> days = r.days == null ? new ArrayList<>() : new ArrayList<>(new TreeSet<>(r.days));
-                out.add(new CalendarDto.Rule(days, r.startTime, r.endTime, r.enabled));
+                out.add(new ScheduleDto.Rule(days, r.startTime, r.endTime, r.enabled));
             }
-            return new CalendarRequest(name == null ? "" : name.strip(), timezone == null ? "" : timezone.strip(), action, out);
+            return new ScheduleRequest(name == null ? "" : name.strip(), timezone == null ? "" : timezone.strip(), action, out);
         }
     }
 
-    @GetMapping("/calendars")
+    @GetMapping("/schedules")
     public String list(Model model, HttpServletRequest request) {
-        model.addAttribute("calendars", calendarService.list());
+        model.addAttribute("schedules", scheduleService.list());
         model.addAttribute("timezones", timezones());
         model.addAttribute("defaultZone", zoneResolver.resolve(request).getId());
-        model.addAttribute("actions", CalendarAction.values());
-        return "calendars";
+        model.addAttribute("actions", ScheduleAction.values());
+        return "schedules";
     }
 
-    @PostMapping("/calendars")
-    public String create(@ModelAttribute CalendarForm form, RedirectAttributes redirect) {
+    @PostMapping("/schedules")
+    public String create(@ModelAttribute ScheduleForm form, RedirectAttributes redirect) {
         form.rules = new ArrayList<>();
         try {
-            CalendarDto created = calendarService.create(form.toRequest());
+            ScheduleDto created = scheduleService.create(form.toRequest());
             redirect.addFlashAttribute("message", "Schedule created. Add weekly rows below.");
-            return "redirect:/calendars/" + created.id();
+            return "redirect:/schedules/" + created.id();
         } catch (ApiException e) {
             redirect.addFlashAttribute("error", e.getMessage());
-            return "redirect:/calendars";
+            return "redirect:/schedules";
         }
     }
 
-    @GetMapping("/calendars/{id}")
+    @GetMapping("/schedules/{id}")
     public String detail(@PathVariable UUID id, Model model) {
-        CalendarDto calendar = calendarService.get(id);
-        ZoneId calendarZone = ZoneId.of(calendar.timezone());
+        ScheduleDto schedule = scheduleService.get(id);
+        ZoneId scheduleZone = ZoneId.of(schedule.timezone());
 
         List<RuleForm> rows = new ArrayList<>();
-        for (CalendarDto.Rule r : calendar.rules()) {
+        for (ScheduleDto.Rule r : schedule.rules()) {
             RuleForm row = new RuleForm();
             row.setDays(new ArrayList<>(r.days()));
             row.setStartTime(r.startTime());
             row.setEndTime(r.endTime());
             row.setEnabled(r.enabled());
-            row.setPreview(r.enabled() ? previewOf(r, calendarZone) : null);
+            row.setPreview(r.enabled() ? previewOf(r, scheduleZone) : null);
             rows.add(row);
         }
         for (int i = 0; i < SPARE_RULE_ROWS; i++) {
             rows.add(new RuleForm());
         }
 
-        model.addAttribute("calendar", calendar);
+        model.addAttribute("schedule", schedule);
         model.addAttribute("ruleRows", rows);
-        model.addAttribute("hasActiveRows", calendar.rules().stream().anyMatch(CalendarDto.Rule::enabled));
+        model.addAttribute("hasActiveRows", schedule.rules().stream().anyMatch(ScheduleDto.Rule::enabled));
         model.addAttribute("days", DayOfWeek.values());
-        model.addAttribute("actions", CalendarAction.values());
+        model.addAttribute("actions", ScheduleAction.values());
         model.addAttribute("timezones", timezones());
-        model.addAttribute("calendarZone", calendarZone);
-        model.addAttribute("allowedWindows", calendarService.allowed(id, java.time.Instant.now(), PREVIEW_DAYS));
-        model.addAttribute("today", LocalDate.now(calendarZone));
-        return "calendar-detail";
+        model.addAttribute("scheduleZone", scheduleZone);
+        model.addAttribute("allowedWindows", scheduleService.allowed(id, java.time.Instant.now(), PREVIEW_DAYS));
+        model.addAttribute("today", LocalDate.now(scheduleZone));
+        return "schedule-detail";
     }
 
-    @PostMapping("/calendars/{id}")
-    public String update(@PathVariable UUID id, @ModelAttribute CalendarForm form, RedirectAttributes redirect) {
-        return run(redirect, "/calendars/" + id, "Schedule saved.", () -> {
-            calendarService.update(id, form.toRequest());
+    @PostMapping("/schedules/{id}")
+    public String update(@PathVariable UUID id, @ModelAttribute ScheduleForm form, RedirectAttributes redirect) {
+        return run(redirect, "/schedules/" + id, "Schedule saved.", () -> {
+            scheduleService.update(id, form.toRequest());
             scheduleChanges.allChanged();
         });
     }
 
-    @PostMapping("/calendars/{id}/delete")
+    @PostMapping("/schedules/{id}/delete")
     public String delete(@PathVariable UUID id, RedirectAttributes redirect) {
-        return run(redirect, "/calendars", "Schedule deleted.", () -> {
-            calendarService.delete(id);
+        return run(redirect, "/schedules", "Schedule deleted.", () -> {
+            scheduleService.delete(id);
             scheduleChanges.allChanged();
         });
     }
 
-    @PostMapping("/calendars/{id}/overrides")
+    @PostMapping("/schedules/{id}/overrides")
     public String addOverride(@PathVariable UUID id,
                               @RequestParam(required = false) String name,
                               @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -255,28 +255,28 @@ public class CalendarDashboardController {
                               @RequestParam(required = false) @DateTimeFormat(pattern = "HH:mm") LocalTime startTime,
                               @RequestParam(required = false) @DateTimeFormat(pattern = "HH:mm") LocalTime endTime,
                               RedirectAttributes redirect) {
-        return run(redirect, "/calendars/" + id, "Override added.", () -> {
+        return run(redirect, "/schedules/" + id, "Override added.", () -> {
             // A blank end date means a single day.
             LocalDate end = endDate != null ? endDate : startDate;
-            calendarService.addOverride(id, new OverrideRequest(name == null || name.isBlank() ? null : name.strip(),
+            scheduleService.addOverride(id, new OverrideRequest(name == null || name.isBlank() ? null : name.strip(),
                     startDate, end, startTime, endTime));
             scheduleChanges.allChanged();
         });
     }
 
-    @PostMapping("/calendars/{id}/overrides/{overrideId}/delete")
+    @PostMapping("/schedules/{id}/overrides/{overrideId}/delete")
     public String removeOverride(@PathVariable UUID id, @PathVariable UUID overrideId, RedirectAttributes redirect) {
-        return run(redirect, "/calendars/" + id, "Override removed.", () -> {
-            calendarService.removeOverride(id, overrideId);
+        return run(redirect, "/schedules/" + id, "Override removed.", () -> {
+            scheduleService.removeOverride(id, overrideId);
             scheduleChanges.allChanged();
         });
     }
 
-    @PostMapping("/calendars/{id}/overrides/{overrideId}/enabled")
+    @PostMapping("/schedules/{id}/overrides/{overrideId}/enabled")
     public String setOverrideEnabled(@PathVariable UUID id, @PathVariable UUID overrideId,
                                      @RequestParam boolean enabled, RedirectAttributes redirect) {
-        return run(redirect, "/calendars/" + id, enabled ? "Override enabled." : "Override disabled.", () -> {
-            calendarService.setOverrideEnabled(id, overrideId, enabled);
+        return run(redirect, "/schedules/" + id, enabled ? "Override enabled." : "Override disabled.", () -> {
+            scheduleService.setOverrideEnabled(id, overrideId, enabled);
             scheduleChanges.allChanged();
         });
     }
@@ -309,11 +309,11 @@ public class CalendarDashboardController {
         });
     }
 
-    @PostMapping("/devices/{deviceId}/calendar")
-    public String assign(@PathVariable UUID deviceId, @RequestParam(required = false) UUID calendarId,
+    @PostMapping("/devices/{deviceId}/schedule")
+    public String assign(@PathVariable UUID deviceId, @RequestParam(required = false) UUID scheduleId,
                          RedirectAttributes redirect) {
         return run(redirect, "/devices/" + deviceId, "Schedule updated.", () -> {
-            deviceService.assignCalendar(deviceId, calendarId);
+            deviceService.assignSchedule(deviceId, scheduleId);
             scheduleChanges.deviceChanged(deviceId);
         });
     }
@@ -337,12 +337,12 @@ public class CalendarDashboardController {
         });
     }
 
-    /** The row's next allowed window in the calendar's own timezone, e.g. "Next: Thu 22 Oct 18:30 \u2192 Thu 22 Oct 23:30". */
-    private String previewOf(CalendarDto.Rule rule, ZoneId zone) {
-        CalendarRule single = new CalendarRule(UUID.randomUUID(), UUID.randomUUID(), rule.days(), rule.startTime(),
+    /** The row's next allowed window in the schedule's own timezone, e.g. "Next: Thu 22 Oct 18:30 \u2192 Thu 22 Oct 23:30". */
+    private String previewOf(ScheduleDto.Rule rule, ZoneId zone) {
+        ScheduleRule single = new ScheduleRule(UUID.randomUUID(), UUID.randomUUID(), rule.days(), rule.startTime(),
                 rule.endTime());
         java.time.Instant now = java.time.Instant.now();
-        return CalendarResolver.allowedWindows(zone, List.of(single), List.of(), now, now.plus(Duration.ofDays(9)))
+        return ScheduleResolver.allowedWindows(zone, List.of(single), List.of(), now, now.plus(Duration.ofDays(9)))
                 .stream().findFirst()
                 .map(w -> "Next: " + timeFormat.format(w.onAt(), zone, "EEE d MMM HH:mm") + " \u2192 "
                         + timeFormat.format(w.offAt(), zone, "EEE d MMM HH:mm"))

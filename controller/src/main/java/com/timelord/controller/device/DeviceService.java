@@ -6,8 +6,8 @@ import com.timelord.controller.agent.HeartbeatResponse;
 import com.timelord.controller.agent.RegisterRequest;
 import com.timelord.controller.agent.RegisterResponse;
 import com.timelord.controller.common.ApiException;
-import com.timelord.controller.calendar.CalendarService;
-import com.timelord.controller.calendar.OffWindow;
+import com.timelord.controller.schedule.ScheduleService;
+import com.timelord.controller.schedule.OffWindow;
 import com.timelord.controller.config.AgentDefaultsProperties;
 import com.timelord.controller.config.DeviceProperties;
 import com.timelord.controller.discovery.ControllerIdentityService;
@@ -39,7 +39,7 @@ public class DeviceService {
     private final AgentDefaultsProperties agentDefaults;
     private final DeviceProperties deviceProperties;
     private final DeviceUpdatesWebSocketHandler deviceUpdates;
-    private final CalendarService calendarService;
+    private final ScheduleService scheduleService;
     private final DeviceEventRepository eventRepository;
 
     public DeviceService(DeviceRepository deviceRepository,
@@ -48,7 +48,7 @@ public class DeviceService {
                           AgentDefaultsProperties agentDefaults,
                           DeviceProperties deviceProperties,
                           DeviceUpdatesWebSocketHandler deviceUpdates,
-                          CalendarService calendarService,
+                          ScheduleService scheduleService,
                           DeviceEventRepository eventRepository) {
         this.deviceRepository = deviceRepository;
         this.heartbeatRepository = heartbeatRepository;
@@ -56,7 +56,7 @@ public class DeviceService {
         this.agentDefaults = agentDefaults;
         this.deviceProperties = deviceProperties;
         this.deviceUpdates = deviceUpdates;
-        this.calendarService = calendarService;
+        this.scheduleService = scheduleService;
         this.eventRepository = eventRepository;
     }
 
@@ -136,22 +136,22 @@ public class DeviceService {
     }
 
     public AgentSchedule scheduleFor(Device device) {
-        return calendarService.scheduleFor(device.getCalendarId(), device.getExtensionUntil());
+        return scheduleService.scheduleFor(device.getScheduleId(), device.getExtensionUntil());
     }
 
     /**
-     * Lets the device stay on {@code minutes} longer than its calendar says: if it is currently inside an
+     * Lets the device stay on {@code minutes} longer than its schedule says: if it is currently inside an
      * off window it is allowed back on for that long, otherwise the next off window starts that much later.
-     * The calendar itself is untouched.
+     * The schedule itself is untouched.
      */
     @Transactional
     public Device extend(UUID deviceId, int minutes) {
         Device device = requireDevice(deviceId);
-        if (device.getCalendarId() == null) {
-            throw new ApiException(HttpStatus.CONFLICT, "NO_CALENDAR", "Device has no schedule assigned");
+        if (device.getScheduleId() == null) {
+            throw new ApiException(HttpStatus.CONFLICT, "NO_SCHEDULE", "Device has no schedule assigned");
         }
         Instant now = Instant.now();
-        OffWindow next = calendarService.effectiveWindows(device.getCalendarId(), device.getExtensionUntil(), Duration.ofDays(2))
+        OffWindow next = scheduleService.effectiveWindows(device.getScheduleId(), device.getExtensionUntil(), Duration.ofDays(2))
                 .stream().findFirst()
                 .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "NO_OFF_WINDOW", "No upcoming off window to extend"));
         Instant base = next.offAt().isBefore(now) ? now : next.offAt();
@@ -189,14 +189,14 @@ public class DeviceService {
                 .orElseThrow(() -> ApiException.notFound("DEVICE_NOT_FOUND", "No device registered with id " + deviceId));
     }
 
-    /** Assigns a calendar to the device, or clears it when {@code calendarId} is null. */
+    /** Assigns a schedule to the device, or clears it when {@code scheduleId} is null. */
     @Transactional
-    public Device assignCalendar(UUID deviceId, UUID calendarId) {
+    public Device assignSchedule(UUID deviceId, UUID scheduleId) {
         Device device = requireDevice(deviceId);
-        if (calendarId != null) {
-            calendarService.require(calendarId);
+        if (scheduleId != null) {
+            scheduleService.require(scheduleId);
         }
-        device.setCalendarId(calendarId);
+        device.setScheduleId(scheduleId);
         device.setExtensionUntil(null);
         device.setUpdatedAt(Instant.now());
         return deviceRepository.save(device);
