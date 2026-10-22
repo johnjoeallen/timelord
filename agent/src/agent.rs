@@ -19,6 +19,7 @@ use crate::controller_client::ControllerClient;
 use crate::discovery;
 use crate::events;
 use crate::protocol::{EventSubmissionRequest, HeartbeatRequest, RegisterRequest};
+use crate::messages::{self, MessageStore};
 use crate::queue::EventQueue;
 use crate::schedule::{self, Schedule};
 use crate::{platform, SessionSnapshot, UsageRecorder};
@@ -56,6 +57,8 @@ pub struct Agent {
     schedule: StdMutex<Option<Schedule>>,
     schedule_path: PathBuf,
     schedule_changed: Notify,
+    messages: StdMutex<MessageStore>,
+    messages_path: PathBuf,
 }
 
 impl Agent {
@@ -68,6 +71,8 @@ impl Agent {
         let (shutdown_tx, _) = watch::channel(false);
         let schedule_path = agent_toml_path.with_file_name("schedule.json");
         let schedule = StdMutex::new(schedule::load(&schedule_path));
+        let messages_path = agent_toml_path.with_file_name("messages.json");
+        let messages = StdMutex::new(messages::load(&messages_path));
         Self {
             config,
             agent_toml_path,
@@ -79,6 +84,8 @@ impl Agent {
             schedule,
             schedule_path,
             schedule_changed: Notify::new(),
+            messages,
+            messages_path,
         }
     }
 
@@ -106,6 +113,24 @@ impl Agent {
             warn!(?err, "failed to cache schedule locally");
         }
         self.schedule_changed.notify_one();
+    }
+
+    /// Administrator messages still worth showing (unexpired).
+    pub fn live_messages(&self) -> Vec<crate::protocol::AgentMessage> {
+        self.messages.lock().unwrap().live(Utc::now())
+    }
+
+    fn messages_cursor(&self) -> i64 {
+        self.messages.lock().unwrap().last_seq
+    }
+
+    fn apply_messages(&self, incoming: Vec<crate::protocol::AgentMessage>) {
+        let mut store = self.messages.lock().unwrap();
+        if store.apply(incoming, Utc::now()) {
+            if let Err(err) = messages::save(&self.messages_path, &store) {
+                warn!(?err, "failed to cache messages locally");
+            }
+        }
     }
 
     pub fn is_connected(&self) -> bool {
@@ -499,6 +524,35 @@ pub async fn schedule_poll_loop(agent: Arc<Agent>, client: Arc<Mutex<(Controller
     }
 }
 
+/// Long-polls the controller for administrator messages, resuming from the cursor in the local cache
+/// so nothing is fetched twice and nothing is lost across restarts. Own client, like the schedule poll.
+pub async fn message_poll_loop(agent: Arc<Agent>, client: Arc<Mutex<(ControllerClient, Uuid)>>) {
+    let mut shutdown = agent.shutdown_signal();
+    loop {
+        let (url, device_id) = {
+            let guard = client.lock().await;
+            (guard.0.base_url().to_string(), guard.1)
+        };
+        let poll_client = ControllerClient::new(url);
+        let result = tokio::select! {
+            r = poll_client.poll_messages(device_id, agent.messages_cursor(), SCHEDULE_POLL_WAIT) => r,
+            _ = shutdown.changed() => break,
+        };
+        match result {
+            Ok(incoming) => agent.apply_messages(incoming),
+            Err(err) => {
+                if !err.is_device_not_found() {
+                    warn!(?err, "message poll failed");
+                }
+                tokio::select! {
+                    _ = tokio::time::sleep(RECONNECT_BACKOFF) => {}
+                    _ = shutdown.changed() => break,
+                }
+            }
+        }
+    }
+}
+
 /// Enforces the cached calendar schedule, including while the controller is unreachable: whenever
 /// `now` is inside an off window, performs the schedule's action (sleep or shutdown). Wakes on a
 /// schedule change, the next window start, or [`ENFORCEMENT_MAX_WAIT`], whichever is soonest.
@@ -670,8 +724,10 @@ pub fn run_blocking(dir: &std::path::Path, cli: &CliOverrides) -> anyhow::Result
             tokio::join!(
                 heartbeat_loop(agent.clone(), client.clone()),
                 schedule_poll_loop(agent.clone(), client.clone()),
+                message_poll_loop(agent.clone(), client.clone()),
                 delivery_loop(agent.clone(), client),
                 enforcement_loop(agent.clone()),
+                crate::notify_pipe::serve(agent.clone()),
                 offline_fallback_loop(agent.clone()),
                 hard_sleep_loop(agent),
             );

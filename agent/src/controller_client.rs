@@ -8,7 +8,7 @@ use std::time::Duration;
 use uuid::Uuid;
 
 use crate::protocol::{
-    EventSubmissionRequest, EventSubmissionResponse, HeartbeatRequest, HeartbeatResponse, RegisterRequest,
+    AgentMessage, EventSubmissionRequest, EventSubmissionResponse, HeartbeatRequest, HeartbeatResponse, RegisterRequest,
     RegisterResponse, SystemInfoResponse,
 };
 use crate::schedule::Schedule;
@@ -114,6 +114,18 @@ impl ControllerClient {
             return Ok(None);
         }
         Self::parse(response).await.map(Some)
+    }
+
+    /// Long-polls for administrator messages with `seq` greater than `after`.
+    pub async fn poll_messages(&self, device_id: Uuid, after: i64, wait: Duration) -> Result<Vec<AgentMessage>, ClientError> {
+        let response = self
+            .http
+            .get(format!("{}/api/v1/agents/{device_id}/messages", self.base_url))
+            .query(&[("after", after.to_string()), ("waitSeconds", wait.as_secs().to_string())])
+            .timeout(wait + REQUEST_TIMEOUT)
+            .send()
+            .await?;
+        Self::parse(response).await
     }
 
     pub async fn submit_events(

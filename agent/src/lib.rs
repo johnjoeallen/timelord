@@ -3,6 +3,8 @@ pub mod config;
 pub mod controller_client;
 pub mod discovery;
 pub mod events;
+pub mod messages;
+pub mod notify_pipe;
 pub mod platform;
 pub mod protocol;
 pub mod queue;

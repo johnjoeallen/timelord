@@ -131,6 +131,18 @@ pub struct HeartbeatResponse {
     pub schedule: Option<Schedule>,
 }
 
+/// An administrator's message as the controller delivers it. `seq` is the cursor to resume polling from.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentMessage {
+    pub seq: i64,
+    pub id: Uuid,
+    pub title: Option<String>,
+    pub body: String,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EventItem {
