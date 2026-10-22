@@ -848,7 +848,7 @@ assign each device to one, and the agent puts the device to sleep (or shuts it d
 schedule says it should be off — that is, outside every on-window. Nothing wakes a sleeping device:
 "on" only means <em>allowed to be on</em>.</p>
 <figure>
-<p><img alt="The Schedules page listing two schedules and a form to create another" src="../images/calendars.png" />
+<p><img alt="The Schedules page listing two schedules and a form to create another" src="../images/schedules.png" />
   </p>
 <figcaption>The Schedules page: each schedule's action, timezone and how many weekly rows and overrides it has.</figcaption>
 </figure>
@@ -859,7 +859,7 @@ beyond compile checks and unit tests — try it on a spare machine first (see
 <a href="#trying-it-safely">Trying it safely</a>).</p>
 </div>
 <figure>
-<p><img alt="A schedule's page with weekly rows, holiday overrides and the resulting on-windows" src="../images/calendar-detail.png" />
+<p><img alt="A schedule's page with weekly rows, holiday overrides and the resulting on-windows" src="../images/schedule-detail.png" />
   </p>
 <figcaption>The schedule editor: weekly rows (several on the same day, <strong>+</strong>/<strong>−</strong> to add, disable or delete, a dimmed disabled row), overrides that add time (one is disabled), and the resolved on-windows for the next 14 days.</figcaption>
 </figure>
@@ -976,7 +976,7 @@ the day goes back. A single day is an override whose start and end date are the 
 dashboard, leave "To" blank). Overrides stack.</p>
 <p>Each override has <strong>Disable</strong> and <strong>Remove</strong> buttons. <em>Disable</em> keeps the override but stops it adding
 any time, exactly as if it were gone, and <em>Enable</em> turns it back on; use it to switch a holiday off and
-on again without re-entering it. (In the API: <code>PUT /api/v1/calendars/{id}/overrides/{overrideId}/enabled</code>
+on again without re-entering it. (In the API: <code>PUT /api/v1/schedules/{id}/overrides/{overrideId}/enabled</code>
 with <code>{"enabled": false}</code>.)</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
@@ -988,7 +988,7 @@ To let a holiday run late you add the early-hours piece as an override for the n
 </div>
 <h3 id="allowing-a-device-longer">Allowing a device longer<a class="headerlink" href="#allowing-a-device-longer" title="Permanent link">&para;</a></h3>
 <figure>
-<p><img alt="Device page cards for assigning a schedule and granting more time" src="../images/device-calendar.png" />
+<p><img alt="Device page cards for assigning a schedule and granting more time" src="../images/device-schedule.png" />
   </p>
 <figcaption>The device page: schedule assignment, upcoming off times and the extension buttons.</figcaption>
 </figure>
@@ -1046,44 +1046,44 @@ unreachable); both rules were removed.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>GET /api/v1/calendars</code> · <code>GET /api/v1/calendars/{id}</code></td>
+<td><code>GET /api/v1/schedules</code> · <code>GET /api/v1/schedules/{id}</code></td>
 <td>List / read schedules (with rows and overrides)</td>
 </tr>
 <tr>
-<td><code>POST /api/v1/calendars</code></td>
+<td><code>POST /api/v1/schedules</code></td>
 <td>Create</td>
 </tr>
 <tr>
-<td><code>PUT /api/v1/calendars/{id}</code></td>
+<td><code>PUT /api/v1/schedules/{id}</code></td>
 <td>Replace name, timezone, action and the <strong>whole set of weekly rows</strong> (overrides untouched)</td>
 </tr>
 <tr>
-<td><code>DELETE /api/v1/calendars/{id}</code></td>
+<td><code>DELETE /api/v1/schedules/{id}</code></td>
 <td>Delete; devices using it lose their schedule</td>
 </tr>
 <tr>
-<td><code>POST /api/v1/calendars/{id}/overrides</code></td>
+<td><code>POST /api/v1/schedules/{id}/overrides</code></td>
 <td>Add an override</td>
 </tr>
 <tr>
-<td><code>DELETE /api/v1/calendars/{id}/overrides/{overrideId}</code></td>
+<td><code>DELETE /api/v1/schedules/{id}/overrides/{overrideId}</code></td>
 <td>Remove an override</td>
 </tr>
 <tr>
-<td><code>PUT /api/v1/calendars/{id}/overrides/{overrideId}/enabled</code></td>
+<td><code>PUT /api/v1/schedules/{id}/overrides/{overrideId}/enabled</code></td>
 <td>Switch an override off or on (<code>{"enabled": false}</code>)</td>
 </tr>
 <tr>
-<td><code>GET /api/v1/calendars/{id}/allowed?from=&amp;days=</code></td>
+<td><code>GET /api/v1/schedules/{id}/allowed?from=&amp;days=</code></td>
 <td>Preview the resolved on-windows (what the dashboard's table shows)</td>
 </tr>
 <tr>
-<td><code>GET /api/v1/calendars/{id}/windows?from=&amp;days=</code></td>
+<td><code>GET /api/v1/schedules/{id}/windows?from=&amp;days=</code></td>
 <td>Preview the resolved off windows (what the agent is sent)</td>
 </tr>
 <tr>
-<td><code>PUT /api/v1/devices/{id}/calendar</code></td>
-<td>Assign (<code>{"calendarId": "&lt;uuid&gt;"}</code>) or clear (<code>{"calendarId": null}</code>)</td>
+<td><code>PUT /api/v1/devices/{id}/schedule</code></td>
+<td>Assign (<code>{"scheduleId": "&lt;uuid&gt;"}</code>) or clear (<code>{"scheduleId": null}</code>)</td>
 </tr>
 <tr>
 <td><code>POST /api/v1/devices/{id}/extend</code></td>
@@ -1101,7 +1101,7 @@ unreachable); both rules were removed.</p>
 but ignores it (default `true`).
 
 ```console
-$ curl -X POST http://localhost:9099/api/v1/calendars \
+$ curl -X POST http://localhost:9099/api/v1/schedules \
     -H 'Content-Type: application/json' -d '{
       "name": "School days",
       "timezone": "Europe/Dublin",
@@ -1118,7 +1118,7 @@ $ curl -X POST http://localhost:9099/api/v1/calendars \
 </code></pre></div>
 <p>=== "Add a holiday override"</p>
 <div class="highlight"><pre><span></span><code>```console
-$ curl -X POST http://localhost:9099/api/v1/calendars/$CALENDAR_ID/overrides \
+$ curl -X POST http://localhost:9099/api/v1/schedules/$SCHEDULE_ID/overrides \
     -H 'Content-Type: application/json' -d '{
       "name": "Christmas",
       "startDate": "2026-12-19",
@@ -1136,7 +1136,7 @@ $ curl -X POST http://localhost:9099/api/v1/devices/$DEVICE_ID/extend \
 <p>Validation errors come back in the usual <a href="../controller/#api">error shape</a>, for example
 <code>INVALID_TIMEZONE</code>, <code>INVALID_RULE</code> (no days, or an Off at that is not after On from — a window
 can't run past midnight, add a row for the next day), <code>INVALID_OVERRIDE</code> (the same, or an end date
-before the start date), <code>CALENDAR_NAME_TAKEN</code> (<code>409</code>), and <code>NO_CALENDAR</code> / <code>NO_OFF_WINDOW</code> (<code>409</code>) when
+before the start date), <code>SCHEDULE_NAME_TAKEN</code> (<code>409</code>), and <code>NO_SCHEDULE</code> / <code>NO_OFF_WINDOW</code> (<code>409</code>) when
 extending a device that has nothing to extend.</p>
 <h2 id="trying-it-safely">Trying it safely<a class="headerlink" href="#trying-it-safely" title="Permanent link">&para;</a></h2>
 <ol>

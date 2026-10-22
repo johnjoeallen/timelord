@@ -787,11 +787,11 @@ TIMELORD_HEARTBEAT_RETENTION_DAYS
 ├── event/      DeviceEvent/DeviceHeartbeat entities, EventService (idempotent submission),
 │               admin EventController, heartbeat retention scheduler
 ├── discovery/  UDP listener + optional periodic announcer, controller identity persistence
-├── calendar/   Calendar/rule/override entities, CalendarResolver (rules + overrides -&gt; off
-│               windows), CalendarService, admin CalendarController
+├── schedule/   Schedule/rule/override entities, ScheduleResolver (rules + overrides -&gt; off
+│               windows), ScheduleService, admin ScheduleController
 ├── message/    DeviceMessage entity, MessageService, admin MessageController,
 │               MessageChangeNotifier (wakes message long polls)
-├── dashboard/  Thymeleaf DashboardController + CalendarDashboardController (form posts)
+├── dashboard/  Thymeleaf DashboardController + ScheduleDashboardController (form posts)
 ├── health/     Custom actuator health indicator (discovery listener)
 └── common/     ApiError/ApiException/GlobalExceptionHandler, correlation IDs,
                 AgentRequestAuthenticator (no-op — the Phase-2 auth seam)
@@ -801,7 +801,7 @@ TIMELORD_HEARTBEAT_RETENTION_DAYS
 <p><code>GET /api/v1/system/info</code> · admin: <code>/api/v1/devices</code>, <code>/api/v1/devices/{id}</code>,
 <code>DELETE /api/v1/devices/{id}</code> (also removes its events, heartbeats and messages),
 <code>/api/v1/devices/{id}/events</code>, <code>/api/v1/events</code>, <code>/api/v1/events/{id}</code>, plus
-<code>/api/v1/calendars/**</code>, <code>PUT /api/v1/devices/{id}/calendar</code>, <code>POST /api/v1/devices/{id}/extend</code>
+<code>/api/v1/schedules/**</code>, <code>PUT /api/v1/devices/{id}/schedule</code>, <code>POST /api/v1/devices/{id}/extend</code>
 and <code>/api/v1/devices/{id}/messages</code>, <code>POST /api/v1/messages</code> (see <a href="../scheduling/#admin-api">Schedules</a>
 and <a href="../notifier/#sending-a-message">Notifier</a>) · agent: <code>/api/v1/agents/register</code>,
 <code>/api/v1/agents/{id}/heartbeat</code>, <code>/api/v1/agents/{id}/events</code>, and the long polls
@@ -813,7 +813,7 @@ device/event lookups return <code>404</code> with code <code>DEVICE_NOT_FOUND</c
 <h2 id="web-ui">Web UI<a class="headerlink" href="#web-ui" title="Permanent link">&para;</a></h2>
 <p><code>/</code> (dashboard, with a "message all devices" form), <code>/devices</code> (filterable list),
 <code>/devices/{id}</code> (detail, login session history, schedule assignment and "allow longer" buttons,
-send-a-message with history, delete device), <code>/calendars</code> and <code>/calendars/{id}</code> (create and edit
+send-a-message with history, delete device), <code>/schedules</code> and <code>/schedules/{id}</code> (create and edit
 schedules, weekly rules, overrides, 14-day preview), <code>/events</code> (filterable, paginated). Bootstrap
 is bundled via WebJars — no external CDN.</p>
 <h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
