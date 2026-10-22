@@ -14,10 +14,14 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class EventService {
+
+    private static final Logger log = LoggerFactory.getLogger(EventService.class);
 
     private final DeviceEventRepository eventRepository;
     private final DeviceRepository deviceRepository;
@@ -43,6 +47,9 @@ public class EventService {
         int duplicates = 0;
         int rejected = 0;
         for (EventItem item : request.events()) {
+            log.info("Event received: deviceId={} eventId={} type={} occurredAt={} severity={} source={} sessionId={} username={} data={} sourceIp={}",
+                    deviceId, item.eventId(), item.eventType(), item.occurredAt(), item.severity(), item.source(),
+                    item.sessionId(), item.username(), item.data(), sourceIp);
             EventResult result = writer.insertIfAbsent(deviceId, item, sourceIp);
             results.add(result);
             switch (result.status()) {
