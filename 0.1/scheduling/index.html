@@ -1,0 +1,1115 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="TimeLord — a Windows device monitoring and scheduling platform: usage tracking, a live dashboard, calendar-based sleep/shutdown, and on-screen warnings and messages.">
+      
+      
+      
+        <link rel="canonical" href="https://johnjoeallen.github.io/timelord/0.1/scheduling/">
+      
+      
+        <link rel="prev" href="../controller/">
+      
+      
+        <link rel="next" href="../notifier/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Calendars - TimeLord</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#calendars-and-scheduling" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="TimeLord" class="md-header__button md-logo" aria-label="TimeLord" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 20a8 8 0 0 0 8-8 8 8 0 0 0-8-8 8 8 0 0 0-8 8 8 8 0 0 0 8 8m0-18a10 10 0 0 1 10 10 10 10 0 0 1-10 10C6.47 22 2 17.5 2 12A10 10 0 0 1 12 2m.5 5v5.25l4.5 2.67-.75 1.23L11 13V7z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            TimeLord
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Calendars
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/johnjoeallen/timelord" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    johnjoeallen/timelord
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../agent/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Agent
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../controller/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Controller
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Calendars
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../notifier/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notifier
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="TimeLord" class="md-nav__button md-logo" aria-label="TimeLord" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 20a8 8 0 0 0 8-8 8 8 0 0 0-8-8 8 8 0 0 0-8 8 8 8 0 0 0 8 8m0-18a10 10 0 0 1 10 10 10 10 0 0 1-10 10C6.47 22 2 17.5 2 12A10 10 0 0 1 12 2m.5 5v5.25l4.5 2.67-.75 1.23L11 13V7z"/></svg>
+
+    </a>
+    TimeLord
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/johnjoeallen/timelord" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    johnjoeallen/timelord
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../controller/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calendars
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calendars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-a-calendar-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How a calendar works
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How a calendar works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#weekly-rules-the-base-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Weekly rules (the base schedule)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#overrides-holidays-and-one-offs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overrides (holidays and one-offs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#allowing-a-device-longer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allowing a device longer
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-the-device-enforces-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the device enforces it
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How the device enforces it">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#devices-without-a-calendar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Devices without a calendar
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#admin-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Admin API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trying-it-safely" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trying it safely
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../notifier/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifier
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-a-calendar-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How a calendar works
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How a calendar works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#weekly-rules-the-base-schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Weekly rules (the base schedule)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#overrides-holidays-and-one-offs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overrides (holidays and one-offs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#allowing-a-device-longer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allowing a device longer
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-the-device-enforces-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the device enforces it
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How the device enforces it">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#devices-without-a-calendar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Devices without a calendar
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#admin-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Admin API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trying-it-safely" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trying it safely
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/johnjoeallen/timelord/edit/main/docs/scheduling.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="calendars-and-scheduling">Calendars and scheduling<a class="headerlink" href="#calendars-and-scheduling" title="Permanent link">&para;</a></h1>
+<p>A <strong>calendar</strong> tells a device when it must be off. You create named calendars in the dashboard,
+assign each device to one, and the agent puts the device to sleep (or shuts it down) at the
+calendar's off times. "On" simply means <em>allowed to be on again</em> — nothing wakes a sleeping
+device.</p>
+<div class="admonition note">
+<p class="admonition-title">Developer preview</p>
+<p>Scheduling is new. The agent-side sleep and shutdown have not been exercised on real hardware
+beyond compile checks and unit tests — try it on a spare machine first (see
+<a href="#trying-it-safely">Trying it safely</a>).</p>
+</div>
+<h2 id="how-a-calendar-works">How a calendar works<a class="headerlink" href="#how-a-calendar-works" title="Permanent link">&para;</a></h2>
+<p>A calendar has a <strong>name</strong>, a <strong>timezone</strong>, and an <strong>action</strong> taken at off time:</p>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>What the agent does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SLEEP</code></td>
+<td>Suspends the device (<code>SetSuspendState</code>, never hibernate) and keeps re-suspending it until the on time if someone wakes it.</td>
+</tr>
+<tr>
+<td><code>SHUTDOWN</code></td>
+<td>Runs <code>shutdown.exe /s /t 30</code> — a 30-second on-screen warning, then power off.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="weekly-rules-the-base-schedule">Weekly rules (the base schedule)<a class="headerlink" href="#weekly-rules-the-base-schedule" title="Permanent link">&para;</a></h3>
+<p>Each rule has a set of <strong>days</strong>, an <strong>off</strong> time and an <strong>on</strong> time. A rule belongs to the
+<em>evening it starts on</em>, which makes overnight rules read the way people say them:</p>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Off</th>
+<th>On</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sun–Thu</td>
+<td>22:30</td>
+<td>06:30</td>
+<td>Off at 22:30 that evening, allowed again at 06:30 next morning</td>
+</tr>
+<tr>
+<td>Fri, Sat</td>
+<td>01:00</td>
+<td>06:30</td>
+<td>The night of Friday is off from 01:00 <strong>Saturday</strong> to 06:30 Saturday</td>
+</tr>
+</tbody>
+</table>
+<p>If the off time is earlier than the on time (01:00 vs 06:30) it falls after midnight, on the next
+calendar day. A day may appear in at most one rule, and a rule's off and on times must differ. A
+day with no rule has no off window at all.</p>
+<h3 id="overrides-holidays-and-one-offs">Overrides (holidays and one-offs)<a class="headerlink" href="#overrides-holidays-and-one-offs" title="Permanent link">&para;</a></h3>
+<p>An <strong>override</strong> is a date range with its own off and on times. For every night that <em>starts</em> within
+the range it replaces the weekly rule; the weekly rules themselves are never changed, so removing
+the override puts everything back. A single day is an override whose start and end date are the
+same (in the dashboard, leave "To" blank).</p>
+<p>If overrides overlap, the <strong>narrowest range wins</strong>; on a tie the most recently created wins.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<p>The base calendar above, plus an override <em>20 Dec – 5 Jan, off 01:00, on 06:30</em>: every night
+in that range goes off at 01:00 instead of 22:30. A second override for <em>24 Dec only, off
+23:30</em> wins on that one night because it is narrower.</p>
+</div>
+<p>Use the <strong>Next 14 days</strong> table on a calendar's page (or <code>GET /api/v1/calendars/{id}/windows</code>) to
+see exactly what a calendar resolves to before relying on it.</p>
+<h3 id="allowing-a-device-longer">Allowing a device longer<a class="headerlink" href="#allowing-a-device-longer" title="Permanent link">&para;</a></h3>
+<p>On a device's page, <strong>+15 min / +30 min / +1 hour</strong> grant a temporary <strong>extension</strong>:</p>
+<ul>
+<li>If the device is already inside an off window, it is allowed back on for that long from now.</li>
+<li>Otherwise the next off window starts that much later.</li>
+<li>Each request may grant 1–240 minutes; the page shows "Extended until HH:MM" with a <strong>Clear</strong>
+  button.</li>
+</ul>
+<p>An extension never edits the calendar. It is cleared if you assign the device a different
+calendar.</p>
+<h2 id="how-the-device-enforces-it">How the device enforces it<a class="headerlink" href="#how-the-device-enforces-it" title="Permanent link">&para;</a></h2>
+<p>The controller resolves the calendar (rules, overrides and any extension) into <strong>concrete off
+windows</strong> — absolute start and end times for the next 7 days — and sends them to the agent with a
+<strong>revision</strong> that changes whenever they do. The agent therefore never has to understand rules or
+overrides.</p>
+<ul>
+<li><strong>Cached locally.</strong> The latest schedule is saved as <code>schedule.json</code> next to <code>agent.toml</code>, so
+  enforcement continues across restarts and while the controller is unreachable.</li>
+<li><strong>Changes arrive immediately.</strong> Besides every heartbeat, the agent holds a long poll open to
+  <code>GET /api/v1/agents/{id}/schedule?revision=…</code>. The controller answers the moment an extension,
+  assignment or calendar edit changes the revision, so "+30 minutes" takes effect within moments,
+  not at the next heartbeat. With no change the request simply returns after about 30 seconds and
+  the agent asks again.</li>
+<li><strong>Enforcement loop.</strong> The agent acts when the current time is inside an off window, and
+  re-checks at the next window start, on any schedule change, and at least every 60 seconds — so a
+  device woken mid-window is put back to sleep within about a minute. Each action is reported as
+  <code>POWER_ACTION_REQUESTED</code> / <code>_COMPLETED</code> / <code>_FAILED</code> events.</li>
+</ul>
+<h3 id="devices-without-a-calendar">Devices without a calendar<a class="headerlink" href="#devices-without-a-calendar" title="Permanent link">&para;</a></h3>
+<p>A device with no calendar assigned keeps the older hard-wired behaviour, which is <strong>not
+configurable from the controller</strong>:</p>
+<ul>
+<li>an unconditional sleep between <strong>02:00 and 06:00</strong> local time, checked every 5 minutes; and</li>
+<li>the <a href="../agent/#overnight-sleep-and-offline-fallback">offline fallback</a> (sleep between 01:00 and 08:30 while the
+  controller is unreachable).</li>
+</ul>
+<p>Both stop applying as soon as the agent has a cached calendar schedule.</p>
+<h2 id="admin-api">Admin API<a class="headerlink" href="#admin-api" title="Permanent link">&para;</a></h2>
+<p>All of these are unauthenticated in this preview — see the <a href="../architecture/#security-boundary">security boundary</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Method and path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /api/v1/calendars</code> · <code>GET /api/v1/calendars/{id}</code></td>
+<td>List / read calendars (with rules and overrides)</td>
+</tr>
+<tr>
+<td><code>POST /api/v1/calendars</code></td>
+<td>Create</td>
+</tr>
+<tr>
+<td><code>PUT /api/v1/calendars/{id}</code></td>
+<td>Replace name, timezone, action and the <strong>whole set of weekly rules</strong> (overrides untouched)</td>
+</tr>
+<tr>
+<td><code>DELETE /api/v1/calendars/{id}</code></td>
+<td>Delete; devices using it lose their schedule</td>
+</tr>
+<tr>
+<td><code>POST /api/v1/calendars/{id}/overrides</code></td>
+<td>Add an override</td>
+</tr>
+<tr>
+<td><code>DELETE /api/v1/calendars/{id}/overrides/{overrideId}</code></td>
+<td>Remove an override</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/calendars/{id}/windows?from=&amp;days=</code></td>
+<td>Preview the resolved off windows</td>
+</tr>
+<tr>
+<td><code>PUT /api/v1/devices/{id}/calendar</code></td>
+<td>Assign (<code>{"calendarId": "&lt;uuid&gt;"}</code>) or clear (<code>{"calendarId": null}</code>)</td>
+</tr>
+<tr>
+<td><code>POST /api/v1/devices/{id}/extend</code></td>
+<td>Allow longer (<code>{"minutes": 30}</code>)</td>
+</tr>
+<tr>
+<td><code>GET /api/v1/agents/{id}/schedule</code></td>
+<td>Agent long poll for schedule changes (<code>204</code> = no calendar)</td>
+</tr>
+</tbody>
+</table>
+<p>=== "Create a calendar"</p>
+<div class="highlight"><pre><span></span><code>```console
+$ curl -X POST http://localhost:9099/api/v1/calendars \
+    -H 'Content-Type: application/json' -d '{
+      "name": "School kids",
+      "timezone": "Europe/Dublin",
+      "action": "SLEEP",
+      "rules": [
+        {"days": ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY"], "offTime": "22:30", "onTime": "06:30"},
+        {"days": ["FRIDAY","SATURDAY"], "offTime": "01:00", "onTime": "06:30"}
+      ]
+    }'
+```
+</code></pre></div>
+<p>=== "Add a holiday override"</p>
+<div class="highlight"><pre><span></span><code>```console
+$ curl -X POST http://localhost:9099/api/v1/calendars/$CALENDAR_ID/overrides \
+    -H 'Content-Type: application/json' -d '{
+      "name": "Christmas",
+      "startDate": "2026-12-20",
+      "endDate": "2027-01-05",
+      "offTime": "01:00",
+      "onTime": "06:30"
+    }'
+```
+</code></pre></div>
+<p>=== "Another 30 minutes"</p>
+<div class="highlight"><pre><span></span><code>```console
+$ curl -X POST http://localhost:9099/api/v1/devices/$DEVICE_ID/extend \
+    -H 'Content-Type: application/json' -d '{"minutes": 30}'
+```
+</code></pre></div>
+<p>Validation errors come back in the usual <a href="../controller/#api">error shape</a>, for example
+<code>INVALID_TIMEZONE</code>, <code>INVALID_RULE</code> (a day in two rules, or equal off/on times),
+<code>INVALID_OVERRIDE</code>, <code>CALENDAR_NAME_TAKEN</code> (<code>409</code>), and <code>NO_CALENDAR</code> / <code>NO_OFF_WINDOW</code> (<code>409</code>) when
+extending a device that has nothing to extend.</p>
+<h2 id="trying-it-safely">Trying it safely<a class="headerlink" href="#trying-it-safely" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Create a calendar with an off time about 20 minutes ahead and the <strong>Sleep</strong> action, and assign
+   it to a spare device.</li>
+<li>Watch the device sleep at the off time; wake it and confirm it is put back to sleep.</li>
+<li>Assign it again, press <strong>+15 min</strong> shortly before the off time, and confirm it stays on.</li>
+<li>Only then try <strong>Shutdown</strong>, again on a machine you can afford to power off.</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.top", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Phase 1 of TimeLord — a Windows device monitoring platform: usage tracking, reporting, and a live dashboard. No enforcement yet.">
+        <meta name="description" content="TimeLord — a Windows device monitoring and scheduling platform: usage tracking, a live dashboard, calendar-based sleep/shutdown, and on-screen warnings and messages.">
       
       
       
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#timelord-phase-1-architecture" class="md-skip">
+        <a href="#timelord-architecture" class="md-skip">
           Skip to content
         </a>
       
@@ -299,6 +299,44 @@
   
 
       
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../scheduling/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Calendars
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../notifier/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notifier
+
+      </a>
+    </li>
+  
+
+      
     </ul>
   </div>
 </nav>
@@ -493,6 +531,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#schedule-and-message-delivery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schedule and message delivery
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#event-delivery-and-idempotency" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -587,6 +636,60 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scheduling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calendars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../notifier/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifier
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -669,6 +772,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#schedule-and-message-delivery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schedule and message delivery
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#event-delivery-and-idempotency" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -726,23 +840,26 @@
   
 
 
-<h1 id="timelord-phase-1-architecture">TimeLord Phase 1 Architecture<a class="headerlink" href="#timelord-phase-1-architecture" title="Permanent link">&para;</a></h1>
+<h1 id="timelord-architecture">TimeLord Architecture<a class="headerlink" href="#timelord-architecture" title="Permanent link">&para;</a></h1>
 <blockquote>
-<p><strong>This is a developer preview, not a product.</strong> Phase 1 exists to prove the
+<p><strong>This is a developer preview, not a product.</strong> It exists to prove the
 shape of the system on a single trusted local network. It has not been
 hardened, load-tested, or run unattended for long periods, there are no
 stability guarantees between versions, and it is not meant for production
 use. See <a href="#before-you-deploy-this">Before you deploy this</a> below.</p>
-<p><strong>Phase 1 is monitoring only.</strong> There is no schedule engine, session-limit
-enforcement, mandatory-break logic, or remote power control — TimeLord
-observes and reports what's happening on each device; it doesn't act on it
-yet. See <a href="#whats-implemented">What's implemented</a> below.</p>
-<p><strong>Phase 1 is also deliberately unsecured.</strong> Plain HTTP, no authentication, no
-request signing, no access control. It exists to prove the shape of the
-system — discovery, registration, heartbeats, events — on a trusted local
-network, ahead of a later security phase. See
-<a href="#security-boundary">Security boundary</a> below before running this anywhere
-else.</p>
+<p><strong>It monitors, and it enforces calendars.</strong> Beyond reporting what each
+device is doing, a device assigned a <a href="../scheduling/">calendar</a> is put to
+sleep or shut down at its off times, with on-screen warnings from a
+<a href="../notifier/">per-user notifier</a> and admin messages. There is still no
+session-limit enforcement, mandatory-break logic, connectivity rules, or
+immediate remote power commands. See <a href="#whats-implemented">What's implemented</a>
+below.</p>
+<p><strong>It is also deliberately unsecured.</strong> Plain HTTP, no authentication, no
+request signing, no access control — including on the admin API that
+manages calendars, sends messages and deletes devices. It exists to prove
+the shape of the system on a trusted local network, ahead of a later
+security phase. See <a href="#security-boundary">Security boundary</a> below before
+running this anywhere else.</p>
 </blockquote>
 <h2 id="before-you-deploy-this">Before you deploy this<a class="headerlink" href="#before-you-deploy-this" title="Permanent link">&para;</a></h2>
 <ul>
@@ -758,32 +875,45 @@ else.</p>
   <a href="#known-limitations">Known limitations</a> for the additional constraint this
   puts on UDP discovery specifically (same broadcast domain, not just same
   routed network).</li>
-<li><strong>The agent will put an unreachable device to sleep overnight.</strong> If an
-  agent can't reach the controller <em>at all</em> (not merely a slow heartbeat —
-  registration, heartbeats, and event delivery all failing), it falls back to
-  a local safety schedule: by default, between <strong>01:00 and 08:30 local time</strong>,
-  every 5 minutes while still disconnected, it puts the device to sleep
-  (<code>SetSuspendState</code> — sleep, never a shutdown or hibernate). This is a
-  per-agent behavior with <strong>no way to configure or disable it from the
-  controller/dashboard</strong> — changing the window, or turning it off, means
-  hand-editing that device's local <code>agent.toml</code> and restarting the service.
-  See <code>agent/README.md</code>'s "Offline fallback" section for exactly how it
-  behaves.</li>
+<li><strong>The agent puts devices to sleep on its own schedule.</strong> Two behaviours
+  apply to a device that has <strong>no calendar</strong> assigned, and neither can be
+  configured or disabled from the controller:<ul>
+<li>an unconditional sleep between <strong>02:00 and 06:00 local time</strong>, checked
+  every 5 minutes (a stopgap hard-wired into the agent); and</li>
+<li>if the agent can't reach the controller <em>at all</em> (registration,
+  heartbeats, and event delivery all failing), a local safety schedule —
+  by default <strong>01:00 to 08:30</strong> — that sleeps the device every 5 minutes
+  while still disconnected (<code>SetSuspendState</code>: sleep, never hibernate).</li>
 </ul>
+</li>
+</ul>
+<p>Changing the window, or turning the fallback off, means hand-editing that
+  device's local <code>agent.toml</code> and restarting the service. Both are replaced
+  by the calendar once a device has one (the agent caches it, so this holds
+  while the controller is down too). See <a href="../agent/#overnight-sleep-and-offline-fallback">Agent</a>.
+- <strong>A calendar sleeps or shuts the device down.</strong> At its off times a device
+  with a <a href="../scheduling/">calendar</a> is suspended or powered off (<code>shutdown.exe
+  /s /t 30</code>, a 30-second warning). Test on a spare machine first; the
+  agent-side actions are covered by unit tests and compile checks only.</p>
 <h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
-<p>TimeLord Phase 1 has three moving pieces:</p>
+<p>TimeLord has four moving pieces:</p>
 <ul>
 <li><strong>TimeLord Agent</strong> (Rust) — runs on each Windows device as a service. Tracks
   when the device is actually in use (not just powered on — see
   <code>agent/README.md</code>), who's logged in, and every network adapter (name/MAC/
   address). Finds a controller (explicit URL or UDP discovery), registers, and
-  reports usage/lifecycle events and heartbeats.</li>
+  reports usage/lifecycle events and heartbeats. Caches its calendar schedule
+  and enforces it (sleep or shutdown), and serves a local pipe to the notifier.</li>
+<li><strong>TimeLord Notifier</strong> (Rust) — a small program that runs in each logged-on
+  user's session, polls the agent over a local pipe, and shows toast warnings
+  before a sleep/shutdown plus administrator messages.</li>
 <li><strong>TimeLord Controller</strong> (Java 21 / Spring Boot) — the single source of truth.
   Accepts registration/heartbeats/events over HTTP, listens for UDP discovery
   requests, persists everything to PostgreSQL, computes each device's status,
-  and serves both the REST API and a server-rendered (Thymeleaf) admin
-  dashboard.</li>
-<li><strong>PostgreSQL</strong> — durable storage for devices, events, and heartbeats.</li>
+  resolves calendars into off windows, queues messages, and serves both the
+  REST API and a server-rendered (Thymeleaf) admin dashboard.</li>
+<li><strong>PostgreSQL</strong> — durable storage for devices, events, heartbeats, calendars,
+  and messages.</li>
 </ul>
 <p>The agent never loses an event to a controller outage: every event is written
 to a local SQLite queue <em>before</em> any delivery attempt, and only removed once
@@ -793,7 +923,7 @@ after being offline) flush immediately rather than waiting for the next
 scheduled retry.</p>
 <h2 id="whats-implemented">What's implemented<a class="headerlink" href="#whats-implemented" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Device registration, heartbeats, event ingestion</strong> over the Phase 1 HTTP
+<li><strong>Device registration, heartbeats, event ingestion</strong> over the HTTP
   API, with idempotent event submission (see
   <a href="#event-delivery-and-idempotency">Event delivery and idempotency</a>).</li>
 <li><strong>Two independent statuses per device</strong>, shown on the dashboard:<ul>
@@ -815,12 +945,33 @@ scheduled retry.</p>
 <li><strong>Network interface inventory</strong> — every adapter the OS reports (not just
   ones with a routable address), with name, MAC, and address(es), shown on
   the device detail page.</li>
-<li><strong>Admin dashboard</strong> — device list with live status, per-device detail, and
-  a searchable/filterable event log.</li>
+<li><strong>Calendars</strong> — named weekly on/off rules with dated overrides, assigned to
+  devices. The controller resolves a calendar into concrete off windows
+  (applying any extension) and sends them to the agent with a revision; the
+  agent caches them in <code>schedule.json</code> and sleeps or shuts the device down
+  inside a window, even offline. See <a href="../scheduling/">Calendars</a>.</li>
+<li><strong>Extensions</strong> — a per-device "allow longer" grant (+15/30/60 min) that
+  delays the next off window without touching the calendar.</li>
+<li><strong>Push-style change delivery</strong> — the agent long-polls the controller for
+  schedule changes and messages, so an extension or a message takes effect in
+  moments, not at the next heartbeat.</li>
+<li><strong>Messages</strong> — free-text messages from the dashboard to one or all devices,
+  stored with a per-device cursor and delivered when the device is (back)
+  online, until they expire.</li>
+<li><strong>Notifier</strong> — a per-user program that polls the agent over a local named
+  pipe and shows toast warnings before a sleep/shutdown and any messages. See
+  <a href="../notifier/">Notifier</a>.</li>
+<li><strong>Admin dashboard</strong> — device list with live status, per-device detail
+  (including calendar, extension and messages), calendar management, a
+  searchable/filterable event log, and device deletion (removes the device's
+  events, heartbeats and messages; a still-running agent simply registers
+  again).</li>
 </ul>
-<p>Not implemented: schedules, session-limit enforcement, mandatory breaks,
-connectivity requirements, remote power control, or any policy engine —
-despite what the root README's tagline aspires to.</p>
+<p>Not implemented: session-limit enforcement, mandatory breaks, connectivity
+requirements, immediate remote power commands (the only remote action is
+granting more time), a countdown window or tray icon in the notifier, or any
+policy engine beyond calendars — despite what the root README's tagline
+aspires to.</p>
 <h2 id="component-diagram">Component diagram<a class="headerlink" href="#component-diagram" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
     subgraph Windows Device
@@ -828,23 +979,40 @@ despite what the root README's tagline aspires to.</p>
         Recorder[UsageRecorder]
         Queue[("EventQueue\nSQLite events.db")]
         Net["Networking loop\n(register / heartbeat / deliver)"]
+        Poll["Long polls\n(schedule, messages)"]
+        Cache[("schedule.json\nmessages.json")]
+        Enforce["Enforcement loop\n(sleep / shutdown)"]
+        Pipe["Local pipe server\n(timelord-notify, read-only)"]
         Tracker --&gt; Recorder --&gt; Queue
         Queue --&gt; Net
+        Poll --&gt; Cache
+        Cache --&gt; Enforce
+        Cache --&gt; Pipe
     end
+
+    Notifier["Notifier (per user)\ntoast warnings + messages"]
+    Pipe --&gt; Notifier
 
     subgraph "TimeLord Controller (Spring Boot)"
         API["/api/v1/agents/*\nREST"]
         Disco["UDP discovery listener\n:45821"]
         Svc[Device / Event services]
-        UI["Thymeleaf dashboard\n/, /devices, /events"]
+        Cal["Calendar resolver\nrules + overrides + extension"]
+        Msg[Message service]
+        UI["Thymeleaf dashboard\n/, /devices, /calendars, /events"]
         API --&gt; Svc
+        API --&gt; Cal
+        API --&gt; Msg
         Disco -.-&gt; Svc
         Svc --&gt; UI
+        Cal --&gt; UI
+        Msg --&gt; UI
     end
 
     DB[(PostgreSQL)]
 
     Net -- "HTTP :8080" --&gt; API
+    Poll -- "long poll" --&gt; API
     Net -. "UDP broadcast :45821" .-&gt; Disco
     Svc --&gt; DB
 
@@ -879,6 +1047,23 @@ bridge network typically doesn't forward broadcast traffic to a published
 UDP port at all — see <a href="#known-limitations">Known limitations</a>. The explicit
 <code>controller.url</code> path always works and is what <code>.env.example</code> sets up by
 default.</p>
+<h2 id="schedule-and-message-delivery">Schedule and message delivery<a class="headerlink" href="#schedule-and-message-delivery" title="Permanent link">&para;</a></h2>
+<p>Calendars and messages reach an agent two ways, and the second is what makes
+changes take effect quickly:</p>
+<ul>
+<li><strong>Heartbeat responses</strong> (and registration) carry the device's current
+  schedule, resolved to concrete off windows for the next 7 days plus a
+  <code>revision</code> that changes whenever they do.</li>
+<li><strong>Long polls.</strong> The agent keeps <code>GET /api/v1/agents/{id}/schedule?revision=…</code>
+  and <code>GET /api/v1/agents/{id}/messages?after=&lt;seq&gt;</code> open for up to ~30
+  seconds each (own connections, so they never block heartbeats). The
+  controller answers the moment the revision differs or a message is queued
+  for that device — an extension, assignment, calendar edit or new message —
+  and otherwise returns after the timeout so the agent asks again.</li>
+</ul>
+<p>The agent caches both (<code>schedule.json</code>, <code>messages.json</code>) and keeps enforcing
+from the cache while the controller is unreachable. The notifier then reads
+that cache through the agent's local pipe; see <a href="../notifier/#how-it-works">Notifier</a>.</p>
 <h2 id="event-delivery-and-idempotency">Event delivery and idempotency<a class="headerlink" href="#event-delivery-and-idempotency" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Every event gets a client-generated <code>eventId</code> (UUID). The controller uses it
@@ -897,8 +1082,15 @@ default.</p>
 <li>No TLS (plain <code>http://</code>)</li>
 <li>No authentication of agents or administrators</li>
 <li>No request signing or replay protection</li>
-<li>No access control on any endpoint</li>
+<li>No access control on any endpoint — including the admin endpoints that
+  create/edit calendars, assign them, grant extensions, send messages and
+  delete devices. Anyone who can reach the controller can do all of that.</li>
 </ul>
+<p>The one local control is the agent's notifier pipe: its access list lets
+SYSTEM and Administrators do anything and lets ordinary users read and write
+data only (no creating pipe instances), and it refuses remote clients. The
+pipe is read-only — a user can ask what is pending but cannot change anything
+through it.</p>
 <p><strong>Only run this on an isolated or trusted local network.</strong> The code is
 structured so a later phase can add HTTPS, controller-key pinning, Ed25519
 agent identity, signed events, and role-based admin access without rewriting
@@ -925,7 +1117,7 @@ the event model:</p>
 <li><strong>OS version detection</strong> is a placeholder (<code>agent_version</code>/architecture are
   real; <code>operatingSystemVersion</code> is not populated yet) — see <code>agent.rs::os_info</code>.</li>
 <li><strong>No persisted <code>device_session</code> table yet</strong> — <code>EventItem.sessionId</code> is
-  always <code>null</code> in Phase 1; the OS-level Windows session ID is carried in
+  always <code>null</code>; the OS-level Windows session ID is carried in
   <code>data.windowsSessionId</code> instead. The dashboard's "User sessions" list (see
   <a href="#whats-implemented">What's implemented</a>) is reconstructed at read time
   from the event log by <code>DeviceSessionService</code>, not backed by a session
@@ -935,7 +1127,18 @@ the event model:</p>
   model doesn't distinguish concurrent logons (fast user switching, RDP).</li>
 <li><strong>No idle-time detection</strong> — a Session-0 service can't call
   <code>GetLastInputInfo</code> for the interactive desktop; heartbeats currently send
-  <code>idleSeconds: null</code>. See <code>agent/README.md</code>.</li>
+  <code>idleSeconds: null</code>. The per-user notifier is the natural home for this
+  but doesn't report idle time yet. See <code>agent/README.md</code>.</li>
+<li><strong>Calendars wake nothing.</strong> "On" means allowed to be on; a sleeping device
+  stays asleep until someone wakes it (there is no Wake-on-LAN).</li>
+<li><strong>Enforcement is only unit-tested.</strong> The agent's sleep/shutdown and the
+  notifier's toasts compile for Windows and their logic is tested, but they
+  have not been run end to end on real machines.</li>
+<li><strong>Message "delivered" is not "seen"</strong> — the controller records when it
+  handed a message to the agent, not whether the user saw it.</li>
+<li><strong>The agent's message cursor is a database sequence.</strong> If the controller
+  database is reset, an agent holding a higher cursor will miss new messages
+  until its <code>messages.json</code> is deleted.</li>
 </ul>
 
 

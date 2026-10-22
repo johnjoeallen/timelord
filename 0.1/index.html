@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Phase 1 of TimeLord — a Windows device monitoring platform: usage tracking, reporting, and a live dashboard. No enforcement yet.">
+        <meta name="description" content="TimeLord — a Windows device monitoring and scheduling platform: usage tracking, a live dashboard, calendar-based sleep/shutdown, and on-screen warnings and messages.">
       
       
       
@@ -297,6 +297,44 @@
   
 
       
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="scheduling/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Calendars
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="notifier/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notifier
+
+      </a>
+    </li>
+  
+
+      
     </ul>
   </div>
 </nav>
@@ -569,6 +607,60 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="scheduling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calendars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="notifier/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifier
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -694,23 +786,26 @@
 
 <h1 id="timelord">TimeLord<a class="headerlink" href="#timelord" title="Permanent link">&para;</a></h1>
 <p>TimeLord tracks how Windows devices on your network are actually being used — who's logged in,
-for how long, and whether the machine is even reachable — and shows it on a live dashboard.</p>
+for how long, and whether the machine is even reachable — shows it on a live dashboard, and can
+put devices to sleep or shut them down on a calendar you control, warning the person at the
+keyboard first.</p>
 <div class="admonition danger">
 <p class="admonition-title">Developer preview — not for production use</p>
-<p>This is Phase 1: a working proof of the system's shape, not a hardened product. Expect rough
-edges and breaking changes between versions. Three things worth knowing before you point it
-at real devices — details in <a href="architecture/#before-you-deploy-this">Before you deploy this</a>:</p>
+<p>This is a working proof of the system's shape, not a hardened product. Expect rough edges and
+breaking changes between versions. Things worth knowing before you point it at real devices —
+details in <a href="architecture/#before-you-deploy-this">Before you deploy this</a>:</p>
 <ul>
-<li><strong>Monitoring only.</strong> No schedule engine, session-limit enforcement, forced breaks, or
-  remote power control — the project's tagline describes the eventual product, not what's
-  running today. TimeLord <strong>observes and reports</strong>; it doesn't act.</li>
+<li><strong>It acts on devices.</strong> A device with a <a href="scheduling/">calendar</a> is put to sleep or shut
+  down at its off times. Session limits, forced breaks and connectivity rules are <strong>not</strong>
+  implemented — the project's tagline still describes the eventual product.</li>
+<li><strong>Devices without a calendar still get put to sleep overnight.</strong> A hard-wired sleep runs
+  02:00–06:00 local time, and an agent that can't reach the controller at all also sleeps the
+  device 01:00–08:30 — neither configurable from the controller.</li>
 <li><strong>Every agent must reach the controller directly, on the same network(s).</strong> Everything is
   unicast HTTP — no NAT traversal, relay, or cloud/VPN routing.</li>
-<li><strong>Unreachable devices get put to sleep overnight.</strong> By default, an agent that can't reach
-  the controller <em>at all</em> puts the device to sleep between 01:00–08:30 local time — not
-  configurable from the controller, only from that device's local <code>agent.toml</code>.</li>
 </ul>
-<p>It also runs over plain, unauthenticated HTTP — see
+<p>It also runs over plain, unauthenticated HTTP — and that includes the admin API, so anyone
+who can reach the controller can send messages, grant extra time and delete devices. See
 <a href="architecture/#security-boundary">Security boundary</a> before running it anywhere but a
 trusted local network.</p>
 </div>
@@ -731,8 +826,18 @@ trusted local network.</p>
 <li><strong>Login sessions</strong> — a per-device history of login → logout spans, derived from the event log,
   distinct from "the agent was running." Starting the service with nobody logged in shows the
   machine online but produces no session at all.</li>
+<li><strong>Calendars</strong> — named weekly on/off schedules (e.g. Sun–Thu off 22:30, Fri/Sat off 01:00, on at
+  06:30) with dated <strong>overrides</strong> for holidays that never modify the base schedule. Assign one
+  to each device; the agent sleeps or shuts the device down at off time and keeps enforcing from
+  a local cache even if the controller is down. See <a href="scheduling/">Calendars</a>.</li>
+<li><strong>Allow longer</strong> — one click (+15 / +30 / +60 minutes) lets a device stay on past its off time;
+  the agent hears about it within moments via a long poll.</li>
+<li><strong>Notifier and messages</strong> — a small per-user program shows Windows toast warnings before a
+  sleep or shutdown, and messages you send from the dashboard to one or all devices. See
+  <a href="notifier/">Notifier</a>.</li>
 <li><strong>Dashboard</strong> — a server-rendered admin UI: device list with live status, per-device detail
-  (network interfaces, current user, login history), and a searchable event log.</li>
+  (network interfaces, current user, login history, calendar, messages), calendar management, a
+  searchable event log, and device deletion.</li>
 </ul>
 <h2 id="screenshots">Screenshots<a class="headerlink" href="#screenshots" title="Permanent link">&para;</a></h2>
 <figure>
@@ -793,13 +898,25 @@ session notifications when not running on Windows).</p>
 <td>TimeLord Agent</td>
 <td><code>agent/</code></td>
 <td>Rust (Windows service)</td>
-<td>Tracks usage sessions and reports them</td>
+<td>Tracks usage, reports it, enforces the calendar</td>
+</tr>
+<tr>
+<td>TimeLord Notifier</td>
+<td><code>notifier/</code></td>
+<td>Rust (per-user program)</td>
+<td>Toast warnings and messages for the logged-on user</td>
+</tr>
+<tr>
+<td>Shared IPC types</td>
+<td><code>ipc/</code></td>
+<td>Rust (library)</td>
+<td>Agent ↔ notifier pipe message types</td>
 </tr>
 <tr>
 <td>TimeLord Controller</td>
 <td><code>controller/</code></td>
 <td>Java 21 / Spring Boot</td>
-<td>Registration, heartbeats, events, dashboard</td>
+<td>Registration, heartbeats, events, calendars, messages, dashboard</td>
 </tr>
 <tr>
 <td>TimeLord Protocol</td>
@@ -815,6 +932,9 @@ session notifications when not running on Windows).</p>
   delivery and idempotency, security boundary, known limitations</li>
 <li><a href="agent/">Agent</a> — agent internals, CLI, configuration, local dev workflow</li>
 <li><a href="controller/">Controller</a> — controller internals, API, running tests</li>
+<li><a href="scheduling/">Calendars</a> — weekly rules, holiday overrides, extending a device, how the
+  agent enforces and caches the schedule</li>
+<li><a href="notifier/">Notifier</a> — toast warnings, sending messages, the local pipe</li>
 </ul>
 
 
