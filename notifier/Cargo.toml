@@ -1,6 +1,6 @@
 [package]
 name = "timelord-notifier"
-version = "0.1.0"
+version = "0.1.65"
 edition = "2021"
 description = "TimeLord per-user notifier: warns the logged-on user before the agent powers the device off"
 license = "AGPL-3.0-or-later"

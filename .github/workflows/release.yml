@@ -20,13 +20,28 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
+      - uses: actions/checkout@v7
+
+      # Cargo.toml is the source of truth for the version. A release tag must match it, so the
+      # agent (which reports its Cargo.toml version), the zip and the controller image all agree.
       - id: version
         run: |
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' agent/Cargo.toml | head -n 1)"
+          for crate in notifier ipc; do
+            other="$(sed -n 's/^version = "\(.*\)"/\1/p' "$crate/Cargo.toml" | head -n 1)"
+            if [[ "$other" != "$version" ]]; then
+              echo "::error::$crate/Cargo.toml is $other but agent/Cargo.toml is $version"
+              exit 1
+            fi
+          done
           if [[ "${GITHUB_REF}" == refs/tags/timelord-v* ]]; then
-            echo "version=${GITHUB_REF_NAME#timelord-v}" >> "$GITHUB_OUTPUT"
-          else
-            echo "version=0.0.0-dev.${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+            tag_version="${GITHUB_REF_NAME#timelord-v}"
+            if [[ "$tag_version" != "$version" ]]; then
+              echo "::error::tag $GITHUB_REF_NAME does not match Cargo.toml version $version"
+              exit 1
+            fi
           fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
   test-agent:
     runs-on: ubuntu-latest
@@ -103,6 +118,14 @@ jobs:
             notifier
 
       - run: cargo build --release --locked
+
+      - name: Check the agent reports the release version
+        shell: pwsh
+        run: |
+          $reported = (& target/release/timelord-agent.exe --version).Trim()
+          if ($reported -ne "timelord-agent $env:VERSION") {
+            throw "agent reports '$reported', expected 'timelord-agent $env:VERSION'"
+          }
 
       # The notifier's toast code only compiles on Windows, so its tests (and build) run here.
       - run: cargo test --locked

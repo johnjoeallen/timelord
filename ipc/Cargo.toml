@@ -1,6 +1,6 @@
 [package]
 name = "timelord-ipc"
-version = "0.1.0"
+version = "0.1.65"
 edition = "2021"
 description = "Local IPC types shared by the TimeLord agent service and the per-user notifier"
 license = "AGPL-3.0-or-later"

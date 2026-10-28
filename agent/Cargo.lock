@@ -1552,7 +1552,7 @@ dependencies = [
 
 [[package]]
 name = "timelord-agent"
-version = "0.1.0"
+version = "0.1.65"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1580,7 +1580,7 @@ dependencies = [
 
 [[package]]
 name = "timelord-ipc"
-version = "0.1.0"
+version = "0.1.65"
 dependencies = [
  "chrono",
  "serde",

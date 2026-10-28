@@ -1,6 +1,6 @@
 [package]
 name = "timelord-agent"
-version = "0.1.0"
+version = "0.1.65"
 edition = "2021"
 description = "TimeLord Agent — Windows service that tracks and enforces device usage policy"
 license = "AGPL-3.0-or-later"
