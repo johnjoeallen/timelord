@@ -125,10 +125,10 @@ Besides the schedule, each device has a **Power** card on its page that override
 
 | Action | Effect |
 |--------|--------|
-| **On (follow schedule)** | The default. Cancels any override below. |
+| **Scheduled** | The default. Cancels any override below. |
 | **Off** | Off no matter what, until you switch it back. The schedule, overrides and extensions are ignored. It begins after a **grace period** (default 15 minutes in the dashboard; 0 is immediately), so whoever is using the device is warned and can save their work. |
-| **Stay on for a period, then follow schedule** | Ignores the schedule for 1–24 hours (the API allows up to a week); afterwards the schedule applies as normal. |
-| **Stay on for a period, then turn off** | The same, but at the end the device goes off and stays off until you change it. |
+| **On** for a period, then **follow schedule** | Ignores the schedule for 1–24 hours (the API allows up to a week); afterwards the schedule applies as normal. |
+| **On** for a period, then **turn off** | The same, but at the end the device goes off and stays off until you change it. |
 
 This is different from **Allow longer**, which only pushes the *next* off time later. Allow longer is
 refused (`409 POWER_OVERRIDE`) while an override is active, and starting an override clears any
@@ -137,7 +137,7 @@ extension.
 The override is resolved on the controller like everything else: forced off is a single off window that
 never ends, so the agent needs no new logic and keeps enforcing it from its cached copy if the
 controller is unreachable. A device is never locked out: after a boot or a resume the agent checks in
-with the controller before it enforces anything (see below), so switching back to **On** takes effect
+with the controller before it enforces anything (see below), so switching back to **Scheduled** takes effect
 before the device is put back to sleep. The exception is a device that cannot reach the controller for
 90 seconds after starting; it enforces its cache, which includes the forced off.
 

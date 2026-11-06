@@ -91,3 +91,6 @@ table td, table th {
 .uptime-dot-offline {
     background-color: #6c757d;
 }
+
+/* Power card: the three action buttons share a width so the rows line up. */
+.power-btn { min-width: 7rem; }

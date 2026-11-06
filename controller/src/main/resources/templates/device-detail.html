@@ -57,42 +57,38 @@
                         <span th:text="${@timeFormat.format(device.power.at, zone, 'EEE d MMM HH:mm')}"></span> (the hold ended).</span>
                 </span>
             </p>
-            <div class="d-flex flex-wrap gap-3 align-items-end">
-                <form method="post" th:action="@{/devices/{id}/power/on(id=${device.deviceId})}">
-                    <button class="btn btn-success" type="submit">On (follow schedule)</button>
+            <div class="d-flex flex-column gap-2">
+                <form method="post" th:action="@{/devices/{id}/power/on(id=${device.deviceId})}" class="d-flex gap-2 align-items-center">
+                    <button class="btn btn-success power-btn" type="submit">Scheduled</button>
+                    <span class="text-muted small">Follow the schedule.</span>
                 </form>
-                <form method="post" th:action="@{/devices/{id}/power/off(id=${device.deviceId})}" class="d-flex gap-2 align-items-end">
-                    <div>
-                        <label class="form-label small mb-0" for="graceMinutes">Off after (min)</label>
-                        <input class="form-control form-control-sm" style="width:6rem" type="number" min="0" max="240"
-                               id="graceMinutes" name="graceMinutes" value="15"/>
-                    </div>
-                    <button class="btn btn-danger" type="submit">Off</button>
+                <form method="post" th:action="@{/devices/{id}/power/off(id=${device.deviceId})}" class="d-flex gap-2 align-items-center">
+                    <button class="btn btn-danger power-btn" type="submit">Off</button>
+                    <label class="small" for="graceMinutes">after</label>
+                    <input class="form-control form-control-sm" style="width:5rem" type="number" min="0" max="240"
+                           id="graceMinutes" name="graceMinutes" value="15"/>
+                    <span class="small">minutes</span>
                 </form>
-                <form method="post" th:action="@{/devices/{id}/power/hold(id=${device.deviceId})}" class="d-flex gap-2 align-items-end">
-                    <div>
-                        <label class="form-label small mb-0" for="holdMinutes">On for</label>
-                        <select class="form-select form-select-sm" id="holdMinutes" name="minutes">
-                            <option value="60">1 hour</option>
-                            <option value="120">2 hours</option>
-                            <option value="240" selected>4 hours</option>
-                            <option value="480">8 hours</option>
-                            <option value="720">12 hours</option>
-                            <option value="1440">24 hours</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="form-label small mb-0" for="holdThen">then</label>
-                        <select class="form-select form-select-sm" id="holdThen" name="then">
-                            <option value="SCHEDULE" selected>follow schedule</option>
-                            <option value="OFF">turn off</option>
-                        </select>
-                    </div>
-                    <button class="btn btn-outline-success" type="submit">Stay on</button>
+                <form method="post" th:action="@{/devices/{id}/power/hold(id=${device.deviceId})}" class="d-flex gap-2 align-items-center">
+                    <button class="btn btn-outline-success power-btn" type="submit">On</button>
+                    <label class="small" for="holdMinutes">for</label>
+                    <select class="form-select form-select-sm w-auto" id="holdMinutes" name="minutes">
+                        <option value="60">1 hour</option>
+                        <option value="120">2 hours</option>
+                        <option value="240" selected>4 hours</option>
+                        <option value="480">8 hours</option>
+                        <option value="720">12 hours</option>
+                        <option value="1440">24 hours</option>
+                    </select>
+                    <label class="small" for="holdThen">then</label>
+                    <select class="form-select form-select-sm w-auto" id="holdThen" name="then">
+                        <option value="SCHEDULE" selected>follow schedule</option>
+                        <option value="OFF">turn off</option>
+                    </select>
                 </form>
             </div>
             <p class="text-muted small mt-2 mb-0">A forced off or a hold overrides the schedule and extensions. A device that
-                comes back on checks in first, so switching back to On takes effect before it is put to sleep again.</p>
+                comes back on checks in first, so switching back to Scheduled takes effect before it is put to sleep again.</p>
         </div>
     </div>
 
