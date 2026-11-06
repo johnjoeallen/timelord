@@ -27,7 +27,8 @@ public record DeviceDetail(
         Instant registeredAt,
         Instant lastRegistrationAt,
         Instant lastHeartbeatAt,
-        UUID scheduleId
+        UUID scheduleId,
+        PowerStatus power
 ) {
     public static DeviceDetail from(Device device) {
         return new DeviceDetail(
@@ -51,7 +52,8 @@ public record DeviceDetail(
                 device.getRegisteredAt(),
                 device.getLastRegistrationAt(),
                 device.getLastHeartbeatAt(),
-                device.getScheduleId()
+                device.getScheduleId(),
+                PowerStatus.of(device, Instant.now())
         );
     }
 

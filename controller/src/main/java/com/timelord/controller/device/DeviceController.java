@@ -81,6 +81,48 @@ public class DeviceController {
         return detail;
     }
 
+    /**
+     * Power override. {@code {"mode":"ON"}} follows the schedule (and cancels any override);
+     * {@code {"mode":"OFF","graceMinutes":15}} is off no matter what from 15 minutes from now (default 0,
+     * immediately); {@code {"mode":"ON","minutes":240,"then":"OFF"}} ignores the schedule for 240 minutes
+     * and then is off ({@code then} defaults to {@code SCHEDULE}, back to following the schedule).
+     */
+    @PutMapping("/{deviceId}/power")
+    public DeviceDetail power(@PathVariable UUID deviceId, @RequestBody PowerRequest request) {
+        if (request.mode() == null) {
+            throw ApiException.badRequest("INVALID_POWER", "mode must be ON or OFF");
+        }
+        Device device;
+        if (request.mode() == PowerMode.OFF) {
+            if (request.minutes() != null || request.then() != null) {
+                throw ApiException.badRequest("INVALID_POWER", "minutes and then only apply to mode ON");
+            }
+            device = deviceService.powerOff(deviceId, request.graceMinutes() == null ? 0 : request.graceMinutes());
+        } else {
+            if (request.graceMinutes() != null) {
+                throw ApiException.badRequest("INVALID_POWER", "graceMinutes only applies to mode OFF");
+            }
+            if (request.minutes() == null) {
+                if (request.then() != null) {
+                    throw ApiException.badRequest("INVALID_POWER", "then needs minutes");
+                }
+                device = deviceService.powerOn(deviceId);
+            } else {
+                device = deviceService.holdOn(deviceId, request.minutes(), request.then() == Then.OFF);
+            }
+        }
+        scheduleChanges.deviceChanged(deviceId);
+        return DeviceDetail.from(device);
+    }
+
+    public enum Then {
+        SCHEDULE,
+        OFF
+    }
+
+    public record PowerRequest(PowerMode mode, Integer minutes, Then then, Integer graceMinutes) {
+    }
+
     public record ExtendRequest(int minutes) {
     }
 

@@ -40,6 +40,62 @@
         </div>
     </div>
 
+    <div class="card mb-4" id="power-card">
+        <div class="card-header">Power</div>
+        <div class="card-body">
+            <p class="mb-3">
+                <span th:switch="${device.power.state.name()}">
+                    <span th:case="'SCHEDULE'">Following the schedule.</span>
+                    <span th:case="'OFF_PENDING'" class="text-warning fw-semibold">Turning off at
+                        <span th:text="${@timeFormat.format(device.power.at, zone, 'EEE d MMM HH:mm')}"></span>.</span>
+                    <span th:case="'OFF'" class="text-danger fw-semibold">Forced off since
+                        <span th:text="${@timeFormat.format(device.power.at, zone, 'EEE d MMM HH:mm')}"></span>.</span>
+                    <span th:case="'HOLD'" class="text-success fw-semibold">On until
+                        <span th:text="${@timeFormat.format(device.power.at, zone, 'EEE d MMM HH:mm')}"></span>, then
+                        <span th:text="${device.power.thenOff} ? 'off' : 'back to the schedule'"></span>.</span>
+                    <span th:case="'HOLD_ENDED_OFF'" class="text-danger fw-semibold">Off since
+                        <span th:text="${@timeFormat.format(device.power.at, zone, 'EEE d MMM HH:mm')}"></span> (the hold ended).</span>
+                </span>
+            </p>
+            <div class="d-flex flex-wrap gap-3 align-items-end">
+                <form method="post" th:action="@{/devices/{id}/power/on(id=${device.deviceId})}">
+                    <button class="btn btn-success" type="submit">On (follow schedule)</button>
+                </form>
+                <form method="post" th:action="@{/devices/{id}/power/off(id=${device.deviceId})}" class="d-flex gap-2 align-items-end">
+                    <div>
+                        <label class="form-label small mb-0" for="graceMinutes">Off after (min)</label>
+                        <input class="form-control form-control-sm" style="width:6rem" type="number" min="0" max="240"
+                               id="graceMinutes" name="graceMinutes" value="15"/>
+                    </div>
+                    <button class="btn btn-danger" type="submit">Off</button>
+                </form>
+                <form method="post" th:action="@{/devices/{id}/power/hold(id=${device.deviceId})}" class="d-flex gap-2 align-items-end">
+                    <div>
+                        <label class="form-label small mb-0" for="holdMinutes">On for</label>
+                        <select class="form-select form-select-sm" id="holdMinutes" name="minutes">
+                            <option value="60">1 hour</option>
+                            <option value="120">2 hours</option>
+                            <option value="240" selected>4 hours</option>
+                            <option value="480">8 hours</option>
+                            <option value="720">12 hours</option>
+                            <option value="1440">24 hours</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label small mb-0" for="holdThen">then</label>
+                        <select class="form-select form-select-sm" id="holdThen" name="then">
+                            <option value="SCHEDULE" selected>follow schedule</option>
+                            <option value="OFF">turn off</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-outline-success" type="submit">Stay on</button>
+                </form>
+            </div>
+            <p class="text-muted small mt-2 mb-0">A forced off or a hold overrides the schedule and extensions. A device that
+                comes back on checks in first, so switching back to On takes effect before it is put to sleep again.</p>
+        </div>
+    </div>
+
     <div class="card mb-4" id="schedule-card">
         <div class="card-header">Schedule</div>
         <div class="card-body">
@@ -65,7 +121,7 @@
                         <li th:if="${#lists.isEmpty(scheduleWindows)}" class="text-muted">None scheduled</li>
                     </ul>
                 </div>
-                <div class="d-flex flex-wrap gap-2 align-items-center">
+                <div class="d-flex flex-wrap gap-2 align-items-center" th:if="${device.power.state.name() == 'SCHEDULE'}">
                     <span>Allow longer:</span>
                     <form method="post" th:action="@{/devices/{id}/extend(id=${device.deviceId})}">
                         <input type="hidden" name="minutes" value="15"/>

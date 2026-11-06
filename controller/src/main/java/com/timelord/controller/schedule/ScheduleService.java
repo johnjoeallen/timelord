@@ -148,6 +148,22 @@ public class ScheduleService {
                 schedule.getTimezone(), windows);
     }
 
+    /** The end of time as far as an agent is concerned: an off window that never closes. */
+    static final Instant FOREVER = Instant.parse("9999-12-31T00:00:00Z");
+
+    /**
+     * A schedule that keeps the device off from {@code from} for good, whatever the weekly rows say. The
+     * action and timezone come from the assigned schedule when there is one, otherwise it is a sleep.
+     */
+    @Transactional(readOnly = true)
+    public AgentSchedule forcedOff(UUID scheduleId, Instant from) {
+        Schedule schedule = scheduleId == null ? null : schedules.findById(scheduleId).orElse(null);
+        ScheduleAction action = schedule != null ? schedule.getAction() : ScheduleAction.SLEEP;
+        String timezone = schedule != null ? schedule.getTimezone() : "UTC";
+        List<OffWindow> windows = List.of(new OffWindow(from, FOREVER));
+        return new AgentSchedule(revision(action, windows), action, timezone, windows);
+    }
+
     /** Effective windows from now with the extension applied; used to work out what "30 more minutes" means. */
     @Transactional(readOnly = true)
     public List<OffWindow> effectiveWindows(UUID scheduleId, Instant extensionUntil, Duration ahead) {

@@ -70,6 +70,19 @@ public class Device {
     @Column(name = "extension_until")
     private Instant extensionUntil;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "power_mode", nullable = false)
+    private PowerMode powerMode = PowerMode.ON;
+
+    @Column(name = "off_from")
+    private Instant offFrom;
+
+    @Column(name = "hold_until")
+    private Instant holdUntil;
+
+    @Column(name = "hold_then_off", nullable = false)
+    private boolean holdThenOff;
+
     @Column(name = "registered_at", nullable = false)
     private Instant registeredAt;
 
@@ -257,6 +270,38 @@ public class Device {
 
     public void setExtensionUntil(Instant extensionUntil) {
         this.extensionUntil = extensionUntil;
+    }
+
+    public PowerMode getPowerMode() {
+        return powerMode;
+    }
+
+    public void setPowerMode(PowerMode powerMode) {
+        this.powerMode = powerMode;
+    }
+
+    public Instant getOffFrom() {
+        return offFrom;
+    }
+
+    public void setOffFrom(Instant offFrom) {
+        this.offFrom = offFrom;
+    }
+
+    public Instant getHoldUntil() {
+        return holdUntil;
+    }
+
+    public void setHoldUntil(Instant holdUntil) {
+        this.holdUntil = holdUntil;
+    }
+
+    public boolean isHoldThenOff() {
+        return holdThenOff;
+    }
+
+    public void setHoldThenOff(boolean holdThenOff) {
+        this.holdThenOff = holdThenOff;
     }
 
     public Instant getRegisteredAt() {

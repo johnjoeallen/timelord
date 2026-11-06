@@ -135,8 +135,81 @@ public class DeviceService {
                 scheduleFor(device));
     }
 
+    /**
+     * What the agent is told to enforce. The power override wins over the schedule: forced off (from
+     * {@code offFrom}, possibly a little ahead as a grace period) is an endless off window; a hold that is
+     * to end in off is an endless off window from the hold's end; a hold that returns to the schedule
+     * works like an extension that starts now.
+     */
     public AgentSchedule scheduleFor(Device device) {
-        return scheduleService.scheduleFor(device.getScheduleId(), device.getExtensionUntil());
+        if (device.getPowerMode() == PowerMode.OFF && device.getOffFrom() != null) {
+            return scheduleService.forcedOff(device.getScheduleId(), device.getOffFrom());
+        }
+        Instant hold = device.getHoldUntil();
+        if (hold != null && device.isHoldThenOff()) {
+            return scheduleService.forcedOff(device.getScheduleId(), hold);
+        }
+        Instant until = hold != null && hold.isAfter(Instant.now()) ? hold : device.getExtensionUntil();
+        return scheduleService.scheduleFor(device.getScheduleId(), until);
+    }
+
+    /** Longest "on for a period" hold: a week. */
+    public static final int MAX_HOLD_MINUTES = 7 * 24 * 60;
+    /** Longest grace period before a forced off begins. */
+    public static final int MAX_GRACE_MINUTES = 240;
+
+    /** Back to following the schedule: cancels a forced off (pending or in force) and any hold. */
+    @Transactional
+    public Device powerOn(UUID deviceId) {
+        Device device = requireDevice(deviceId);
+        clearPower(device);
+        return save(device);
+    }
+
+    /** Off no matter what, starting {@code graceMinutes} from now (0 is immediately). Clears any extension. */
+    @Transactional
+    public Device powerOff(UUID deviceId, int graceMinutes) {
+        if (graceMinutes < 0 || graceMinutes > MAX_GRACE_MINUTES) {
+            throw ApiException.badRequest("INVALID_GRACE",
+                    "graceMinutes must be between 0 and " + MAX_GRACE_MINUTES);
+        }
+        Device device = requireDevice(deviceId);
+        clearPower(device);
+        device.setExtensionUntil(null);
+        device.setPowerMode(PowerMode.OFF);
+        device.setOffFrom(Instant.now().plus(Duration.ofMinutes(graceMinutes)));
+        return save(device);
+    }
+
+    /**
+     * On for {@code minutes} from now regardless of the schedule, then either back to the schedule or, if
+     * {@code thenOff}, off until someone changes it. Clears any extension.
+     */
+    @Transactional
+    public Device holdOn(UUID deviceId, int minutes, boolean thenOff) {
+        if (minutes < 1 || minutes > MAX_HOLD_MINUTES) {
+            throw ApiException.badRequest("INVALID_HOLD", "minutes must be between 1 and " + MAX_HOLD_MINUTES);
+        }
+        Device device = requireDevice(deviceId);
+        clearPower(device);
+        device.setExtensionUntil(null);
+        device.setHoldUntil(Instant.now().plus(Duration.ofMinutes(minutes)));
+        device.setHoldThenOff(thenOff);
+        return save(device);
+    }
+
+    private static void clearPower(Device device) {
+        device.setPowerMode(PowerMode.ON);
+        device.setOffFrom(null);
+        device.setHoldUntil(null);
+        device.setHoldThenOff(false);
+    }
+
+    private Device save(Device device) {
+        device.setUpdatedAt(Instant.now());
+        Device saved = deviceRepository.save(device);
+        log.info("Device {} ({}) power: {}", saved.getId(), saved.getHostname(), PowerStatus.of(saved, Instant.now()));
+        return saved;
     }
 
     /**
@@ -147,6 +220,11 @@ public class DeviceService {
     @Transactional
     public Device extend(UUID deviceId, int minutes) {
         Device device = requireDevice(deviceId);
+        PowerStatus.State power = PowerStatus.of(device, Instant.now()).state();
+        if (power != PowerStatus.State.SCHEDULE) {
+            throw new ApiException(HttpStatus.CONFLICT, "POWER_OVERRIDE",
+                    "Device is under a power override; switch it back to On before extending");
+        }
         if (device.getScheduleId() == null) {
             throw new ApiException(HttpStatus.CONFLICT, "NO_SCHEDULE", "Device has no schedule assigned");
         }

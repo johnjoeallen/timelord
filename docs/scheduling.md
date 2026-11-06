@@ -119,6 +119,32 @@ On a device's page, **+15 min / +30 min / +1 hour** grant a temporary **extensio
 An extension never edits the schedule. It is cleared if you assign the device a different
 schedule.
 
+### Power override: off, or on for a period
+
+Besides the schedule, each device has a **Power** card on its page that overrides it:
+
+| Action | Effect |
+|--------|--------|
+| **On (follow schedule)** | The default. Cancels any override below. |
+| **Off** | Off no matter what, until you switch it back. The schedule, overrides and extensions are ignored. It begins after a **grace period** (default 15 minutes in the dashboard; 0 is immediately), so whoever is using the device is warned and can save their work. |
+| **Stay on for a period, then follow schedule** | Ignores the schedule for 1–24 hours (the API allows up to a week); afterwards the schedule applies as normal. |
+| **Stay on for a period, then turn off** | The same, but at the end the device goes off and stays off until you change it. |
+
+This is different from **Allow longer**, which only pushes the *next* off time later. Allow longer is
+refused (`409 POWER_OVERRIDE`) while an override is active, and starting an override clears any
+extension.
+
+The override is resolved on the controller like everything else: forced off is a single off window that
+never ends, so the agent needs no new logic and keeps enforcing it from its cached copy if the
+controller is unreachable. A device is never locked out: after a boot or a resume the agent checks in
+with the controller before it enforces anything (see below), so switching back to **On** takes effect
+before the device is put back to sleep. The exception is a device that cannot reach the controller for
+90 seconds after starting; it enforces its cache, which includes the forced off.
+
+A forced off uses the assigned schedule's action (sleep or shutdown). A device with no schedule
+sleeps. Nothing wakes a sleeping device, so a shut-down or sleeping device has to be started by hand
+before it can pick up a change.
+
 ## How the device enforces it
 
 The controller resolves the schedule (rows, overrides and any extension) into **concrete off
@@ -173,6 +199,7 @@ All of these are unauthenticated in this preview — see the [security boundary]
 | `GET /api/v1/schedules/{id}/windows?from=&days=` | Preview the resolved off windows (what the agent is sent) |
 | `PUT /api/v1/devices/{id}/schedule` | Assign (`{"scheduleId": "<uuid>"}`) or clear (`{"scheduleId": null}`) |
 | `POST /api/v1/devices/{id}/extend` | Allow longer (`{"minutes": 30}`) |
+| `PUT /api/v1/devices/{id}/power` | Power override: `{"mode":"ON"}`, `{"mode":"OFF","graceMinutes":15}`, `{"mode":"ON","minutes":240,"then":"SCHEDULE"\|"OFF"}` |
 | `GET /api/v1/agents/{id}/schedule` | Agent long poll for schedule changes (`204` = no schedule) |
 
 === "Create a schedule"
@@ -220,7 +247,8 @@ Validation errors come back in the usual [error shape](controller.md#api), for e
 `INVALID_TIMEZONE`, `INVALID_RULE` (no days, or an Off at that is not after On from — a window
 can't run past midnight, add a row for the next day), `INVALID_OVERRIDE` (the same, or an end date
 before the start date), `SCHEDULE_NAME_TAKEN` (`409`), and `NO_SCHEDULE` / `NO_OFF_WINDOW` (`409`) when
-extending a device that has nothing to extend.
+extending a device that has nothing to extend, `POWER_OVERRIDE` (`409`) when extending a device under a power
+override, and `INVALID_POWER`, `INVALID_GRACE` and `INVALID_HOLD` (`400`) for a bad power request.
 
 ## Trying it safely
 

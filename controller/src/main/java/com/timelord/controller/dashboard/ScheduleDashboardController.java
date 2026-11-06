@@ -329,6 +329,35 @@ public class ScheduleDashboardController {
         });
     }
 
+    @PostMapping("/devices/{deviceId}/power/on")
+    public String powerOn(@PathVariable UUID deviceId, RedirectAttributes redirect) {
+        return run(redirect, "/devices/" + deviceId, "Following the schedule.", () -> {
+            deviceService.powerOn(deviceId);
+            scheduleChanges.deviceChanged(deviceId);
+        });
+    }
+
+    @PostMapping("/devices/{deviceId}/power/off")
+    public String powerOff(@PathVariable UUID deviceId, @RequestParam(defaultValue = "15") int graceMinutes,
+                           RedirectAttributes redirect) {
+        return run(redirect, "/devices/" + deviceId,
+                graceMinutes == 0 ? "Turning off now." : "Turning off in " + graceMinutes + " minutes.", () -> {
+            deviceService.powerOff(deviceId, graceMinutes);
+            scheduleChanges.deviceChanged(deviceId);
+        });
+    }
+
+    @PostMapping("/devices/{deviceId}/power/hold")
+    public String powerHold(@PathVariable UUID deviceId, @RequestParam int minutes,
+                            @RequestParam(defaultValue = "SCHEDULE") String then, RedirectAttributes redirect) {
+        boolean thenOff = "OFF".equals(then);
+        return run(redirect, "/devices/" + deviceId,
+                "On for " + minutes + " minutes, then " + (thenOff ? "off." : "back to the schedule."), () -> {
+            deviceService.holdOn(deviceId, minutes, thenOff);
+            scheduleChanges.deviceChanged(deviceId);
+        });
+    }
+
     @PostMapping("/devices/{deviceId}/extend/clear")
     public String clearExtension(@PathVariable UUID deviceId, RedirectAttributes redirect) {
         return run(redirect, "/devices/" + deviceId, "Extension cleared.", () -> {
