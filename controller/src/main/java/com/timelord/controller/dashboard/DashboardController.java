@@ -1,5 +1,6 @@
 package com.timelord.controller.dashboard;
 
+import com.timelord.controller.agent.AgentSchedule;
 import com.timelord.controller.schedule.ScheduleService;
 import com.timelord.controller.message.MessageService;
 import com.timelord.controller.device.Device;
@@ -76,9 +77,11 @@ public class DashboardController {
         model.addAttribute("extensionUntil", device.getExtensionUntil() != null
                 && device.getExtensionUntil().isAfter(java.time.Instant.now()) ? device.getExtensionUntil() : null);
         if (device.getScheduleId() != null) {
-            model.addAttribute("scheduleWindows", scheduleService
-                    .effectiveWindows(device.getScheduleId(), device.getExtensionUntil(), java.time.Duration.ofDays(3))
-                    .stream().limit(3).toList());
+            // What the agent is actually told to enforce, so a hold or a forced off shows here too.
+            AgentSchedule enforced = deviceService.scheduleFor(device);
+            model.addAttribute("scheduleWindows", enforced == null ? List.of()
+                    : enforced.windows().stream().limit(3).toList());
+            model.addAttribute("forever", ScheduleService.FOREVER);
         }
         return "device-detail";
     }

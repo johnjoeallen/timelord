@@ -149,7 +149,7 @@ public class ScheduleService {
     }
 
     /** The end of time as far as an agent is concerned: an off window that never closes. */
-    static final Instant FOREVER = Instant.parse("9999-12-31T00:00:00Z");
+    public static final Instant FOREVER = Instant.parse("9999-12-31T00:00:00Z");
 
     /**
      * A schedule that keeps the device off from {@code from} for good, whatever the weekly rows say. The

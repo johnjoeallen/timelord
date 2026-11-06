@@ -141,6 +141,21 @@ class PowerOverrideIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void theDevicePageListsTheWindowsTheAgentIsTold() {
+        UUID deviceId = registerDevice();
+        assignScheduleWithNightlyOffWindow(deviceId, ScheduleAction.SLEEP);
+
+        power(deviceId, new PowerRequest(PowerMode.OFF, null, null, 0));
+        String forcedOff = restTemplate.getForObject("/devices/" + deviceId, String.class);
+        assertThat(forcedOff).contains("until switched back to Scheduled").contains("Forced off since");
+
+        // A day-long hold drops the schedule's windows that end before it does, so the page must not list them.
+        power(deviceId, new PowerRequest(PowerMode.ON, 24 * 60, Then.SCHEDULE, null));
+        String held = restTemplate.getForObject("/devices/" + deviceId, String.class);
+        assertThat(held).doesNotContain("until switched back").contains("back to the schedule");
+    }
+
+    @Test
     void invalidRequestsAreRejected() {
         UUID deviceId = registerDevice();
         for (PowerRequest bad : List.of(

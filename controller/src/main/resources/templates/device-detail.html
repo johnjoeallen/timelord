@@ -112,7 +112,8 @@
                     <ul class="mb-2">
                         <li th:each="w : ${scheduleWindows}">
                             <span th:text="${@timeFormat.format(w.offAt, zone, 'EEE d MMM HH:mm')}"></span>
-                            &rarr; <span th:text="${@timeFormat.format(w.onAt, zone, 'EEE d MMM HH:mm')}"></span>
+                            &rarr; <span th:if="${w.onAt == forever}">until switched back to Scheduled</span>
+                            <span th:unless="${w.onAt == forever}" th:text="${@timeFormat.format(w.onAt, zone, 'EEE d MMM HH:mm')}"></span>
                         </li>
                         <li th:if="${#lists.isEmpty(scheduleWindows)}" class="text-muted">None scheduled</li>
                     </ul>
