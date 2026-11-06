@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -601,6 +601,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#power-override-off-or-on-for-a-period" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Power override: off, or on for a period
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -756,6 +767,17 @@
     <span class="md-ellipsis">
       
         Allowing a device longer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#power-override-off-or-on-for-a-period" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Power override: off, or on for a period
       
     </span>
   </a>
@@ -1001,6 +1023,46 @@ To let a holiday run late you add the early-hours piece as an override for the n
 </ul>
 <p>An extension never edits the schedule. It is cleared if you assign the device a different
 schedule.</p>
+<h3 id="power-override-off-or-on-for-a-period">Power override: off, or on for a period<a class="headerlink" href="#power-override-off-or-on-for-a-period" title="Permanent link">&para;</a></h3>
+<p>Besides the schedule, each device has a <strong>Power</strong> card on its page that overrides it:</p>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>On (follow schedule)</strong></td>
+<td>The default. Cancels any override below.</td>
+</tr>
+<tr>
+<td><strong>Off</strong></td>
+<td>Off no matter what, until you switch it back. The schedule, overrides and extensions are ignored. It begins after a <strong>grace period</strong> (default 15 minutes in the dashboard; 0 is immediately), so whoever is using the device is warned and can save their work.</td>
+</tr>
+<tr>
+<td><strong>Stay on for a period, then follow schedule</strong></td>
+<td>Ignores the schedule for 1–24 hours (the API allows up to a week); afterwards the schedule applies as normal.</td>
+</tr>
+<tr>
+<td><strong>Stay on for a period, then turn off</strong></td>
+<td>The same, but at the end the device goes off and stays off until you change it.</td>
+</tr>
+</tbody>
+</table>
+<p>This is different from <strong>Allow longer</strong>, which only pushes the <em>next</em> off time later. Allow longer is
+refused (<code>409 POWER_OVERRIDE</code>) while an override is active, and starting an override clears any
+extension.</p>
+<p>The override is resolved on the controller like everything else: forced off is a single off window that
+never ends, so the agent needs no new logic and keeps enforcing it from its cached copy if the
+controller is unreachable. A device is never locked out: after a boot or a resume the agent checks in
+with the controller before it enforces anything (see below), so switching back to <strong>On</strong> takes effect
+before the device is put back to sleep. The exception is a device that cannot reach the controller for
+90 seconds after starting; it enforces its cache, which includes the forced off.</p>
+<p>A forced off uses the assigned schedule's action (sleep or shutdown). A device with no schedule
+sleeps. Nothing wakes a sleeping device, so a shut-down or sleeping device has to be started by hand
+before it can pick up a change.</p>
 <h2 id="how-the-device-enforces-it">How the device enforces it<a class="headerlink" href="#how-the-device-enforces-it" title="Permanent link">&para;</a></h2>
 <p>The controller resolves the schedule (rows, overrides and any extension) into <strong>concrete off
 windows</strong> — the gaps between the on-windows, as absolute start and end times for the next 28 days — and
@@ -1090,6 +1152,10 @@ unreachable); both rules were removed.</p>
 <td>Allow longer (<code>{"minutes": 30}</code>)</td>
 </tr>
 <tr>
+<td><code>PUT /api/v1/devices/{id}/power</code></td>
+<td>Power override: <code>{"mode":"ON"}</code>, <code>{"mode":"OFF","graceMinutes":15}</code>, <code>{"mode":"ON","minutes":240,"then":"SCHEDULE"\|"OFF"}</code></td>
+</tr>
+<tr>
 <td><code>GET /api/v1/agents/{id}/schedule</code></td>
 <td>Agent long poll for schedule changes (<code>204</code> = no schedule)</td>
 </tr>
@@ -1137,7 +1203,8 @@ $ curl -X POST http://localhost:9099/api/v1/devices/$DEVICE_ID/extend \
 <code>INVALID_TIMEZONE</code>, <code>INVALID_RULE</code> (no days, or an Off at that is not after On from — a window
 can't run past midnight, add a row for the next day), <code>INVALID_OVERRIDE</code> (the same, or an end date
 before the start date), <code>SCHEDULE_NAME_TAKEN</code> (<code>409</code>), and <code>NO_SCHEDULE</code> / <code>NO_OFF_WINDOW</code> (<code>409</code>) when
-extending a device that has nothing to extend.</p>
+extending a device that has nothing to extend, <code>POWER_OVERRIDE</code> (<code>409</code>) when extending a device under a power
+override, and <code>INVALID_POWER</code>, <code>INVALID_GRACE</code> and <code>INVALID_HOLD</code> (<code>400</code>) for a bad power request.</p>
 <h2 id="trying-it-safely">Trying it safely<a class="headerlink" href="#trying-it-safely" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Create a schedule with a window that ends about 20 minutes from now (say, <em>on from</em> blank, <em>off
@@ -1202,10 +1269,10 @@ extending a device that has nothing to extend.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.top", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.top", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>
